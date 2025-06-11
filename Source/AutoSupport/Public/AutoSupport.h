@@ -2,11 +2,8 @@
 
 #pragma once
 
-#define MOD_LOG_CATEGORY LogAutoSupport
-
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
-
 
 class FAutoSupportModule : public IModuleInterface
 {
