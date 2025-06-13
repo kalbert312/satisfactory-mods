@@ -35,6 +35,7 @@ public class AutoSupport : ModuleRules
 			"RenderCore",
 			"CinematicCamera",
 			"Foliage",
+			"Landscape",
 			//"Niagara",
 			//"EnhancedInput",
 			//"GameplayCameras",
