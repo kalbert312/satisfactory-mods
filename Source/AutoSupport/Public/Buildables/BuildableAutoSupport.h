@@ -2,46 +2,12 @@
 
 #pragma once
 
-#include <ostream>
-
 #include "CoreMinimal.h"
+#include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
 #include "BuildableAutoSupport.generated.h"
 
 class UFGBuildingDescriptor;
-
-USTRUCT(BlueprintType)
-struct AUTOSUPPORT_API FBuildableAutoSupportData
-{
-	GENERATED_BODY()
-
-	/**
-	 * The starting part descriptor for the auto support. This is the part that will be built first, relative to this actor.
-	 */
-	UPROPERTY(SaveGame, BlueprintReadWrite)
-	TSoftClassPtr<UFGBuildingDescriptor> StartPartDescriptor;
-
-	/**
-	 * The middle part descriptor for the auto support. This is the part that will be built in the middle of the support in a repeating pattern.
-	 */
-	UPROPERTY(SaveGame, BlueprintReadWrite)
-	TSoftClassPtr<UFGBuildingDescriptor> MiddlePartDescriptor;
-
-	/**
-	 * The starting part descriptor for the auto support. This is the part that will be built last (on the ground in downwards build), relative to this actor.
-	 */
-	UPROPERTY(SaveGame, BlueprintReadWrite)
-	TSoftClassPtr<UFGBuildingDescriptor> EndPartDescriptor;
-
-	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FBuildableAutoSupportData& Data)
-	{
-		Ar << Data.StartPartDescriptor;
-		Ar << Data.MiddlePartDescriptor;
-		Ar << Data.EndPartDescriptor;
-		
-		return Ar;
-	}
-};
 
 UCLASS(Abstract, Blueprintable)
 class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildable
@@ -50,6 +16,7 @@ class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildable
 
 public:
 	static constexpr int MaxBuildDistance = 400 * 50; // 50 4m foundations
+	static constexpr int MaxPartHeight = 800; // Avoid anything larger.
 	
 	ABuildableAutoSupport();
 
@@ -81,26 +48,38 @@ protected:
 	 * Traces to the terrain.
 	 * @return The free distance.
 	 */
-	float Trace() const;
+	FAutoSupportTraceResult Trace() const;
 
 	/**
-	 * 
-	 * @param BuildDistance The distance to build.
-	 * @param OutPartCounts The output part counts. X is for the start part, Y is for the middle part, Z is for the end part.
-	 * @param OutStartBox
-	 * @param OutMidBox
-	 * @param OutEndBox
+	 * Plans the build. Determines cost and provides some build dimensions.
+	 * @param TraceResult The trace result.
+	 * @param OutPlan The output build plan.
 	 */
-	void PlanBuild(float BuildDistance, OUT FVector& OutPartCounts, FBox& OutStartBox, FBox& OutMidBox, FBox& OutEndBox) const;
+	void PlanBuild(const FAutoSupportTraceResult& TraceResult, OUT FAutoSupportBuildPlan& OutPlan) const;
 
-	bool IsBuildable(const FVector& PartCounts) const;
+	/**
+	 * Determines if we can build the given build plan.
+	 * @param Plan
+	 * @return Can we build this?
+	 */
+	bool IsBuildable(const FAutoSupportBuildPlan& Plan) const;
 
+	/**
+	 * Builds the parts using the working transform as a moving spawn point.
+	 * @param Buildables The buildables subsystem.
+	 * @param PartDescriptor The part descriptor for the part to build.
+	 * @param Count How many to build.
+	 * @param Size The size of the part. This is used to modify the working transform.
+	 * @param Direction
+	 * @param WorkingTransform The spawn point of the part.
+	 */
 	void BuildParts(
 		AFGBuildableSubsystem* Buildables,
 		const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
 		int32 Count,
 		const FVector& Size,
+		const FVector& Direction,
 		FTransform& WorkingTransform);
 
-	static void GetBuildableSize(const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor, OUT FBox& OutBox);
+	static void GetBuildableClearance(const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor, OUT FBox& OutBox);
 };
