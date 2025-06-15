@@ -68,6 +68,8 @@ protected:
 	 * Builds the parts using the working transform as a moving spawn point.
 	 * @param Buildables The buildables subsystem.
 	 * @param PartDescriptor The part descriptor for the part to build.
+	 * @param PartOrientation
+	 * @param PartOrientation
 	 * @param Count How many to build.
 	 * @param Size The size of the part. This is used to modify the working transform.
 	 * @param Direction
@@ -76,6 +78,7 @@ protected:
 	void BuildParts(
 		AFGBuildableSubsystem* Buildables,
 		const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
+		EAutoSupportBuildDirection PartOrientation,
 		int32 Count,
 		const FVector& Size,
 		const FVector& Direction,

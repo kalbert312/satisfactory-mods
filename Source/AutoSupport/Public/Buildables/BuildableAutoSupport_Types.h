@@ -17,16 +17,34 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	TSoftClassPtr<UFGBuildingDescriptor> StartPartDescriptor;
 
 	/**
+	 * The starting part orientation.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	EAutoSupportBuildDirection StartPartOrientation = EAutoSupportBuildDirection::Down;
+
+	/**
 	 * The middle part descriptor for the auto support. This is the part that will be built in the middle of the support in a repeating pattern.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
 	TSoftClassPtr<UFGBuildingDescriptor> MiddlePartDescriptor;
 
 	/**
+	 * The middle part orientation.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	EAutoSupportBuildDirection MiddlePartOrientation = EAutoSupportBuildDirection::Down;
+
+	/**
 	 * The starting part descriptor for the auto support. This is the part that will be built last (on the ground in downwards build), relative to this actor.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
 	TSoftClassPtr<UFGBuildingDescriptor> EndPartDescriptor;
+
+	/**
+	 * The end part orientation.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	EAutoSupportBuildDirection EndPartOrientation = EAutoSupportBuildDirection::Down;
 
 	/**
 	 * Set to true to only consider the terrain for the support collision trace.
@@ -47,6 +65,9 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 		Ar << Data.EndPartDescriptor;
 		Ar << Data.OnlyIntersectTerrain;
 		Ar << Data.BuildDirection;
+		Ar << Data.StartPartOrientation;
+		Ar << Data.MiddlePartOrientation;
+		Ar << Data.EndPartOrientation;
 		
 		return Ar;
 	}

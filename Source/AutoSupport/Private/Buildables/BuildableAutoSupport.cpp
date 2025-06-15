@@ -27,6 +27,7 @@ bool ABuildableAutoSupport::IsBuildable(const FAutoSupportBuildPlan& Plan) const
 void ABuildableAutoSupport::BuildParts(
 	AFGBuildableSubsystem* Buildables,
 	const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
+	const EAutoSupportBuildDirection PartOrientation,
 	const int32 Count,
 	const FVector& Size,
 	const FVector& Direction,
@@ -37,10 +38,36 @@ void ABuildableAutoSupport::BuildParts(
 	for (auto i = 0; i < Count; ++i)
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Spawning part. Start Transform: %s"), *WorkingTransform.ToString());
+
+		// Copy the transform to apply the orientation.
+		FTransform SpawnTransform = WorkingTransform;
+
+		double DeltaPitch = 0, DeltaYaw = 0, DeltaRoll = 0;
+
+		switch (PartOrientation)
+		{
+			case EAutoSupportBuildDirection::Down:
+				break;
+			case EAutoSupportBuildDirection::Up:
+				DeltaPitch = 180;
+				break;
+			case EAutoSupportBuildDirection::Front:
+				break;
+			case EAutoSupportBuildDirection::Back:
+				break;
+			case EAutoSupportBuildDirection::Left:
+				break;
+			case EAutoSupportBuildDirection::Right:
+				break;
+			case EAutoSupportBuildDirection::Count:
+				break;
+		}
+
+		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(DeltaPitch, DeltaYaw, DeltaRoll).Quaternion());
 		
 		// Spawn the part
-		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, WorkingTransform);
-		Buildable->FinishSpawning(WorkingTransform);
+		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
+		Buildable->FinishSpawning(SpawnTransform);
 		// TODO: play build effects and sounds
 		// Buildable->PlayBuildEffects(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 
@@ -87,17 +114,17 @@ void ABuildableAutoSupport::BuildSupports()
 
 	if (PartCounts.X > 0)
 	{
-		BuildParts(Buildables, AutoSupportData.StartPartDescriptor, PartCounts.X, Plan.StartBox.GetSize(), TraceResult.Direction, WorkingTransform);
+		BuildParts(Buildables, AutoSupportData.StartPartDescriptor, AutoSupportData.StartPartOrientation, PartCounts.X, Plan.StartBox.GetSize(), TraceResult.Direction, WorkingTransform);
 	}
 
 	if (PartCounts.Y > 0)
 	{
-		BuildParts(Buildables, AutoSupportData.MiddlePartDescriptor, PartCounts.Y, Plan.MidBox.GetSize(), TraceResult.Direction, WorkingTransform);
+		BuildParts(Buildables, AutoSupportData.MiddlePartDescriptor, AutoSupportData.MiddlePartOrientation, PartCounts.Y, Plan.MidBox.GetSize(), TraceResult.Direction, WorkingTransform);
 	}
 
 	if (PartCounts.Z > 0)
 	{
-		BuildParts(Buildables, AutoSupportData.EndPartDescriptor, PartCounts.Z, Plan.EndBox.GetSize(), TraceResult.Direction, WorkingTransform);
+		BuildParts(Buildables, AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, PartCounts.Z, Plan.EndBox.GetSize(), TraceResult.Direction, WorkingTransform);
 	}
 
 	// Dismantle self
