@@ -7,6 +7,19 @@
 void AAutoSupportModSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	LastAutoSupportData.ClearInvalidReferences();
+
+	if (!SelectedAutoSupportPresetName.IsEmpty() && !AutoSupportPresets.Contains(SelectedAutoSupportPresetName))
+	{
+		SelectedAutoSupportPresetName = TEXT("");
+	}
+}
+
+void AAutoSupportModSubsystem::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
+{
+	if (!SelectedAutoSupportPresetName.IsEmpty() && !AutoSupportPresets.Contains(SelectedAutoSupportPresetName))
+	{
+		SelectedAutoSupportPresetName = TEXT("");
+	}
 }
 
 bool AAutoSupportModSubsystem::ShouldSave_Implementation() const
@@ -23,9 +36,10 @@ void AAutoSupportModSubsystem::UpdateLastAutoSupportData(const FBuildableAutoSup
 	LastAutoSupportData = Data;
 }
 
-void AAutoSupportModSubsystem::SetSelectedAutoSupportPreset(FString PresetName)
+void AAutoSupportModSubsystem::GetAutoSupportPresetNames(TArray<FString>& OutNames) const
 {
-	SelectedAutoSupportPresetName = PresetName;
+	AutoSupportPresets.GenerateKeyArray(OutNames);
+	Algo::Sort(OutNames);
 }
 
 bool AAutoSupportModSubsystem::GetAutoSupportPreset(FString PresetName, OUT FBuildableAutoSupportData& OutData)
@@ -48,6 +62,11 @@ void AAutoSupportModSubsystem::SaveAutoSupportPreset(FString PresetName, FBuilda
 void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 {
 	AutoSupportPresets.Remove(PresetName);
+
+	if (PresetName.Equals(SelectedAutoSupportPresetName))
+	{
+		SelectedAutoSupportPresetName = TEXT("");
+	}
 }
 
 void AAutoSupportModSubsystem::RenameAutoSupportPreset(FString CurrentName, FString NewName)
@@ -58,7 +77,7 @@ void AAutoSupportModSubsystem::RenameAutoSupportPreset(FString CurrentName, FStr
 		return;
 	}
 	
-	AutoSupportPresets.Remove(CurrentName);
+	DeleteAutoSupportPreset(CurrentName);
 	AutoSupportPresets.Add(NewName, *PresetEntry);
 }
 
