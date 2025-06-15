@@ -143,20 +143,7 @@ bool ABuildableAutoSupport::NeedTransform_Implementation()
 
 void ABuildableAutoSupport::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
-	if (!AutoSupportData.StartPartDescriptor.IsValid())
-	{
-		AutoSupportData.StartPartDescriptor = nullptr;
-	}
-
-	if (!AutoSupportData.MiddlePartDescriptor.IsValid())
-	{
-		AutoSupportData.MiddlePartDescriptor = nullptr;
-	}
-
-	if (!AutoSupportData.EndPartDescriptor.IsValid())
-	{
-		AutoSupportData.EndPartDescriptor = nullptr;
-	}
+	AutoSupportData.ClearInvalidReferences();
 }
 
 void ABuildableAutoSupport::PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
@@ -171,20 +158,7 @@ void ABuildableAutoSupport::PreLoadGame_Implementation(int32 saveVersion, int32 
 
 void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
-	if (!AutoSupportData.StartPartDescriptor.IsValid())
-	{
-		AutoSupportData.StartPartDescriptor = nullptr;
-	}
-
-	if (!AutoSupportData.MiddlePartDescriptor.IsValid())
-	{
-		AutoSupportData.MiddlePartDescriptor = nullptr;
-	}
-
-	if (!AutoSupportData.EndPartDescriptor.IsValid())
-	{
-		AutoSupportData.EndPartDescriptor = nullptr;
-	}
+	AutoSupportData.ClearInvalidReferences();
 }
 
 bool ABuildableAutoSupport::ShouldSave_Implementation() const

@@ -58,6 +58,24 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	UPROPERTY(SaveGame, BlueprintReadWrite)
 	EAutoSupportBuildDirection BuildDirection = EAutoSupportBuildDirection::Down;
 
+	void ClearInvalidReferences()
+	{
+		if (!StartPartDescriptor.IsValid())
+		{
+			StartPartDescriptor = nullptr;
+		}
+
+		if (!MiddlePartDescriptor.IsValid())
+		{
+			MiddlePartDescriptor = nullptr;
+		}
+
+		if (!EndPartDescriptor.IsValid())
+		{
+			EndPartDescriptor = nullptr;
+		}
+	}
+
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FBuildableAutoSupportData& Data)
 	{
 		Ar << Data.StartPartDescriptor;
