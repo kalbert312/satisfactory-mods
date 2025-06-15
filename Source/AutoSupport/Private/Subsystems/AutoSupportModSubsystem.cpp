@@ -7,19 +7,10 @@
 void AAutoSupportModSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	LastAutoSupportData.ClearInvalidReferences();
-
-	if (!SelectedAutoSupportPresetName.IsEmpty() && !AutoSupportPresets.Contains(SelectedAutoSupportPresetName))
-	{
-		SelectedAutoSupportPresetName = TEXT("");
-	}
 }
 
 void AAutoSupportModSubsystem::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
-	if (!SelectedAutoSupportPresetName.IsEmpty() && !AutoSupportPresets.Contains(SelectedAutoSupportPresetName))
-	{
-		SelectedAutoSupportPresetName = TEXT("");
-	}
 }
 
 bool AAutoSupportModSubsystem::ShouldSave_Implementation() const
@@ -31,9 +22,19 @@ bool AAutoSupportModSubsystem::ShouldSave_Implementation() const
 
 #pragma region Auto Support Presets
 
-void AAutoSupportModSubsystem::UpdateLastAutoSupportData(const FBuildableAutoSupportData Data)
+FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupportData() const
+{
+	return LastAutoSupportData;
+}
+
+void AAutoSupportModSubsystem::SetLastAutoSupportData(const FBuildableAutoSupportData& Data)
 {
 	LastAutoSupportData = Data;
+}
+
+void AAutoSupportModSubsystem::SetSelectedAutoSupportPresetName(FString PresetName)
+{
+	SelectedAutoSupportPresetName = PresetName;
 }
 
 void AAutoSupportModSubsystem::GetAutoSupportPresetNames(TArray<FString>& OutNames) const
@@ -69,28 +70,7 @@ void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 	}
 }
 
-void AAutoSupportModSubsystem::RenameAutoSupportPreset(FString CurrentName, FString NewName)
-{
-	const auto PresetEntry = AutoSupportPresets.Find(CurrentName);
-	if (!PresetEntry)
-	{
-		return;
-	}
-	
-	DeleteAutoSupportPreset(CurrentName);
-	AutoSupportPresets.Add(NewName, *PresetEntry);
-}
-
-void AAutoSupportModSubsystem::DuplicateAutoSupportPreset(FString PresetName, FString NewName)
-{
-	const auto PresetEntry = AutoSupportPresets.Find(PresetName);
-	if (!PresetEntry)
-	{
-		return;
-	}
-	
-	AutoSupportPresets.Add(NewName, *PresetEntry);
-}
+#pragma endregion
 
 bool AAutoSupportModSubsystem::IsValidAutoSupportPresetName(FString PresetName, OUT FString& OutName, OUT FText& OutError)
 {
@@ -111,12 +91,3 @@ bool AAutoSupportModSubsystem::IsValidAutoSupportPresetName(FString PresetName, 
 
 	return true;
 }
-
-#pragma endregion
-
-// Called when the game starts or when spawned
-void AAutoSupportModSubsystem::BeginPlay()
-{
-	Super::BeginPlay();
-}
-

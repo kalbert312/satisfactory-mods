@@ -16,14 +16,26 @@ class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IF
 public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	static bool IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError);
+
+#pragma region IFGSaveInterface
 	
 	virtual void PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
 	virtual void PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
 	virtual bool ShouldSave_Implementation() const override;
+	
+#pragma endregion
+
+#pragma region Auto Support Presets
+	
+	UFUNCTION(BlueprintCallable)
+	FBuildableAutoSupportData GetLastAutoSupportData() const;
+	
+	UFUNCTION(BlueprintCallable)
+	void SetLastAutoSupportData(const FBuildableAutoSupportData& Data);
 
 	UFUNCTION(BlueprintCallable)
-	void UpdateLastAutoSupportData(FBuildableAutoSupportData Data);
-
+	void SetSelectedAutoSupportPresetName(FString PresetName);
+	
 	UFUNCTION(BlueprintCallable)
 	void GetAutoSupportPresetNames(TArray<FString>& OutNames) const;
 
@@ -36,11 +48,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void DeleteAutoSupportPreset(FString PresetName);
 
-	UFUNCTION(BlueprintCallable)
-	void RenameAutoSupportPreset(FString CurrentName, FString NewName);
-
-	UFUNCTION(BlueprintCallable)
-	void DuplicateAutoSupportPreset(FString PresetName, FString NewName);
+#pragma endregion
 
 protected:
 	/**
@@ -52,7 +60,7 @@ protected:
 	/**
 	 * The selected preset in the interactable UI. Persists between opens. Note that this is just the selection and does not affect support configuration.
 	 */
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, SaveGame)
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, SaveGame)
 	FString SelectedAutoSupportPresetName;
 
 	/**
@@ -60,7 +68,4 @@ protected:
 	 */
 	UPROPERTY(VisibleInstanceOnly, SaveGame)
 	TMap<FString, FBuildableAutoSupportData> AutoSupportPresets;
-	
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
 };

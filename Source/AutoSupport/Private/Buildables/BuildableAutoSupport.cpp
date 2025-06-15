@@ -20,7 +20,7 @@ bool ABuildableAutoSupport::IsBuildable(const FAutoSupportBuildPlan& Plan) const
 		return false;
 	}
 	
-	// TODO: check player has enough resources to build
+	// TODO(k.a): check player has enough resources to build
 	return true;
 }
 
@@ -44,6 +44,7 @@ void ABuildableAutoSupport::BuildParts(
 
 		double DeltaPitch = 0, DeltaYaw = 0, DeltaRoll = 0;
 
+		// TODO(k.a): other orientations.
 		switch (PartOrientation)
 		{
 			case EAutoSupportBuildDirection::Down:
@@ -63,13 +64,16 @@ void ABuildableAutoSupport::BuildParts(
 				break;
 		}
 
+		// TODO(k.a): This needs to rotate in-place.
 		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(DeltaPitch, DeltaYaw, DeltaRoll).Quaternion());
 		
 		// Spawn the part
 		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
 		Buildable->FinishSpawning(SpawnTransform);
-		// TODO: play build effects and sounds
+		// TODO(k.a): play build effects and sounds
 		// Buildable->PlayBuildEffects(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+
+		// TODO(k.a): See if we can hook this into blueprint dismantle mode
 
 		// Update the transform
 		WorkingTransform.AddToTranslation(Direction * Size);
@@ -164,6 +168,22 @@ void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32
 bool ABuildableAutoSupport::ShouldSave_Implementation() const
 {
 	return true;
+}
+
+void ABuildableAutoSupport::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (bAutoConfigure)
+	{
+		AutoConfigure();
+		bAutoConfigure = false;
+	}
+}
+
+void ABuildableAutoSupport::AutoConfigure()
+{
+	K2_AutoConfigure();
 }
 
 FAutoSupportTraceResult ABuildableAutoSupport::Trace() const

@@ -37,12 +37,25 @@ public:
 	virtual void PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
 	virtual bool ShouldSave_Implementation() const override;
 
+	virtual void BeginPlay() override;
+
 protected:
 	/**
 	 * The buildable mesh proxy.
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buildable Components")
 	TObjectPtr<UFGColoredInstanceMeshProxy> InstancedMeshProxy;
+
+	/**
+	 * Set this to true to autoconfigure the auto support to the last configuration used. Autoconfiguration happens at BeginPlay and only occurs once.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, SaveGame, Category = "Auto Support")
+	bool bAutoConfigure = true;
+	
+	void AutoConfigure();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
+	void K2_AutoConfigure();
 	
 	/**
 	 * Traces to the terrain.
