@@ -103,6 +103,9 @@ struct AUTOSUPPORT_API FAutoSupportTraceResult
 	bool IsLandscapeHit = false;
 
 	UPROPERTY()
+	FVector StartLocation;
+
+	UPROPERTY()
 	FVector Direction = FVector::ZeroVector;
 };
 
@@ -111,15 +114,33 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 {
 	GENERATED_BODY()
 
+	/**
+	 * The amount of each part to build.
+	 */
 	UPROPERTY()
 	FVector PartCounts;
 
+	/**
+	 * The BBox data for the start part.
+	 */
 	UPROPERTY()
 	FBox StartBox;
 
+	/**
+	 * The BBox data for the mid part.
+	 */
 	UPROPERTY()
 	FBox MidBox;
 
+	/**
+	 * The BBox data for the end part.
+	 */
 	UPROPERTY()
 	FBox EndBox;
+
+	/**
+	 * The distance from the trace origin to build the end part so it's flush with the intersected surface or buried enough in terrain.
+	 */
+	UPROPERTY()
+	float EndPartBuildDistance;
 };

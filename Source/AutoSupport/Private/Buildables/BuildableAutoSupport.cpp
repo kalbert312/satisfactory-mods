@@ -2,15 +2,17 @@
 
 #include "BuildableAutoSupport.h"
 
+#include "AbstractInstanceManager.h"
 #include "FGBuildingDescriptor.h"
 #include "FGColoredInstanceMeshProxy.h"
 #include "LandscapeProxy.h"
 #include "ModLogging.h"
 
-ABuildableAutoSupport::ABuildableAutoSupport()
+ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	InstancedMeshProxy = CreateDefaultSubobject<UFGColoredInstanceMeshProxy>(TEXT("BuildableInstancedMeshProxy"));
 	InstancedMeshProxy->SetupAttachment(RootComponent);
+	mMeshComponentProxy = InstancedMeshProxy;
 }
 
 bool ABuildableAutoSupport::IsBuildable(const FAutoSupportBuildPlan& Plan) const
@@ -43,11 +45,11 @@ void ABuildableAutoSupport::BuildParts(
 		FTransform SpawnTransform = WorkingTransform;
 
 		double DeltaPitch = 0, DeltaYaw = 0, DeltaRoll = 0;
-
-		// TODO(k.a): other orientations.
+		
 		switch (PartOrientation)
 		{
 			case EAutoSupportBuildDirection::Down:
+			default:
 				break;
 			case EAutoSupportBuildDirection::Up:
 				DeltaPitch = 180;
@@ -64,10 +66,14 @@ void ABuildableAutoSupport::BuildParts(
 				break;
 		}
 
-		// TODO(k.a): This needs to rotate in-place.
+		// Translate the pivot point (bottom of building) to bbox center before rotating.
+		SpawnTransform.AddToTranslation(-1 * Direction * Size / 2.f);
 		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(DeltaPitch, DeltaYaw, DeltaRoll).Quaternion());
 		
 		// Spawn the part
+		/** Spawns a hologram from recipe */
+		// static AFGHologram* SpawnHologramFromRecipe( TSubclassOf< class UFGRecipe > inRecipe, AActor* hologramOwner, const FVector& spawnLocation, APawn* hologramInstigator = nullptr, const TFunction< void( AFGHologram* ) >& preSpawnFunction = nullptr );
+
 		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
 		Buildable->FinishSpawning(SpawnTransform);
 		// TODO(k.a): play build effects and sounds
@@ -128,9 +134,12 @@ void ABuildableAutoSupport::BuildSupports()
 
 	if (PartCounts.Z > 0)
 	{
-		BuildParts(Buildables, AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, PartCounts.Z, Plan.EndBox.GetSize(), TraceResult.Direction, WorkingTransform);
+		auto EndPartTransform = GetActorTransform();
+		EndPartTransform.AddToTranslation(TraceResult.Direction * Plan.EndPartBuildDistance);
+		
+		BuildParts(Buildables, AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, PartCounts.Z, Plan.EndBox.GetSize(), TraceResult.Direction, EndPartTransform);
 	}
-
+	
 	// Dismantle self
 	Execute_Dismantle(this);
 }
@@ -165,6 +174,25 @@ void ABuildableAutoSupport::BeginPlay()
 	}
 }
 
+#pragma region Editor Only
+#if WITH_EDITOR
+
+EDataValidationResult ABuildableAutoSupport::IsDataValid(FDataValidationContext& Context) const
+{
+	const auto SuperResult = Super::IsDataValid(Context);
+	
+	if (!GetCombinedClearanceBox().IsValid)
+	{
+		Context.AddError(FText::FromString("Invalid clearance box! There must be a clearance box set on the actor properties."));
+		return EDataValidationResult::Invalid;
+	}
+	
+	return SuperResult;
+}
+
+#endif
+#pragma endregion
+
 void ABuildableAutoSupport::AutoConfigure()
 {
 	K2_AutoConfigure();
@@ -174,31 +202,77 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
 	FAutoSupportTraceResult Result;
 	Result.BuildDistance = MaxBuildDistance;
-	
+
+	// Start building our trace params.
 	FCollisionQueryParams QueryParams;
 	QueryParams.TraceTag = FName("BuildableAutoSupport_Trace");
 	QueryParams.AddIgnoredActor(this);
 	
-	const auto StartLocation = GetActorLocation();
-	
-	auto DirectionVector = FVector(0, 0, -1); // TODO other directions
-	if (AutoSupportData.BuildDirection == EAutoSupportBuildDirection::Up)
+	FVector DirectionVector;
+
+	// Set up a direction vector
+	switch (AutoSupportData.BuildDirection)
 	{
-		DirectionVector = FVector(0, 0, 1);
+		case EAutoSupportBuildDirection::Down:
+		default:
+			DirectionVector = FVector(0, 0, -1);
+			break;
+		case EAutoSupportBuildDirection::Up:
+			DirectionVector = FVector(0, 0, 1);
+			break;
+		case EAutoSupportBuildDirection::Front:
+			DirectionVector = FVector(0, -1, 0);
+			break;
+		case EAutoSupportBuildDirection::Back:
+			DirectionVector = FVector(0, 1, 0);
+			break;
+		case EAutoSupportBuildDirection::Left:
+			DirectionVector = FVector(-1, 0, 0);
+			break;
+		case EAutoSupportBuildDirection::Right:
+			DirectionVector = FVector(1, 0, 0);
+			break;
 	}
 
 	Result.Direction = DirectionVector;
+
+	// Determine the starting trace location. This will be opposite the face of the selected auto support's configured build direction.
+	// This is so the build consumes the space occupied by the auto support and is not awkwardly offset. // Example: Build direction
+	// set to down means the part will build flush to the "up" face of the cube and then downward.
+		
+	auto StartTransform = GetActorTransform();
+
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Transform: %s"), *StartTransform.ToString());
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Direction Vector: %s"), *DirectionVector.ToString());
 	
-	const auto EndLocation = StartLocation + DirectionVector * MaxBuildDistance;
+	DirectionVector = StartTransform.GetRotation().RotateVector(DirectionVector);
+	
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Rotated Direction Vector: %s"), *DirectionVector.ToString());
+	
+	auto ClearanceData = GetCombinedClearanceBox();
+
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Clearance Data: %s"), *ClearanceData.ToString());
+
+	StartTransform.AddToTranslation(-1 * DirectionVector * ClearanceData.GetExtent());
+
+	Result.StartLocation = StartTransform.GetLocation();
+
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Location: %s"), *Result.StartLocation.ToString());
+	
+	// The end location is constrained by a max distance.
+	const auto EndLocation = Result.StartLocation + DirectionVector * MaxBuildDistance;
+
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace End Location: %s"), *EndLocation.ToString());
 
 	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(.5, .5, .5));
 
+	// Overlap all so we can detect all collisions in our path.
 	FCollisionResponseParams ResponseParams(ECR_Overlap);
 	
 	TArray<FHitResult> HitResults;
 	GetWorld()->SweepMultiByChannel(
 		HitResults,
-		StartLocation,
+		Result.StartLocation,
 		EndLocation,
 		FQuat::Identity,
 		ECC_Visibility,
@@ -221,6 +295,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		const auto* HitActor = HitResult.GetActor();
 		const auto IsLandscapeHit = HitActor && HitActor->IsA<ALandscapeProxy>();
 		const auto IsBuildableHit = HitActor && HitActor->IsA<AFGBuildable>();
+		const auto IsAbstractInstanceHit = HitActor && HitActor->IsA<AAbstractInstanceManager>();
 		const auto IsPawnHit = HitActor && HitActor->IsA<APawn>();
 		const auto* HitComponent = HitResult.GetComponent();
 		
@@ -240,7 +315,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 			return Result;
 		}
 
-		if (IsLandscapeHit || (!AutoSupportData.OnlyIntersectTerrain && (IsBuildableHit)))
+		if (IsLandscapeHit || (!AutoSupportData.OnlyIntersectTerrain && (IsBuildableHit || IsAbstractInstanceHit)))
 		{
 			Result.BuildDistance = HitResult.Distance;
 			Result.IsLandscapeHit = IsLandscapeHit;
@@ -310,6 +385,7 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 		RemainingBuildDistance -= EndSize.Z;
 
 		OutPlan.PartCounts.Z = 1;
+		OutPlan.EndPartBuildDistance = TraceResult.BuildDistance - EndSize.Z;
 
 		if (RemainingBuildDistance < 0)
 		{
@@ -321,7 +397,16 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 	if (AutoSupportData.MiddlePartDescriptor.IsValid() && MidSize.Z > 0 && MidSize.Z <= MaxPartHeight)
 	{
 		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / MidSize.Z);
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d"), *MidSize.ToString(), NumMiddleParts);
+		RemainingBuildDistance -= NumMiddleParts * MidSize.Z;
+
+		auto IsPerfectFit = RemainingBuildDistance <= 0.1f;
+
+		if (!IsPerfectFit)
+		{
+			NumMiddleParts++; // make sure we reach the end part.
+		}
+		
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *MidSize.ToString(), NumMiddleParts, TEXT_CONDITION(IsPerfectFit));
 		
 		OutPlan.PartCounts.Y = NumMiddleParts;
 	}

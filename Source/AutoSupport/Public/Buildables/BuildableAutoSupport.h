@@ -5,12 +5,13 @@
 #include "CoreMinimal.h"
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
+#include "FGBuildableFactoryBuilding.h"
 #include "BuildableAutoSupport.generated.h"
 
 class UFGBuildingDescriptor;
 
 UCLASS(Abstract, Blueprintable)
-class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildable
+class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildableFactoryBuilding
 {
 	GENERATED_BODY()
 
@@ -18,7 +19,7 @@ public:
 	static constexpr int MaxBuildDistance = 400 * 50; // 50 4m foundations
 	static constexpr int MaxPartHeight = 800; // Avoid anything larger.
 	
-	ABuildableAutoSupport();
+	ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	UPROPERTY(BlueprintReadWrite, SaveGame)
 	FBuildableAutoSupportData AutoSupportData;
@@ -39,6 +40,14 @@ public:
 
 	virtual void BeginPlay() override;
 
+#pragma region Editor Only
+#if WITH_EDITOR
+	
+	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+	
+#endif
+#pragma endregion
+	
 protected:
 	/**
 	 * The buildable mesh proxy.
