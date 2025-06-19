@@ -135,29 +135,11 @@ void ABuildableAutoSupport::BuildSupports()
 	Execute_Dismantle(this);
 }
 
-void ABuildableAutoSupport::GatherDependencies_Implementation(TArray<UObject*>& out_dependentObjects)
-{
-	
-}
-
-bool ABuildableAutoSupport::NeedTransform_Implementation()
-{
-	return false;
-}
+#pragma region IFGSaveInterface
 
 void ABuildableAutoSupport::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	AutoSupportData.ClearInvalidReferences();
-}
-
-void ABuildableAutoSupport::PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
-	
-}
-
-void ABuildableAutoSupport::PreLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
-	
 }
 
 void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
@@ -169,6 +151,8 @@ bool ABuildableAutoSupport::ShouldSave_Implementation() const
 {
 	return true;
 }
+
+#pragma endregion
 
 void ABuildableAutoSupport::BeginPlay()
 {

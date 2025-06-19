@@ -92,7 +92,7 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 };
 
 USTRUCT(BlueprintType)
-struct FAutoSupportTraceResult
+struct AUTOSUPPORT_API FAutoSupportTraceResult
 {
 	GENERATED_BODY()
 	
@@ -107,7 +107,7 @@ struct FAutoSupportTraceResult
 };
 
 USTRUCT(BlueprintType)
-struct FAutoSupportBuildPlan
+struct AUTOSUPPORT_API FAutoSupportBuildPlan
 {
 	GENERATED_BODY()
 

@@ -29,13 +29,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void BuildSupports();
 
-	virtual void GatherDependencies_Implementation(TArray<UObject*>& out_dependentObjects) override;
-	virtual bool NeedTransform_Implementation() override;
+#pragma region IFGSaveInterface
+	
 	virtual void PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
-	virtual void PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
-	virtual void PreLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
 	virtual void PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
 	virtual bool ShouldSave_Implementation() const override;
+
+#pragma endregion
 
 	virtual void BeginPlay() override;
 
@@ -98,4 +98,13 @@ protected:
 		FTransform& WorkingTransform);
 
 	static void GetBuildableClearance(const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor, OUT FBox& OutBox);
+};
+
+UCLASS(Blueprintable)
+class AUTOSUPPORT_API UAutoSupportClipboardSettings : public UFGFactoryClipboardSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FBuildableAutoSupportData AutoSupportData;
 };
