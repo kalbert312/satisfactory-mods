@@ -6,6 +6,7 @@
 #include "FGBuildingDescriptor.h"
 #include "FGColoredInstanceMeshProxy.h"
 #include "LandscapeProxy.h"
+#include "ModBlueprintLibrary.h"
 #include "ModLogging.h"
 
 ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -204,60 +205,28 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	FCollisionQueryParams QueryParams;
 	QueryParams.TraceTag = FName("BuildableAutoSupport_Trace");
 	QueryParams.AddIgnoredActor(this);
-	
-	FVector DirectionVector;
 
-	// Set up a direction vector
-	switch (AutoSupportData.BuildDirection)
-	{
-		case EAutoSupportBuildDirection::Top:
-		default:
-			DirectionVector = FVector(0, 0, 1);
-			break;
-		case EAutoSupportBuildDirection::Bottom:
-			DirectionVector = FVector(0, 0, -1);
-			break;
-		case EAutoSupportBuildDirection::Front:
-			DirectionVector = FVector(0, -1, 0);
-			break;
-		case EAutoSupportBuildDirection::Back:
-			DirectionVector = FVector(0, 1, 0);
-			break;
-		case EAutoSupportBuildDirection::Left:
-			DirectionVector = FVector(-1, 0, 0);
-			break;
-		case EAutoSupportBuildDirection::Right:
-			DirectionVector = FVector(1, 0, 0);
-			break;
-	}
-
-	Result.Direction = DirectionVector;
-
-	// Determine the starting trace location. This will be opposite the face of the selected auto support's configured build direction.
-	// This is so the build consumes the space occupied by the auto support and is not awkwardly offset. // Example: Build direction
-	// set to down means the part will build flush to the "up" face of the cube and then downward.
-		
 	auto StartTransform = GetActorTransform();
-
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Transform: %s"), *StartTransform.ToString());
+	
+	// Set up a direction vector
+	auto DirectionVector = UAutoSupportBlueprintLibrary::GetDirectionVector(AutoSupportData.BuildDirection);
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Direction Vector: %s"), *DirectionVector.ToString());
 	
 	DirectionVector = StartTransform.GetRotation().RotateVector(DirectionVector);
-	
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Rotated Direction Vector: %s"), *DirectionVector.ToString());
 	
-	auto ClearanceData = GetCombinedClearanceBox();
-
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Clearance Data: %s"), *ClearanceData.ToString());
-
-	StartTransform.AddToTranslation(-1 * DirectionVector * ClearanceData.GetExtent());
-
-	Result.StartLocation = StartTransform.GetLocation();
-
+	Result.Direction = DirectionVector;
+	
+	// Determine the starting trace location. This will be opposite the face of the selected auto support's configured build direction.
+	// This is so the build consumes the space occupied by the auto support and is not awkwardly offset. // Example: Build direction
+	// set to top means the part will build flush to the "bottom" face of the cube and then topward.
+	Result.StartLocation = GetCubeFaceWorldLocation(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
+	
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Location: %s"), *Result.StartLocation.ToString());
 	
 	// The end location is constrained by a max distance.
-	const auto EndLocation = Result.StartLocation + DirectionVector * MaxBuildDistance;
+	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, DirectionVector);
 
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace End Location: %s"), *EndLocation.ToString());
 
@@ -298,11 +267,12 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		
 		MOD_LOG(
 			Verbose,
-			TEXT("BuildableAutoSupport::Trace  Actor class: %s, Component class: %s, Is Landscape Hit: %s, Is Buildable Hit: %s, Is Pawn Hit: %s"),
+			TEXT("BuildableAutoSupport::Trace  Actor class: %s, Component class: %s, Is Landscape Hit: %s, Is Buildable Hit: %s, Is Abstract Instance Hit: %s, Is Pawn Hit: %s"),
 			HitActor ? *HitActor->GetClass()->GetName() : TEXT_NULL,
 			HitComponent ? *HitComponent->GetClass()->GetName() : TEXT_NULL,
 			TEXT_CONDITION(IsLandscapeHit),
 			TEXT_CONDITION(IsBuildableHit),
+			TEXT_CONDITION(IsAbstractInstanceHit),
 			TEXT_CONDITION(IsPawnHit));
 
 		if (IsPawnHit)
@@ -312,7 +282,13 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 			return Result;
 		}
 
-		if (IsLandscapeHit || (!AutoSupportData.OnlyIntersectTerrain && (IsBuildableHit || IsAbstractInstanceHit)))
+		if (HitResult.Distance <= 1)
+		{
+			continue; // Ignore close-to-start intersects
+		}
+
+		if (IsLandscapeHit
+			|| (!AutoSupportData.OnlyIntersectTerrain && (IsBuildableHit || IsAbstractInstanceHit)))
 		{
 			Result.BuildDistance = HitResult.Distance;
 			Result.IsLandscapeHit = IsLandscapeHit;
@@ -329,7 +305,6 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 {
 	OutPlan = FAutoSupportBuildPlan();
 	
-	OutPlan.PartCounts = FVector::ZeroVector;
 	auto RemainingBuildDistance = TraceResult.BuildDistance;
 
 	// Gather data.
@@ -337,20 +312,20 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 
 	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
-		GetBuildableClearance(AutoSupportData.StartPartDescriptor, OutPlan.StartBox);
+		UAutoSupportBlueprintLibrary::GetBuildableClearance(AutoSupportData.StartPartDescriptor, OutPlan.StartBox);
 		StartSize = OutPlan.StartBox.GetSize();
 	}
 
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
-		GetBuildableClearance(AutoSupportData.MiddlePartDescriptor, OutPlan.MidBox);
+		UAutoSupportBlueprintLibrary::GetBuildableClearance(AutoSupportData.MiddlePartDescriptor, OutPlan.MidBox);
 		MidSize = OutPlan.MidBox.GetSize();
 		LastPartSize = MidSize;
 	}
 
 	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
-		GetBuildableClearance(AutoSupportData.EndPartDescriptor, OutPlan.EndBox);
+		UAutoSupportBlueprintLibrary::GetBuildableClearance(AutoSupportData.EndPartDescriptor, OutPlan.EndBox);
 		EndSize = OutPlan.EndBox.GetSize();
 		LastPartSize = EndSize;
 	}
@@ -396,22 +371,56 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / MidSize.Z);
 		RemainingBuildDistance -= NumMiddleParts * MidSize.Z;
 
-		auto IsPerfectFit = RemainingBuildDistance <= 0.1f;
+		auto IsNearlyPerfectFit = RemainingBuildDistance <= 1.f;
 
-		if (!IsPerfectFit)
+		if (!IsNearlyPerfectFit)
 		{
 			NumMiddleParts++; // make sure we reach the end part.
 		}
 		
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *MidSize.ToString(), NumMiddleParts, TEXT_CONDITION(IsPerfectFit));
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *MidSize.ToString(), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
 		
 		OutPlan.PartCounts.Y = NumMiddleParts;
 	}
 }
 
-void ABuildableAutoSupport::GetBuildableClearance(const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor, OUT FBox& OutBox)
+FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBuildDirection Direction) const
 {
-	const auto Buildable = GetDefault<AFGBuildable>(UFGBuildingDescriptor::GetBuildableClass(PartDescriptor.Get()));
-	OutBox = Buildable->GetCombinedClearanceBox();
+	// Origin is the at bottom face.
+	if (Direction == EAutoSupportBuildDirection::Bottom)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const auto ClearanceData = GetCombinedClearanceBox();
+	const auto Extent = ClearanceData.GetExtent();
+
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::GetCubeFaceRelativeLocation Clearance Data: %s"), *ClearanceData.ToString());
+	
+	switch (Direction)
+	{
+		case EAutoSupportBuildDirection::Top:
+			return FVector(0, 0, Extent.Z * 2);
+		case EAutoSupportBuildDirection::Front:
+			return FVector(0, Extent.Y, 0);
+		case EAutoSupportBuildDirection::Back:
+			return FVector(0, -Extent.Y, 0);
+		case EAutoSupportBuildDirection::Left:
+			return FVector(-Extent.X, 0, 0);
+		case EAutoSupportBuildDirection::Right:
+			return FVector(Extent.X, 0, 0);
+		default:
+			return FVector::ZeroVector;
+	}
+}
+
+FVector ABuildableAutoSupport::GetCubeFaceWorldLocation(const EAutoSupportBuildDirection Direction) const
+{
+	return GetActorTransform().TransformPosition(GetCubeFaceRelativeLocation(Direction));
+}
+
+FORCEINLINE FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const
+{
+	return StartLocation + Direction * MaxBuildDistance;
 }
 

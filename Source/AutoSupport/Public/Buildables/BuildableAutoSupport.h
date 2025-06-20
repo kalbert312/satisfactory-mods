@@ -100,7 +100,9 @@ protected:
 		const FVector& Direction,
 		FTransform& WorkingTransform);
 
-	static void GetBuildableClearance(const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor, OUT FBox& OutBox);
+	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
+	FVector GetCubeFaceWorldLocation(EAutoSupportBuildDirection Direction) const;
+	FORCEINLINE FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;
 };
 
 UCLASS(Blueprintable)
