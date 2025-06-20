@@ -11,6 +11,12 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	GENERATED_BODY()
 
 	/**
+	 * The direction to build the supports relative to the auto support buildable actor origin.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	EAutoSupportBuildDirection BuildDirection = EAutoSupportBuildDirection::Top;
+	
+	/**
 	 * The starting part descriptor for the auto support. This is the part that will be built first, relative to this actor.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
@@ -20,7 +26,7 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	 * The starting part orientation.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	EAutoSupportBuildDirection StartPartOrientation = EAutoSupportBuildDirection::Down;
+	EAutoSupportBuildDirection StartPartOrientation = EAutoSupportBuildDirection::Bottom;
 
 	/**
 	 * The middle part descriptor for the auto support. This is the part that will be built in the middle of the support in a repeating pattern.
@@ -32,7 +38,7 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	 * The middle part orientation.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	EAutoSupportBuildDirection MiddlePartOrientation = EAutoSupportBuildDirection::Down;
+	EAutoSupportBuildDirection MiddlePartOrientation = EAutoSupportBuildDirection::Bottom;
 
 	/**
 	 * The starting part descriptor for the auto support. This is the part that will be built last (on the ground in downwards build), relative to this actor.
@@ -44,19 +50,13 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	 * The end part orientation.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	EAutoSupportBuildDirection EndPartOrientation = EAutoSupportBuildDirection::Down;
+	EAutoSupportBuildDirection EndPartOrientation = EAutoSupportBuildDirection::Top;
 
 	/**
 	 * Set to true to only consider the terrain for the support collision trace.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
 	bool OnlyIntersectTerrain;
-
-	/**
-	 * The direction to build the supports relative to the auto support buildable actor origin.
-	 */
-	UPROPERTY(SaveGame, BlueprintReadWrite)
-	EAutoSupportBuildDirection BuildDirection = EAutoSupportBuildDirection::Down;
 
 	void ClearInvalidReferences()
 	{
@@ -78,14 +78,14 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FBuildableAutoSupportData& Data)
 	{
-		Ar << Data.StartPartDescriptor;
-		Ar << Data.MiddlePartDescriptor;
-		Ar << Data.EndPartDescriptor;
-		Ar << Data.OnlyIntersectTerrain;
 		Ar << Data.BuildDirection;
+		Ar << Data.StartPartDescriptor;
 		Ar << Data.StartPartOrientation;
+		Ar << Data.MiddlePartDescriptor;
 		Ar << Data.MiddlePartOrientation;
+		Ar << Data.EndPartDescriptor;
 		Ar << Data.EndPartOrientation;
+		Ar << Data.OnlyIntersectTerrain;
 		
 		return Ar;
 	}

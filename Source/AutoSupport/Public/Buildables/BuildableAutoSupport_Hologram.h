@@ -3,17 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FGPillarHologram.h"
+#include "FGGenericBuildableHologram.h"
 
 #include "BuildableAutoSupport_Hologram.generated.h"
 
-UCLASS()
-class AUTOSUPPORT_API ABuildableAutoSupport_Hologram : public AFGPillarHologram
+UCLASS(BlueprintType)
+class AUTOSUPPORT_API ABuildableAutoSupport_Hologram : public AFGGenericBuildableHologram
 {
 	GENERATED_BODY()
-
-public:
-	ABuildableAutoSupport_Hologram();
-	
-	virtual void SetHologramLocationAndRotation(const FHitResult& hitResult) override;
 };

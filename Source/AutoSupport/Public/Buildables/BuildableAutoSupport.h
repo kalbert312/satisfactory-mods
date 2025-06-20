@@ -50,12 +50,6 @@ public:
 	
 protected:
 	/**
-	 * The buildable mesh proxy.
-	 */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buildable Components")
-	TObjectPtr<UFGColoredInstanceMeshProxy> InstancedMeshProxy;
-
-	/**
 	 * Set this to true to autoconfigure the auto support to the last configuration used. Autoconfiguration happens at BeginPlay and only occurs once.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, SaveGame, Category = "Auto Support")

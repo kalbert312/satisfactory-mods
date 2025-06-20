@@ -12,10 +12,13 @@ struct FBP_ModConfig_AutoSupportStruct_GameplayDefaultsSection {
     GENERATED_BODY()
 public:
     UPROPERTY(BlueprintReadWrite)
-    int32 DefaultBuildDirection{};
+    bool AutomaticWellKnownPartOrientation{};
 
     UPROPERTY(BlueprintReadWrite)
     bool DefaultOnlyIntersectTerrain{};
+
+    UPROPERTY(BlueprintReadWrite)
+    bool AutomaticBlueprintBuild{};
 };
 
 USTRUCT(BlueprintType)

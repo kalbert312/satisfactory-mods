@@ -5,8 +5,8 @@
 UENUM(BlueprintType)
 enum class EAutoSupportBuildDirection : uint8
 {
-	Down,
-	Up,
+	Top,
+	Bottom,
 	Front,
 	Back,
 	Left,

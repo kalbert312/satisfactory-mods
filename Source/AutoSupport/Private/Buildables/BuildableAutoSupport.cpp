@@ -10,9 +10,8 @@
 
 ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	InstancedMeshProxy = CreateDefaultSubobject<UFGColoredInstanceMeshProxy>(TEXT("BuildableInstancedMeshProxy"));
-	InstancedMeshProxy->SetupAttachment(RootComponent);
-	mMeshComponentProxy = InstancedMeshProxy;
+	mMeshComponentProxy = CreateDefaultSubobject<UFGColoredInstanceMeshProxy>(TEXT("BuildableInstancedMeshProxy"));
+	mMeshComponentProxy->SetupAttachment(RootComponent);
 }
 
 bool ABuildableAutoSupport::IsBuildable(const FAutoSupportBuildPlan& Plan) const
@@ -48,10 +47,10 @@ void ABuildableAutoSupport::BuildParts(
 		
 		switch (PartOrientation)
 		{
-			case EAutoSupportBuildDirection::Down:
+			case EAutoSupportBuildDirection::Bottom:
 			default:
 				break;
-			case EAutoSupportBuildDirection::Up:
+			case EAutoSupportBuildDirection::Top:
 				DeltaPitch = 180;
 				break;
 			case EAutoSupportBuildDirection::Front:
@@ -62,8 +61,6 @@ void ABuildableAutoSupport::BuildParts(
 				break;
 			case EAutoSupportBuildDirection::Right:
 				break;
-			case EAutoSupportBuildDirection::Count:
-				break;
 		}
 
 		// Translate the pivot point (bottom of building) to bbox center before rotating.
@@ -73,7 +70,7 @@ void ABuildableAutoSupport::BuildParts(
 		// Spawn the part
 		/** Spawns a hologram from recipe */
 		// static AFGHologram* SpawnHologramFromRecipe( TSubclassOf< class UFGRecipe > inRecipe, AActor* hologramOwner, const FVector& spawnLocation, APawn* hologramInstigator = nullptr, const TFunction< void( AFGHologram* ) >& preSpawnFunction = nullptr );
-
+		
 		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
 		Buildable->FinishSpawning(SpawnTransform);
 		// TODO(k.a): play build effects and sounds
@@ -213,12 +210,12 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	// Set up a direction vector
 	switch (AutoSupportData.BuildDirection)
 	{
-		case EAutoSupportBuildDirection::Down:
+		case EAutoSupportBuildDirection::Top:
 		default:
-			DirectionVector = FVector(0, 0, -1);
-			break;
-		case EAutoSupportBuildDirection::Up:
 			DirectionVector = FVector(0, 0, 1);
+			break;
+		case EAutoSupportBuildDirection::Bottom:
+			DirectionVector = FVector(0, 0, -1);
 			break;
 		case EAutoSupportBuildDirection::Front:
 			DirectionVector = FVector(0, -1, 0);
