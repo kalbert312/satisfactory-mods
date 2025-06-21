@@ -2,7 +2,6 @@
 
 #include "BuildableAutoSupport.h"
 
-#include "AbstractInstanceManager.h"
 #include "FGBuildingDescriptor.h"
 #include "FGColoredInstanceMeshProxy.h"
 #include "FGHologram.h"
@@ -10,6 +9,7 @@
 #include "ModBlueprintLibrary.h"
 #include "ModLogging.h"
 #include "DrawDebugHelpers.h"
+#include "FGWaterVolume.h"
 
 const FVector ABuildableAutoSupport::MaxPartSize = FVector(800, 800, 800);
 
@@ -219,9 +219,9 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	// This is so the build consumes the space occupied by the auto support and is not awkwardly offset. // Example: Build direction
 	// set to top means the part will build flush to the "bottom" face of the cube and then topward.
 	auto FaceRelativeLocation = GetCubeFaceRelativeLocation(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
-	Result.StartRelativeLocation = FaceRelativeLocation;
+	Result.StartRelativeLocation = DirectionVector * FaceRelativeLocation;
 	Result.StartLocation = GetActorTransform().TransformPosition(FaceRelativeLocation);
-	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
+	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(AutoSupportData.BuildDirection);
 	
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Rel: %s, Abs: %s, Rel Rotation: %s"), *Result.StartRelativeLocation.ToString(), *Result.StartLocation.ToString(), *Result.StartRelativeRotation.ToString());
 	
@@ -261,8 +261,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 		const auto* HitActor = HitResult.GetActor();
 		const auto IsLandscapeHit = HitActor && HitActor->IsA<ALandscapeProxy>();
-		const auto IsBuildableHit = HitActor && HitActor->IsA<AFGBuildable>();
-		const auto IsAbstractInstanceHit = HitActor && HitActor->IsA<AAbstractInstanceManager>();
+		const auto IsWaterHit = HitActor && HitActor->IsA<AFGWaterVolume>();
 		const auto IsPawnHit = HitActor && HitActor->IsA<APawn>();
 		const auto* HitComponent = HitResult.GetComponent();
 		
@@ -272,8 +271,6 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 			HitActor ? *HitActor->GetClass()->GetName() : TEXT_NULL,
 			HitComponent ? *HitComponent->GetClass()->GetName() : TEXT_NULL,
 			TEXT_CONDITION(IsLandscapeHit),
-			TEXT_CONDITION(IsBuildableHit),
-			TEXT_CONDITION(IsAbstractInstanceHit),
 			TEXT_CONDITION(IsPawnHit));
 
 		if (IsPawnHit)
@@ -288,8 +285,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 			continue; // Ignore close-to-start intersects
 		}
 
-		if (IsLandscapeHit
-			|| (!AutoSupportData.OnlyIntersectTerrain && (IsBuildableHit || IsAbstractInstanceHit)))
+		if (IsLandscapeHit || (!AutoSupportData.OnlyIntersectTerrain && !IsWaterHit))
 		{
 			Result.BuildDistance = HitResult.Distance;
 			Result.IsLandscapeHit = IsLandscapeHit;
@@ -430,7 +426,7 @@ void ABuildableAutoSupport::PlanPartPositioning(
 			break;
 	}
 	
-	const auto DeltaRot = UAutoSupportBlueprintLibrary::GetDirectionRotator(PartOrientation);
+	const auto DeltaRot = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(PartOrientation));
 	
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Origin Offset: %s, Min: %s, Max: %s"), *OriginOffset.ToString(), *PartBBox.Min.ToString(), *PartBBox.Max.ToString());
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Extent: %s"), *PartBBox.GetExtent().ToString());
@@ -466,13 +462,13 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 		case EAutoSupportBuildDirection::Top:
 			return FVector(0, 0, Extent.Z * 2);
 		case EAutoSupportBuildDirection::Front:
-			return FVector(0, -Extent.Y, 0);
+			return FVector(0, -Extent.Y, Extent.Z);
 		case EAutoSupportBuildDirection::Back:
-			return FVector(0, Extent.Y, 0);
+			return FVector(0, Extent.Y, Extent.Z);
 		case EAutoSupportBuildDirection::Left:
-			return FVector(-Extent.X, 0, 0);
+			return FVector(-Extent.X, 0, Extent.Z);
 		case EAutoSupportBuildDirection::Right:
-			return FVector(Extent.X, 0, 0);
+			return FVector(Extent.X, 0, Extent.Z);
 		default:
 			return FVector::ZeroVector;
 	}

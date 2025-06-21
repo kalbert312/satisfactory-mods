@@ -35,9 +35,9 @@ FVector UAutoSupportBlueprintLibrary::GetDirectionVector(const EAutoSupportBuild
 		case EAutoSupportBuildDirection::Bottom:
 			return FVector(0, 0, -1);
 		case EAutoSupportBuildDirection::Front:
-			return FVector(0, 1, 0);
-		case EAutoSupportBuildDirection::Back:
 			return FVector(0, -1, 0);
+		case EAutoSupportBuildDirection::Back:
+			return FVector(0, 1, 0);
 		case EAutoSupportBuildDirection::Left:
 			return FVector(-1, 0, 0);
 		case EAutoSupportBuildDirection::Right:
