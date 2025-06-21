@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "FGBuildable.h"
 #include "ModTypes.h"
 #include "ModBlueprintLibrary.generated.h"
 
@@ -20,5 +21,8 @@ public:
 	static FVector GetDirectionVector(EAutoSupportBuildDirection Direction);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
-	static void GetBuildableClearance(TSoftClassPtr<UFGBuildingDescriptor> PartDescriptor, FBox& OutBox);
+	static FRotator GetDirectionRotator(EAutoSupportBuildDirection Direction);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
+	static void GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox);
 };

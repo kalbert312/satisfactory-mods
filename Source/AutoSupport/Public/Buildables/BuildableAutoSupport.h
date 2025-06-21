@@ -17,7 +17,7 @@ class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildableFactoryBuilding
 
 public:
 	static constexpr int MaxBuildDistance = 400 * 50; // 50 4m foundations
-	static constexpr int MaxPartHeight = 800; // Avoid anything larger.
+	static const FVector MaxPartSize; // Avoid anything larger.
 	
 	ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
@@ -76,36 +76,24 @@ protected:
 	/**
 	 * Builds the parts using the working transform as a moving spawn point.
 	 * @param Buildables The buildables subsystem.
-	 * @param PartDescriptor The part descriptor for the part to build.
-	 * @param PartOrientation
-	 * @param PartOrientation
-	 * @param Count How many to build.
-	 * @param PartBBox
-	 * @param Direction
+	 * @param PartPlan
 	 * @param BuildInstigator
 	 * @param WorkingTransform The spawn point of the part.
 	 */
-	void BuildParts(
+	void BuildPartPlan(
 		AFGBuildableSubsystem* Buildables,
-		const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
-		EAutoSupportBuildDirection PartOrientation,
-		int32 Count,
-		const FBox& PartBBox,
-		const FVector& Direction,
+		const FAutoSupportBuildPlanPartData& PartPlan,
 		APawn* BuildInstigator,
-		FTransform& WorkingTransform);
+		FTransform& WorkingTransform) const;
 
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
-	FVector GetCubeFaceWorldLocation(EAutoSupportBuildDirection Direction) const;
 	FORCEINLINE FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;
-	void OrientPart(
-		const FVector& Extent,
+	static void PlanPartPositioning(
+		const FBox& PartBBox,
+		EAutoSupportBuildDirection PartOrientation,
 		const FVector& Direction,
-		float DeltaRoll,
-		float DeltaPitch,
-		float DeltaYaw,
-		bool bSkipTranslate,
-		FTransform& SpawnTransform) const;
+		float& OutConsumedBuildSpace,
+		FAutoSupportBuildPlanPartData& Plan);
 };
 
 UCLASS(Blueprintable)

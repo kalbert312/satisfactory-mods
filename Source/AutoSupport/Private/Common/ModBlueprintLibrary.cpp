@@ -2,7 +2,6 @@
 #include "ModBlueprintLibrary.h"
 
 #include "FGBuildable.h"
-#include "FGBuildingDescriptor.h"
 
 EAutoSupportBuildDirection UAutoSupportBlueprintLibrary::GetOppositeDirection(const EAutoSupportBuildDirection Direction)
 {
@@ -48,8 +47,38 @@ FVector UAutoSupportBlueprintLibrary::GetDirectionVector(const EAutoSupportBuild
 	}
 }
 
-void UAutoSupportBlueprintLibrary::GetBuildableClearance(TSoftClassPtr<UFGBuildingDescriptor> PartDescriptor, FBox& OutBox)
+FRotator UAutoSupportBlueprintLibrary::GetDirectionRotator(EAutoSupportBuildDirection Direction)
 {
-	const auto Buildable = GetDefault<AFGBuildable>(UFGBuildingDescriptor::GetBuildableClass(PartDescriptor.Get()));
+	FRotator DeltaRot(0, 0, 0);
+	
+	switch (Direction)
+	{
+		case EAutoSupportBuildDirection::Bottom:
+		default:
+			// No-op
+			break;
+		case EAutoSupportBuildDirection::Top:
+			DeltaRot.Roll = 180;
+			break;
+		case EAutoSupportBuildDirection::Front:
+			DeltaRot.Yaw = 180;
+			break;
+		case EAutoSupportBuildDirection::Back:
+			DeltaRot.Yaw = -180;
+			break;
+		case EAutoSupportBuildDirection::Left:
+			DeltaRot.Pitch = 180;
+			break;
+		case EAutoSupportBuildDirection::Right:
+			DeltaRot.Pitch = -180;
+			break;
+	}
+
+	return DeltaRot;
+}
+
+void UAutoSupportBlueprintLibrary::GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox)
+{
+	const auto Buildable = GetDefault<AFGBuildable>(BuildableClass);
 	OutBox = Buildable->GetCombinedClearanceBox();
 }

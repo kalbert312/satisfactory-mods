@@ -9,6 +9,9 @@
 #include "LandscapeProxy.h"
 #include "ModBlueprintLibrary.h"
 #include "ModLogging.h"
+#include "DrawDebugHelpers.h"
+
+const FVector ABuildableAutoSupport::MaxPartSize = FVector(800, 800, 800);
 
 ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -39,105 +42,68 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	PlanBuild(TraceResult, Plan);
 	
 	// Check that the player building it has enough resources
-	if (!Plan.IsValidBuild())
+	if (!Plan.IsActionable())
 	{
 		return;
 	}
-
-	const auto& PartCounts = Plan.PartCounts;
+	
 	// Build the parts
 	auto* Buildables = AFGBuildableSubsystem::Get(GetWorld());
 	auto WorkingTransform = GetActorTransform();
+	WorkingTransform.AddToTranslation(Plan.RelativeLocation);
+	WorkingTransform.SetRotation(WorkingTransform.Rotator().Add(Plan.RelativeRotation.Pitch, Plan.RelativeRotation.Yaw, Plan.RelativeRotation.Roll).Quaternion());
 
-	if (PartCounts.X > 0)
+	if (Plan.StartPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Building Start Part, Orientation: %i"), static_cast<int32>(AutoSupportData.StartPartOrientation));
-		BuildParts(Buildables, AutoSupportData.StartPartDescriptor, AutoSupportData.StartPartOrientation, PartCounts.X, Plan.StartBox, TraceResult.Direction, BuildInstigator, WorkingTransform);
+		BuildPartPlan(Buildables, Plan.StartPart, BuildInstigator, WorkingTransform);
 	}
 
-	if (PartCounts.Y > 0)
+	if (Plan.MidPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Building Mid Parts, Orientation: %i"), static_cast<int32>(AutoSupportData.MiddlePartOrientation));
-		BuildParts(Buildables, AutoSupportData.MiddlePartDescriptor, AutoSupportData.MiddlePartOrientation, PartCounts.Y, Plan.MidBox, TraceResult.Direction, BuildInstigator, WorkingTransform);
+		BuildPartPlan(Buildables, Plan.MidPart, BuildInstigator, WorkingTransform);
 	}
 
-	if (PartCounts.Z > 0)
+	if (Plan.EndPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Building End Part, Orientation: %i"), static_cast<int32>(AutoSupportData.EndPartOrientation));
-		auto EndPartTransform = GetActorTransform();
-		EndPartTransform.AddToTranslation(TraceResult.Direction * Plan.EndPartBuildDistance);
+		WorkingTransform.AddToTranslation(Plan.EndPartPositionOffset);
 		
-		BuildParts(Buildables, AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, PartCounts.Z, Plan.EndBox, TraceResult.Direction, BuildInstigator, EndPartTransform);
+		BuildPartPlan(Buildables, Plan.EndPart, BuildInstigator, WorkingTransform);
 	}
 	
 	// Dismantle self
 	Execute_Dismantle(this);
 }
 
-void ABuildableAutoSupport::BuildParts(
+void ABuildableAutoSupport::BuildPartPlan(
 	AFGBuildableSubsystem* Buildables,
-	const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
-	const EAutoSupportBuildDirection PartOrientation,
-	const int32 Count,
-	const FBox& PartBBox,
-	const FVector& Direction,
+	const FAutoSupportBuildPlanPartData& PartPlan,
 	APawn* BuildInstigator,
-	FTransform& WorkingTransform)
+	FTransform& WorkingTransform) const
 {
-	const TSubclassOf<AFGBuildable> BuildableClass = UFGBuildingDescriptor::GetBuildableClass(PartDescriptor.Get());
-	UClass* HologramClass = UFGBuildDescriptor::GetHologramClass(PartDescriptor.Get());
+	const TSubclassOf<AFGBuildable> BuildableClass = PartPlan.BuildableClass;
+	UClass* HologramClass = UFGBuildDescriptor::GetHologramClass(PartPlan.PartDescriptorClass);
 	auto* World = GetWorld();
-	auto Extent = PartBBox.GetExtent();
-	auto Size = PartBBox.GetSize();
-	auto LocationOffset = Direction * Size;
 	
-	double DeltaRoll = 0, DeltaPitch = 0, DeltaYaw = 0;
-
-	bool bSkipOrient = false;
-	// Determine the origin of the part from the extent retrieved from clearance data.
-	// Typically two cases: bottom (walls) and center (pillars, foundations)
-	// BBox Min Z = 0 means bottom origin, Z < 0 should be center origin.
-	bool bIsCenterOriginPart = FMath::IsNearlyEqual(PartBBox.Min.Z, -Extent.Z, KINDA_SMALL_NUMBER);
-	bool bSkipOrientTransform = !bIsCenterOriginPart;
-	
-	switch (PartOrientation)
-	{
-		case EAutoSupportBuildDirection::Bottom:
-		default:
-			bSkipOrient = true;
-			break;
-		case EAutoSupportBuildDirection::Top:
-			DeltaRoll = 180;
-			break;
-		case EAutoSupportBuildDirection::Front:
-			DeltaYaw = 180;
-			break;
-		case EAutoSupportBuildDirection::Back:
-			DeltaYaw = -180;
-			break;
-		case EAutoSupportBuildDirection::Left:
-			DeltaPitch = 180;
-			break;
-		case EAutoSupportBuildDirection::Right:
-			DeltaPitch = -180;
-			break;
-	}
-	
-	for (auto i = 0; i < Count; ++i)
+	for (auto i = 0; i < PartPlan.Count; ++i)
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Spawning part. Start Transform: %s"), *WorkingTransform.ToString());
 
-		// Copy the transform to apply the orientation.
+		// Copy the transform, then apply the orientation below
 		FTransform SpawnTransform = WorkingTransform;
-		
-		if (bIsCenterOriginPart)
-		{
-			// we start building from the trace start location which is at the cube face opposite our build direction, so if it's a center origin part,
-			// initially translate by the direction vector multiplied by the extent Z. This will ensure that the part is placed at the trace start location.
-			SpawnTransform.AddToTranslation(Direction * Extent.Z);
-		}
 
-		// Spawn the part
+		SpawnTransform.AddToTranslation(PartPlan.BuildPositionOffset);
+
+		// Apply the orientation relative to the part's origin
+		SpawnTransform.AddToTranslation(-PartPlan.RotationalPositionOffset);
+		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(PartPlan.Rotation.Pitch, PartPlan.Rotation.Yaw, PartPlan.Rotation.Roll).Quaternion());
+		SpawnTransform.AddToTranslation(PartPlan.RotationalPositionOffset);
+
+		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
+		Buildable->FinishSpawning(SpawnTransform);
+
 		/** Spawns a hologram from recipe */
 		// static AFGHologram* SpawnHologramFromRecipe( TSubclassOf< class UFGRecipe > inRecipe, AActor* hologramOwner, const FVector& spawnLocation, APawn* hologramInstigator = nullptr, const TFunction< void( AFGHologram* ) >& preSpawnFunction = nullptr );
 		
@@ -151,50 +117,17 @@ void ABuildableAutoSupport::BuildParts(
 		//
 		// Hologram->FinishSpawning(SpawnTransform);
 		
-		if (!bSkipOrient)
-		{
-			OrientPart(Extent, Direction, DeltaRoll, DeltaPitch, DeltaYaw, bSkipOrientTransform, SpawnTransform);
-		}
-		else
-		{
-			MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Skipping Part Orient"));
-		}
-
-		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
-		Buildable->FinishSpawning(SpawnTransform);
-		
 		// TODO(k.a): play build effects and sounds
 		// Buildable->PlayBuildEffects(UGameplayStatics::GetPlayerController(GetWorld(), 0));
 
 		// TODO(k.a): See if we can hook this into blueprint dismantle mode
 
 		// Update the transform
-		WorkingTransform.AddToTranslation(LocationOffset);
+		WorkingTransform.AddToTranslation(PartPlan.AfterPartPositionOffset);
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Next Transform: %s"), *WorkingTransform.ToString());
 	}
 
-	// TODO: subtract resources from inventory.
-}
-
-void ABuildableAutoSupport::OrientPart(const FVector& Extent, const FVector& Direction, float DeltaRoll, float DeltaPitch, float DeltaYaw, bool bSkipTranslate, FTransform& SpawnTransform) const
-{
-	// Roll = X, Pitch = Y, Yaw = Z
-	// Translate the pivot point (bottom of building) to bbox center before rotating.
-
-	if (!bSkipTranslate)
-	{
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPart Translated by %s"), *(-1 * Direction * Extent).ToString());
-		SpawnTransform.AddToTranslation(-1 * Direction * Extent);
-	}
-	
-	SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(DeltaPitch, DeltaYaw, DeltaRoll).Quaternion());
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPart Rotated by %s"), *SpawnTransform.Rotator().ToString());
-
-	if (!bSkipTranslate)
-	{
-		SpawnTransform.AddToTranslation(Direction * Extent);
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPart Translated by %s"), *(Direction * Extent).ToString());
-	}
+	// TODO: subtract resources from inventory ( hologram/build gun might be responsibile for this.)
 }
 
 #pragma region IFGSaveInterface
@@ -263,6 +196,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
 	FAutoSupportTraceResult Result;
 	Result.BuildDistance = MaxBuildDistance;
+	Result.BuildDirection = AutoSupportData.BuildDirection;
 
 	// Start building our trace params.
 	FCollisionQueryParams QueryParams;
@@ -284,9 +218,12 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	// Determine the starting trace location. This will be opposite the face of the selected auto support's configured build direction.
 	// This is so the build consumes the space occupied by the auto support and is not awkwardly offset. // Example: Build direction
 	// set to top means the part will build flush to the "bottom" face of the cube and then topward.
-	Result.StartLocation = GetCubeFaceWorldLocation(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
+	auto FaceRelativeLocation = GetCubeFaceRelativeLocation(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
+	Result.StartRelativeLocation = FaceRelativeLocation;
+	Result.StartLocation = GetActorTransform().TransformPosition(FaceRelativeLocation);
+	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
 	
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Location: %s"), *Result.StartLocation.ToString());
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Rel: %s, Abs: %s, Rel Rotation: %s"), *Result.StartRelativeLocation.ToString(), *Result.StartLocation.ToString(), *Result.StartRelativeRotation.ToString());
 	
 	// The end location is constrained by a max distance.
 	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, DirectionVector);
@@ -316,10 +253,11 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		return Result;
 	}
 
-	int32 HitIndex = 0;
+	int32 HitIndex = -1;
 	for (const auto& HitResult : HitResults)
 	{
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace HitResult[%i]: %s"), HitIndex, *HitResult.ToString());
+		++HitIndex;
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace HitResult[%i],Distance:%f: %s"), HitIndex, HitResult.Distance, *HitResult.ToString());
 
 		const auto* HitActor = HitResult.GetActor();
 		const auto IsLandscapeHit = HitActor && HitActor->IsA<ALandscapeProxy>();
@@ -330,7 +268,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		
 		MOD_LOG(
 			Verbose,
-			TEXT("BuildableAutoSupport::Trace  Actor class: %s, Component class: %s, Is Landscape Hit: %s, Is Buildable Hit: %s, Is Abstract Instance Hit: %s, Is Pawn Hit: %s"),
+			TEXT("BuildableAutoSupport::Trace Actor class: %s, Component class: %s, Is Landscape Hit: %s, Is Buildable Hit: %s, Is Abstract Instance Hit: %s, Is Pawn Hit: %s"),
 			HitActor ? *HitActor->GetClass()->GetName() : TEXT_NULL,
 			HitComponent ? *HitComponent->GetClass()->GetName() : TEXT_NULL,
 			TEXT_CONDITION(IsLandscapeHit),
@@ -357,8 +295,6 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 			Result.IsLandscapeHit = IsLandscapeHit;
 			return Result;
 		}
-
-		++HitIndex;
 	}
 
 	return Result;
@@ -367,45 +303,33 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult, OUT FAutoSupportBuildPlan& OutPlan) const
 {
 	OutPlan = FAutoSupportBuildPlan();
+
+	// Copy trace result's relative location & rotation.
+	OutPlan.RelativeLocation = TraceResult.StartRelativeLocation;
+	OutPlan.RelativeRotation = TraceResult.StartRelativeRotation;
 	
+	// Plan the parts.
 	auto RemainingBuildDistance = TraceResult.BuildDistance;
-
-	// Gather data.
-	FVector StartSize, MidSize, EndSize, LastPartSize;
-
-	if (AutoSupportData.StartPartDescriptor.IsValid())
-	{
-		UAutoSupportBlueprintLibrary::GetBuildableClearance(AutoSupportData.StartPartDescriptor, OutPlan.StartBox);
-		StartSize = OutPlan.StartBox.GetSize();
-	}
-
-	if (AutoSupportData.MiddlePartDescriptor.IsValid())
-	{
-		UAutoSupportBlueprintLibrary::GetBuildableClearance(AutoSupportData.MiddlePartDescriptor, OutPlan.MidBox);
-		MidSize = OutPlan.MidBox.GetSize();
-		LastPartSize = MidSize;
-	}
-
-	if (AutoSupportData.EndPartDescriptor.IsValid())
-	{
-		UAutoSupportBlueprintLibrary::GetBuildableClearance(AutoSupportData.EndPartDescriptor, OutPlan.EndBox);
-		EndSize = OutPlan.EndBox.GetSize();
-		LastPartSize = EndSize;
-	}
-
-	if (TraceResult.IsLandscapeHit)
-	{
-		// For terrain hits, the last part should extend at most half its height from its origin into the terrain to avoid gaps.
-		RemainingBuildDistance += LastPartSize.Z / 2;
-	}
+	float SinglePartConsumedBuildSpace = 0;
 	
 	// Start with the top because that's where the auto support is planted.
-	if (AutoSupportData.StartPartDescriptor.IsValid() && StartSize.Z > 0 && StartSize.Z <= MaxPartHeight)
+	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Start Size: %s"), *StartSize.ToString());
-		RemainingBuildDistance -= StartSize.Z;
-
-		OutPlan.PartCounts.X = 1;
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Planning Start Part Positioning"));
+		OutPlan.StartPart.PartDescriptorClass = AutoSupportData.StartPartDescriptor.Get();
+		OutPlan.StartPart.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.StartPartDescriptor.Get());
+		UAutoSupportBlueprintLibrary::GetBuildableClearance(OutPlan.StartPart.BuildableClass, OutPlan.StartPart.BBox);
+		
+		// StartSize.Z > 0 && StartSize.Z <= MaxPartHeight
+		PlanPartPositioning(
+			OutPlan.StartPart.BBox,
+			AutoSupportData.StartPartOrientation,
+			TraceResult.Direction,
+			SinglePartConsumedBuildSpace,
+			OutPlan.StartPart);
+		
+		RemainingBuildDistance -= SinglePartConsumedBuildSpace;
+		OutPlan.StartPart.Count = 1;
 
 		if (RemainingBuildDistance < 0)
 		{
@@ -414,13 +338,25 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 	}
 	
 	// Do the end next. There may not be enough room for mid pieces.
-	if (AutoSupportData.EndPartDescriptor.IsValid() && EndSize.Z > 0 && EndSize.Z <= MaxPartHeight)
+	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild End Size: %s"), *EndSize.ToString());
-		RemainingBuildDistance -= EndSize.Z;
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Planning End Part Positioning"));
+		OutPlan.EndPart.PartDescriptorClass = AutoSupportData.EndPartDescriptor.Get();
+		OutPlan.EndPart.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.EndPartDescriptor.Get());
+		UAutoSupportBlueprintLibrary::GetBuildableClearance(OutPlan.EndPart.BuildableClass, OutPlan.EndPart.BBox);
+		
+		FVector Discarded;
+		PlanPartPositioning(
+			OutPlan.EndPart.BBox,
+			AutoSupportData.EndPartOrientation,
+			TraceResult.Direction,
+			SinglePartConsumedBuildSpace,
+			OutPlan.EndPart);
 
-		OutPlan.PartCounts.Z = 1;
-		OutPlan.EndPartBuildDistance = TraceResult.BuildDistance - EndSize.Z;
+		RemainingBuildDistance -= SinglePartConsumedBuildSpace;
+		OutPlan.EndPart.Count = 1;
+
+		// TODO(k.a): set end positional offset
 
 		if (RemainingBuildDistance < 0)
 		{
@@ -429,22 +365,83 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 		}
 	}
 	
-	if (AutoSupportData.MiddlePartDescriptor.IsValid() && MidSize.Z > 0 && MidSize.Z <= MaxPartHeight)
+	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
-		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / MidSize.Z);
-		RemainingBuildDistance -= NumMiddleParts * MidSize.Z;
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Planning Mid Part Positioning"));
+		OutPlan.MidPart.PartDescriptorClass = AutoSupportData.MiddlePartDescriptor.Get();
+		OutPlan.MidPart.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.MiddlePartDescriptor.Get());
+		UAutoSupportBlueprintLibrary::GetBuildableClearance(OutPlan.MidPart.BuildableClass, OutPlan.MidPart.BBox);
+		
+		float SingleMidPartConsumedSpace = 0;
+		PlanPartPositioning(
+			OutPlan.MidPart.BBox,
+			AutoSupportData.MiddlePartOrientation,
+			TraceResult.Direction,
+			SingleMidPartConsumedSpace,
+			OutPlan.MidPart);
+		
+		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SingleMidPartConsumedSpace);
+		RemainingBuildDistance -= NumMiddleParts * SingleMidPartConsumedSpace;
 
 		auto IsNearlyPerfectFit = RemainingBuildDistance <= 1.f;
 
 		if (!IsNearlyPerfectFit)
 		{
-			NumMiddleParts++; // make sure we reach the end part.
+			NumMiddleParts++; // build an extra to fill the gap.
+			// Offset the end part to be flush with where the line trace hit or ended. We built an extra part so the direction is negative. We don't need to worry about the end part size because it was already subtracted from build distance.
+			OutPlan.EndPartPositionOffset = -TraceResult.Direction * (SingleMidPartConsumedSpace - RemainingBuildDistance);
 		}
 		
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *MidSize.ToString(), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *OutPlan.MidPart.BBox.GetSize().ToString(), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
 		
-		OutPlan.PartCounts.Y = NumMiddleParts;
+		OutPlan.MidPart.Count = NumMiddleParts;
 	}
+}
+
+void ABuildableAutoSupport::PlanPartPositioning(
+	const FBox& PartBBox,
+	EAutoSupportBuildDirection PartOrientation,
+	const FVector& Direction,
+	float& OutConsumedBuildSpace,
+	FAutoSupportBuildPlanPartData& Plan)
+{
+	// Roll = X, Pitch = Y, Yaw = Z
+	auto PartSize = PartBBox.GetSize();
+	float RelativeOffset = PartSize.Z;
+
+	// NOTE: we're always assuming a part's UP is +Z here.
+	switch (PartOrientation)
+	{
+		default:
+			// No-op
+			break;
+		case EAutoSupportBuildDirection::Front:
+		case EAutoSupportBuildDirection::Back:
+			RelativeOffset = PartSize.Y;
+			break;
+		case EAutoSupportBuildDirection::Left:
+		case EAutoSupportBuildDirection::Right:
+			RelativeOffset = PartSize.X;
+			break;
+	}
+	const auto DeltaRot = UAutoSupportBlueprintLibrary::GetDirectionRotator(PartOrientation);
+
+	// We need an offset to translate by before and after the rotation is applied to return the part to it's occupying space in the auto support.
+	auto OriginOffset = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Origin Offset: %s, Min: %s, Max: %s"), *OriginOffset.ToString(), *PartBBox.Min.ToString(), *PartBBox.Max.ToString());
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Extent: %s"), *PartBBox.GetExtent().ToString());
+	auto DirectionalOriginOffset = Direction * OriginOffset; // We're working with a world transform, so we must include our direction
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Directional Origin Offset: %s"), *DirectionalOriginOffset.ToString());
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Delta Rotation: %s"), *DeltaRot.ToString());
+
+	// This occurs before rotation, so we operate in the Z direction. Negate the result because we're building relative a transform position at the bottom of where the piece should be.
+	Plan.BuildPositionOffset = -1 * Direction * (OriginOffset.Z - PartBBox.GetExtent().Z);
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform BuildPositionOffset: %s"), *Plan.BuildPositionOffset.ToString());
+	
+	OutConsumedBuildSpace = RelativeOffset;
+	Plan.RotationalPositionOffset = DirectionalOriginOffset;
+	Plan.Rotation = DeltaRot;
+	Plan.AfterPartPositionOffset = Direction * RelativeOffset;
 }
 
 FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBuildDirection Direction) const
@@ -465,9 +462,9 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 		case EAutoSupportBuildDirection::Top:
 			return FVector(0, 0, Extent.Z * 2);
 		case EAutoSupportBuildDirection::Front:
-			return FVector(0, Extent.Y, 0);
-		case EAutoSupportBuildDirection::Back:
 			return FVector(0, -Extent.Y, 0);
+		case EAutoSupportBuildDirection::Back:
+			return FVector(0, Extent.Y, 0);
 		case EAutoSupportBuildDirection::Left:
 			return FVector(-Extent.X, 0, 0);
 		case EAutoSupportBuildDirection::Right:
@@ -475,11 +472,6 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 		default:
 			return FVector::ZeroVector;
 	}
-}
-
-FVector ABuildableAutoSupport::GetCubeFaceWorldLocation(const EAutoSupportBuildDirection Direction) const
-{
-	return GetActorTransform().TransformPosition(GetCubeFaceRelativeLocation(Direction));
 }
 
 FORCEINLINE FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const

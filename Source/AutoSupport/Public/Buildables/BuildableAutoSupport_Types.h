@@ -106,49 +106,123 @@ struct AUTOSUPPORT_API FAutoSupportTraceResult
 	FVector StartLocation = FVector::ZeroVector;
 
 	UPROPERTY()
+	FVector StartRelativeLocation = FVector::ZeroVector;
+
+	UPROPERTY()
+	FRotator StartRelativeRotation = FRotator::ZeroRotator;
+
+	UPROPERTY()
 	FVector Direction = FVector::ZeroVector;
+
+	UPROPERTY()
+	EAutoSupportBuildDirection BuildDirection = EAutoSupportBuildDirection::Top;
 
 	UPROPERTY()
 	FHitResult EndHitResult = FHitResult(ForceInit);
 };
 
 USTRUCT(BlueprintType)
-struct AUTOSUPPORT_API FAutoSupportBuildPlan
+struct FAutoSupportBuildPlanPartData
 {
 	GENERATED_BODY()
-	
+
 	/**
-	 * The amount of each part to build.
+	 * The part's descriptor.
 	 */
 	UPROPERTY()
-	FVector PartCounts = FVector::ZeroVector;
+	TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass = nullptr;
 
+	/**
+	 * The class of the part.
+	 */
+	UPROPERTY()
+	TSubclassOf<AFGBuildable> BuildableClass = nullptr;
+	
+	/**
+	 * The amount of it to build.
+	 */
+	int Count = 0;
+	
 	/**
 	 * The BBox data for the start part.
 	 */
 	UPROPERTY()
-	FBox StartBox = FBox(ForceInit);
+	FBox BBox = FBox(ForceInit);
 
 	/**
-	 * The BBox data for the mid part.
+	 * The build position offset.
 	 */
 	UPROPERTY()
-	FBox MidBox = FBox(ForceInit);
+	FVector BuildPositionOffset = FVector::ZeroVector;
+	
+	/**
+	 * Positional offset applied before and after part rotation.
+	 */
+	UPROPERTY()
+	FVector RotationalPositionOffset = FVector::ZeroVector;
+	
+	/**
+	 * Relative rotation to apply to part.
+	 */
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
 
 	/**
-	 * The BBox data for the end part.
+	 * World direction aware next part position offset after part is built.
 	 */
 	UPROPERTY()
-	FBox EndBox = FBox(ForceInit);
+	FVector AfterPartPositionOffset = FVector::ZeroVector;
 
-	/**
-	 * The distance from the trace origin to build the end part so it's flush with the intersected surface or buried enough in terrain.
-	 */
-	UPROPERTY()
-	float EndPartBuildDistance = 0;
-
-	FORCEINLINE bool IsValidBuild() const
+	FORCEINLINE bool IsActionable() const
 	{
-		return PartCounts.X > 0 || PartCounts.Y > 0 || PartCounts.Z > 0;
+		return Count > 0 && PartDescriptorClass && BuildableClass;
 	}
 };
+
+USTRUCT(BlueprintType)
+struct AUTOSUPPORT_API FAutoSupportBuildPlan
+{
+	GENERATED_BODY()
+
+	/**
+	 * The relative translation to apply to a copy of the actor transform to building.
+	 */
+	UPROPERTY()
+	FVector RelativeLocation = FVector::ZeroVector;
+
+	/**
+	 * The relative rotation to apply to a copy of the actor transform to begin building.
+	 */
+	UPROPERTY()
+	FRotator RelativeRotation = FRotator::ZeroRotator;
+	
+	/**
+	 * Plan for start parts.
+	 */
+	UPROPERTY()
+	FAutoSupportBuildPlanPartData StartPart;
+
+	/**
+	 * Plan for mid parts.
+	 */
+	UPROPERTY()
+	FAutoSupportBuildPlanPartData MidPart;
+
+	/**
+	 * Plan for end parts.
+	 */
+	UPROPERTY()
+	FAutoSupportBuildPlanPartData EndPart;
+	
+	/**
+	 * The world direction-aware position offset to build the end part at to make it seated correctly.
+	 */
+	UPROPERTY()
+	FVector EndPartPositionOffset = FVector::ZeroVector;
+	
+	FORCEINLINE bool IsActionable() const
+	{
+		return MidPart.IsActionable() || StartPart.IsActionable() || EndPart.IsActionable();
+	}
+};
+
