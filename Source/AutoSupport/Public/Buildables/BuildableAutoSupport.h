@@ -28,7 +28,7 @@ public:
 	 * Builds the supports based on the provided configuration.
 	 */
 	UFUNCTION(BlueprintCallable)
-	void BuildSupports();
+	void BuildSupports(APawn* BuildInstigator = nullptr);
 
 #pragma region IFGSaveInterface
 	
@@ -74,13 +74,6 @@ protected:
 	void PlanBuild(const FAutoSupportTraceResult& TraceResult, OUT FAutoSupportBuildPlan& OutPlan) const;
 
 	/**
-	 * Determines if we can build the given build plan.
-	 * @param Plan
-	 * @return Can we build this?
-	 */
-	bool IsBuildable(const FAutoSupportBuildPlan& Plan) const;
-
-	/**
 	 * Builds the parts using the working transform as a moving spawn point.
 	 * @param Buildables The buildables subsystem.
 	 * @param PartDescriptor The part descriptor for the part to build.
@@ -89,6 +82,7 @@ protected:
 	 * @param Count How many to build.
 	 * @param Size The size of the part. This is used to modify the working transform.
 	 * @param Direction
+	 * @param Instigator
 	 * @param WorkingTransform The spawn point of the part.
 	 */
 	void BuildParts(
@@ -98,6 +92,7 @@ protected:
 		int32 Count,
 		const FVector& Size,
 		const FVector& Direction,
+		APawn* Instigator,
 		FTransform& WorkingTransform);
 
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;

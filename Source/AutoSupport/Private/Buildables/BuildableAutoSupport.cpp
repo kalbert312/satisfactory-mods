@@ -3,8 +3,10 @@
 #include "BuildableAutoSupport.h"
 
 #include "AbstractInstanceManager.h"
+#include "FGBuildableHologram.h"
 #include "FGBuildingDescriptor.h"
 #include "FGColoredInstanceMeshProxy.h"
+#include "FGHologram.h"
 #include "LandscapeProxy.h"
 #include "ModBlueprintLibrary.h"
 #include "ModLogging.h"
@@ -15,79 +17,7 @@ ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectIni
 	mMeshComponentProxy->SetupAttachment(RootComponent);
 }
 
-bool ABuildableAutoSupport::IsBuildable(const FAutoSupportBuildPlan& Plan) const
-{
-	if (Plan.PartCounts.IsNearlyZero())
-	{
-		return false;
-	}
-	
-	// TODO(k.a): check player has enough resources to build
-	return true;
-}
-
-void ABuildableAutoSupport::BuildParts(
-	AFGBuildableSubsystem* Buildables,
-	const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
-	const EAutoSupportBuildDirection PartOrientation,
-	const int32 Count,
-	const FVector& Size,
-	const FVector& Direction,
-	FTransform& WorkingTransform)
-{
-	const TSubclassOf<AFGBuildable> BuildableClass = UFGBuildingDescriptor::GetBuildableClass(PartDescriptor.Get());
-	
-	for (auto i = 0; i < Count; ++i)
-	{
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Spawning part. Start Transform: %s"), *WorkingTransform.ToString());
-
-		// Copy the transform to apply the orientation.
-		FTransform SpawnTransform = WorkingTransform;
-
-		double DeltaPitch = 0, DeltaYaw = 0, DeltaRoll = 0;
-		
-		switch (PartOrientation)
-		{
-			case EAutoSupportBuildDirection::Bottom:
-			default:
-				break;
-			case EAutoSupportBuildDirection::Top:
-				DeltaPitch = 180;
-				break;
-			case EAutoSupportBuildDirection::Front:
-				break;
-			case EAutoSupportBuildDirection::Back:
-				break;
-			case EAutoSupportBuildDirection::Left:
-				break;
-			case EAutoSupportBuildDirection::Right:
-				break;
-		}
-
-		// Translate the pivot point (bottom of building) to bbox center before rotating.
-		SpawnTransform.AddToTranslation(-1 * Direction * Size / 2.f);
-		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(DeltaPitch, DeltaYaw, DeltaRoll).Quaternion());
-		
-		// Spawn the part
-		/** Spawns a hologram from recipe */
-		// static AFGHologram* SpawnHologramFromRecipe( TSubclassOf< class UFGRecipe > inRecipe, AActor* hologramOwner, const FVector& spawnLocation, APawn* hologramInstigator = nullptr, const TFunction< void( AFGHologram* ) >& preSpawnFunction = nullptr );
-		
-		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
-		Buildable->FinishSpawning(SpawnTransform);
-		// TODO(k.a): play build effects and sounds
-		// Buildable->PlayBuildEffects(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-
-		// TODO(k.a): See if we can hook this into blueprint dismantle mode
-
-		// Update the transform
-		WorkingTransform.AddToTranslation(Direction * Size);
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Next Transform: %s"), *WorkingTransform.ToString());
-	}
-
-	// TODO: subtract resources from inventory.
-}
-
-void ABuildableAutoSupport::BuildSupports()
+void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 {
 	if (!AutoSupportData.MiddlePartDescriptor.IsValid() && !AutoSupportData.StartPartDescriptor.IsValid() && !AutoSupportData.EndPartDescriptor.IsValid())
 	{
@@ -110,7 +40,7 @@ void ABuildableAutoSupport::BuildSupports()
 	PlanBuild(TraceResult, Plan);
 	
 	// Check that the player building it has enough resources
-	if (!IsBuildable(Plan))
+	if (!Plan.IsValidBuild())
 	{
 		return;
 	}
@@ -122,12 +52,12 @@ void ABuildableAutoSupport::BuildSupports()
 
 	if (PartCounts.X > 0)
 	{
-		BuildParts(Buildables, AutoSupportData.StartPartDescriptor, AutoSupportData.StartPartOrientation, PartCounts.X, Plan.StartBox.GetSize(), TraceResult.Direction, WorkingTransform);
+		BuildParts(Buildables, AutoSupportData.StartPartDescriptor, AutoSupportData.StartPartOrientation, PartCounts.X, Plan.StartBox.GetSize(), TraceResult.Direction, BuildInstigator, WorkingTransform);
 	}
 
 	if (PartCounts.Y > 0)
 	{
-		BuildParts(Buildables, AutoSupportData.MiddlePartDescriptor, AutoSupportData.MiddlePartOrientation, PartCounts.Y, Plan.MidBox.GetSize(), TraceResult.Direction, WorkingTransform);
+		BuildParts(Buildables, AutoSupportData.MiddlePartDescriptor, AutoSupportData.MiddlePartOrientation, PartCounts.Y, Plan.MidBox.GetSize(), TraceResult.Direction, BuildInstigator, WorkingTransform);
 	}
 
 	if (PartCounts.Z > 0)
@@ -135,12 +65,87 @@ void ABuildableAutoSupport::BuildSupports()
 		auto EndPartTransform = GetActorTransform();
 		EndPartTransform.AddToTranslation(TraceResult.Direction * Plan.EndPartBuildDistance);
 		
-		BuildParts(Buildables, AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, PartCounts.Z, Plan.EndBox.GetSize(), TraceResult.Direction, EndPartTransform);
+		BuildParts(Buildables, AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, PartCounts.Z, Plan.EndBox.GetSize(), TraceResult.Direction, BuildInstigator, EndPartTransform);
 	}
 	
 	// Dismantle self
 	Execute_Dismantle(this);
 }
+
+void ABuildableAutoSupport::BuildParts(
+	AFGBuildableSubsystem* Buildables,
+	const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
+	const EAutoSupportBuildDirection PartOrientation,
+	const int32 Count,
+	const FVector& Size,
+	const FVector& Direction,
+	APawn* BuildInstigator,
+	FTransform& WorkingTransform)
+{
+	const TSubclassOf<AFGBuildable> BuildableClass = UFGBuildingDescriptor::GetBuildableClass(PartDescriptor.Get());
+	UClass* HologramClass = UFGBuildDescriptor::GetHologramClass(PartDescriptor.Get());
+	auto* World = GetWorld();
+
+	double DeltaPitch = 0, DeltaYaw = 0, DeltaRoll = 0;
+		
+	switch (PartOrientation)
+	{
+		case EAutoSupportBuildDirection::Bottom:
+		default:
+			break;
+		case EAutoSupportBuildDirection::Top:
+			DeltaPitch = 180;
+			break;
+		case EAutoSupportBuildDirection::Front:
+			break;
+		case EAutoSupportBuildDirection::Back:
+			break;
+		case EAutoSupportBuildDirection::Left:
+			break;
+		case EAutoSupportBuildDirection::Right:
+			break;
+	}
+	
+	for (auto i = 0; i < Count; ++i)
+	{
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Spawning part. Start Transform: %s"), *WorkingTransform.ToString());
+
+		// Copy the transform to apply the orientation.
+		FTransform SpawnTransform = WorkingTransform;
+		
+		// Translate the pivot point (bottom of building) to bbox center before rotating.
+		SpawnTransform.AddToTranslation(-1 * Direction * Size / 2.f);
+		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(DeltaPitch, DeltaYaw, DeltaRoll).Quaternion());
+		
+		// Spawn the part
+		/** Spawns a hologram from recipe */
+		// static AFGHologram* SpawnHologramFromRecipe( TSubclassOf< class UFGRecipe > inRecipe, AActor* hologramOwner, const FVector& spawnLocation, APawn* hologramInstigator = nullptr, const TFunction< void( AFGHologram* ) >& preSpawnFunction = nullptr );
+		
+		// auto* Hologram = World->SpawnActorDeferred<AFGBuildableHologram>(
+		// 	HologramClass,
+		// 	SpawnTransform,
+		// 	nullptr,
+		// 	Instigator);
+		//
+		// Hologram->SetBuildableClass(BuildableClass);
+		//
+		// Hologram->FinishSpawning(SpawnTransform);
+		
+		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
+		Buildable->FinishSpawning(SpawnTransform);
+		// TODO(k.a): play build effects and sounds
+		// Buildable->PlayBuildEffects(UGameplayStatics::GetPlayerController(GetWorld(), 0));
+
+		// TODO(k.a): See if we can hook this into blueprint dismantle mode
+
+		// Update the transform
+		WorkingTransform.AddToTranslation(Direction * Size);
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Next Transform: %s"), *WorkingTransform.ToString());
+	}
+
+	// TODO: subtract resources from inventory.
+}
+
 
 #pragma region IFGSaveInterface
 
