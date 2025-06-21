@@ -61,16 +61,16 @@ FRotator UAutoSupportBlueprintLibrary::GetDirectionRotator(EAutoSupportBuildDire
 			DeltaRot.Roll = 180;
 			break;
 		case EAutoSupportBuildDirection::Front:
-			DeltaRot.Yaw = 180;
+			DeltaRot.Roll = 90;
 			break;
 		case EAutoSupportBuildDirection::Back:
-			DeltaRot.Yaw = -180;
+			DeltaRot.Roll = -90;
 			break;
 		case EAutoSupportBuildDirection::Left:
-			DeltaRot.Pitch = 180;
+			DeltaRot.Pitch = -90;
 			break;
 		case EAutoSupportBuildDirection::Right:
-			DeltaRot.Pitch = -180;
+			DeltaRot.Pitch = 90;
 			break;
 	}
 

@@ -406,7 +406,10 @@ void ABuildableAutoSupport::PlanPartPositioning(
 	FAutoSupportBuildPlanPartData& Plan)
 {
 	// Roll = X, Pitch = Y, Yaw = Z
-	auto PartSize = PartBBox.GetSize();
+	const auto PartSize = PartBBox.GetSize();
+	// We need an offset to translate by before and after the rotation is applied to return the part to it's occupying space in the auto support.
+	const auto OriginOffset = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
+	float AxisOriginOffset = OriginOffset.Z;
 	float RelativeOffset = PartSize.Z;
 
 	// NOTE: we're always assuming a part's UP is +Z here.
@@ -418,16 +421,17 @@ void ABuildableAutoSupport::PlanPartPositioning(
 		case EAutoSupportBuildDirection::Front:
 		case EAutoSupportBuildDirection::Back:
 			RelativeOffset = PartSize.Y;
+			AxisOriginOffset = OriginOffset.Y;
 			break;
 		case EAutoSupportBuildDirection::Left:
 		case EAutoSupportBuildDirection::Right:
 			RelativeOffset = PartSize.X;
+			AxisOriginOffset = OriginOffset.X;
 			break;
 	}
+	
 	const auto DeltaRot = UAutoSupportBlueprintLibrary::GetDirectionRotator(PartOrientation);
-
-	// We need an offset to translate by before and after the rotation is applied to return the part to it's occupying space in the auto support.
-	auto OriginOffset = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
+	
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Origin Offset: %s, Min: %s, Max: %s"), *OriginOffset.ToString(), *PartBBox.Min.ToString(), *PartBBox.Max.ToString());
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Extent: %s"), *PartBBox.GetExtent().ToString());
 	auto DirectionalOriginOffset = Direction * OriginOffset; // We're working with a world transform, so we must include our direction
@@ -435,7 +439,7 @@ void ABuildableAutoSupport::PlanPartPositioning(
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Delta Rotation: %s"), *DeltaRot.ToString());
 
 	// This occurs before rotation, so we operate in the Z direction. Negate the result because we're building relative a transform position at the bottom of where the piece should be.
-	Plan.BuildPositionOffset = -1 * Direction * (OriginOffset.Z - PartBBox.GetExtent().Z);
+	Plan.BuildPositionOffset = -1 * Direction * (AxisOriginOffset - (RelativeOffset / 2));
 	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform BuildPositionOffset: %s"), *Plan.BuildPositionOffset.ToString());
 	
 	OutConsumedBuildSpace = RelativeOffset;
