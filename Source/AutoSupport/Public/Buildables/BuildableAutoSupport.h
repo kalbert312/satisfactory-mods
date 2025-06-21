@@ -80,9 +80,9 @@ protected:
 	 * @param PartOrientation
 	 * @param PartOrientation
 	 * @param Count How many to build.
-	 * @param Size The size of the part. This is used to modify the working transform.
+	 * @param PartBBox
 	 * @param Direction
-	 * @param Instigator
+	 * @param BuildInstigator
 	 * @param WorkingTransform The spawn point of the part.
 	 */
 	void BuildParts(
@@ -90,14 +90,22 @@ protected:
 		const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptor,
 		EAutoSupportBuildDirection PartOrientation,
 		int32 Count,
-		const FVector& Size,
+		const FBox& PartBBox,
 		const FVector& Direction,
-		APawn* Instigator,
+		APawn* BuildInstigator,
 		FTransform& WorkingTransform);
 
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
 	FVector GetCubeFaceWorldLocation(EAutoSupportBuildDirection Direction) const;
 	FORCEINLINE FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;
+	void OrientPart(
+		const FVector& Extent,
+		const FVector& Direction,
+		float DeltaRoll,
+		float DeltaPitch,
+		float DeltaYaw,
+		bool bSkipTranslate,
+		FTransform& SpawnTransform) const;
 };
 
 UCLASS(Blueprintable)

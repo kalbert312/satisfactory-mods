@@ -22,7 +22,7 @@ EAutoSupportBuildDirection UAutoSupportBlueprintLibrary::GetOppositeDirection(co
 			return EAutoSupportBuildDirection::Left;
 	}
 
-	check(Direction != Direction);
+	checkf(Direction != Direction, TEXT("Direction is %i"), static_cast<int32>(Direction));
 	
 	return Direction;
 }
