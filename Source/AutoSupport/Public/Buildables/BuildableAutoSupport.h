@@ -6,6 +6,8 @@
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
 #include "FGBuildableFactoryBuilding.h"
+#include "FGFactoryHologram.h"
+#include "FGRecipeManager.h"
 #include "BuildableAutoSupport.generated.h"
 
 class UFGBuildingDescriptor;
@@ -65,7 +67,7 @@ protected:
 	 * @return The free distance.
 	 */
 	FAutoSupportTraceResult Trace() const;
-
+	
 	/**
 	 * Plans the build. Determines cost and provides some build dimensions.
 	 * @param TraceResult The trace result.
@@ -73,18 +75,26 @@ protected:
 	 */
 	void PlanBuild(const FAutoSupportTraceResult& TraceResult, OUT FAutoSupportBuildPlan& OutPlan) const;
 
+	bool PlanSinglePart(
+		const FAutoSupportTraceResult& TraceResult,
+		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
+		EAutoSupportBuildDirection PartOrientation,
+		FAutoSupportBuildPlanPartData& Plan,
+		float& OutSinglePartConsumedBuildSpace,
+		const AFGRecipeManager* RecipeManager) const;
+
 	/**
 	 * Builds the parts using the working transform as a moving spawn point.
-	 * @param Buildables The buildables subsystem.
+	 * @param ParentHologram
 	 * @param PartPlan
 	 * @param BuildInstigator
 	 * @param WorkingTransform The spawn point of the part.
 	 */
 	void BuildPartPlan(
-		AFGBuildableSubsystem* Buildables,
+		AFGHologram*& ParentHologram,
 		const FAutoSupportBuildPlanPartData& PartPlan,
 		APawn* BuildInstigator,
-		FTransform& WorkingTransform) const;
+		FTransform& WorkingTransform);
 
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
 	FORCEINLINE FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;

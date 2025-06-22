@@ -137,10 +137,17 @@ struct FAutoSupportBuildPlanPartData
 	 */
 	UPROPERTY()
 	TSubclassOf<AFGBuildable> BuildableClass = nullptr;
+
+	/**
+	 * The recipe used when building.
+	 */
+	UPROPERTY()
+	TSubclassOf<UFGRecipe> BuildRecipeClass = nullptr;
 	
 	/**
 	 * The amount of it to build.
 	 */
+	UPROPERTY()
 	int Count = 0;
 	
 	/**
@@ -173,9 +180,14 @@ struct FAutoSupportBuildPlanPartData
 	UPROPERTY()
 	FVector AfterPartPositionOffset = FVector::ZeroVector;
 
+	FORCEINLINE bool IsUnspecified() const
+	{
+		return PartDescriptorClass == nullptr;
+	}
+
 	FORCEINLINE bool IsActionable() const
 	{
-		return Count > 0 && PartDescriptorClass && BuildableClass;
+		return Count > 0 && PartDescriptorClass && BuildableClass && BuildRecipeClass;
 	}
 };
 
@@ -222,7 +234,12 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	
 	FORCEINLINE bool IsActionable() const
 	{
-		return MidPart.IsActionable() || StartPart.IsActionable() || EndPart.IsActionable();
+		if (MidPart.IsUnspecified() && StartPart.IsUnspecified() && EndPart.IsUnspecified())
+		{
+			return false;
+		}
+		
+		return (MidPart.IsUnspecified() || MidPart.IsActionable()) && (StartPart.IsUnspecified() || StartPart.IsActionable()) && (EndPart.IsUnspecified() || EndPart.IsActionable());
 	}
 };
 

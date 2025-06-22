@@ -2,14 +2,23 @@
 
 #include "BuildableAutoSupport.h"
 
+#include "DrawDebugHelpers.h"
+#include "FGBlueprintHologram.h"
+#include "FGBlueprintProxy.h"
+#include "FGBlueprintSubsystem.h"
+#include "FGBuildableHologram.h"
+#include "FGBuildEffectActor.h"
 #include "FGBuildingDescriptor.h"
 #include "FGColoredInstanceMeshProxy.h"
+#include "FGConstructDisqualifier.h"
 #include "FGHologram.h"
+#include "FGPlayerController.h"
+#include "FGRecipeManager.h"
+#include "FGWaterVolume.h"
 #include "LandscapeProxy.h"
 #include "ModBlueprintLibrary.h"
 #include "ModLogging.h"
-#include "DrawDebugHelpers.h"
-#include "FGWaterVolume.h"
+#include "Components/BoxComponent.h"
 
 const FVector ABuildableAutoSupport::MaxPartSize = FVector(800, 800, 800);
 
@@ -21,6 +30,8 @@ ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectIni
 
 void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 {
+	check(BuildInstigator)
+	
 	if (!AutoSupportData.MiddlePartDescriptor.IsValid() && !AutoSupportData.StartPartDescriptor.IsValid() && !AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		// Nothing to build.
@@ -53,16 +64,18 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	WorkingTransform.AddToTranslation(Plan.RelativeLocation);
 	WorkingTransform.SetRotation(WorkingTransform.Rotator().Add(Plan.RelativeRotation.Pitch, Plan.RelativeRotation.Yaw, Plan.RelativeRotation.Roll).Quaternion());
 
+	AFGHologram* RootHologram = nullptr; // we'll assign this while building
+	
 	if (Plan.StartPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Building Start Part, Orientation: %i"), static_cast<int32>(AutoSupportData.StartPartOrientation));
-		BuildPartPlan(Buildables, Plan.StartPart, BuildInstigator, WorkingTransform);
+		BuildPartPlan(RootHologram, Plan.StartPart, BuildInstigator, WorkingTransform);
 	}
 
 	if (Plan.MidPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Building Mid Parts, Orientation: %i"), static_cast<int32>(AutoSupportData.MiddlePartOrientation));
-		BuildPartPlan(Buildables, Plan.MidPart, BuildInstigator, WorkingTransform);
+		BuildPartPlan(RootHologram, Plan.MidPart, BuildInstigator, WorkingTransform);
 	}
 
 	if (Plan.EndPart.IsActionable())
@@ -70,23 +83,71 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Building End Part, Orientation: %i"), static_cast<int32>(AutoSupportData.EndPartOrientation));
 		WorkingTransform.AddToTranslation(Plan.EndPartPositionOffset);
 		
-		BuildPartPlan(Buildables, Plan.EndPart, BuildInstigator, WorkingTransform);
+		BuildPartPlan(RootHologram, Plan.EndPart, BuildInstigator, WorkingTransform);
 	}
+
+	check(RootHologram);
+	
+	RootHologram->FinishSpawning(WorkingTransform);
+	
+	TArray<TSubclassOf<UFGConstructDisqualifier>> disqualifiers;
+	RootHologram->GetConstructDisqualifiers(disqualifiers);
+
+	for (auto& disqualifier : disqualifiers)
+	{
+		MOD_LOG(Verbose, TEXT("Disqualifier: %s"), *UFGConstructDisqualifier::GetDisqualifyingText(disqualifier).ToString())
+	}
+	
+	// Construct
+	TArray<AActor*> ChildActors;
+	RootHologram->Construct(ChildActors, Buildables->GetNewNetConstructionID());
+
+	AFGBlueprintProxy* Proxy = GetWorld()->SpawnActorDeferred<AFGBlueprintProxy>(AFGBlueprintProxy::StaticClass(), RootHologram->GetActorTransform(), this, BuildInstigator);
+	Proxy->mBlueprintName = INVTEXT("BuildableAutoSupportFakeName");
+
+	FBlueprintRecord FakeRecord;
+	FakeRecord.BlueprintName = FString(TEXT("BuildableAutoSupportFakeName"));
+
+	FBlueprintHeader FakeHeader;
+	FakeHeader.BlueprintName = FString(TEXT("BuildableAutoSupportFakeName"));
+	FakeHeader.Dimensions = FIntVector(2000, 2000, 2000);
+	
+	Proxy->mBlueprintDescriptor = AFGBlueprintSubsystem::Get(GetWorld())->CreateBlueprintDescriptor(FakeRecord, FakeHeader, false);
+
+	FBox GroupBounds(ForceInit);
+	for (auto* ChildActor : ChildActors)
+	{
+		auto* Buildable = CastChecked<AFGBuildable>(ChildActor);
+		
+		Buildable->SetBlueprintProxy(Proxy);
+		Buildable->SetParentBuildableActor(Proxy);
+		Proxy->RegisterBuildable(Buildable);
+		
+		FBox PartBounds = Buildable->GetCombinedClearanceBox();
+
+		GroupBounds += PartBounds;
+		
+		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Child Buildable: %s, %s, %s, %s"), *Buildable->GetName(), TEXT_CONDITION(Buildable->ShouldConvertToLightweight()), *PartBounds.ToString(), TEXT_CONDITION(Buildable->GetBlueprintProxy() == nullptr));
+	}
+	
+	Proxy->mLocalBounds = GroupBounds;
+	
+	Proxy->FinishSpawning(RootHologram->GetActorTransform());
+	
+	Proxy->ValidateExistanceOtherwiseSelfDestruct();
+
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Completed, Bounds: %s, %"), *GroupBounds.ToString(), TEXT_CONDITION(Proxy->GetBlueprintDescriptor() == nullptr));
 	
 	// Dismantle self
 	Execute_Dismantle(this);
 }
 
 void ABuildableAutoSupport::BuildPartPlan(
-	AFGBuildableSubsystem* Buildables,
+	AFGHologram*& ParentHologram,
 	const FAutoSupportBuildPlanPartData& PartPlan,
 	APawn* BuildInstigator,
-	FTransform& WorkingTransform) const
+	FTransform& WorkingTransform)
 {
-	const TSubclassOf<AFGBuildable> BuildableClass = PartPlan.BuildableClass;
-	UClass* HologramClass = UFGBuildDescriptor::GetHologramClass(PartPlan.PartDescriptorClass);
-	auto* World = GetWorld();
-	
 	for (auto i = 0; i < PartPlan.Count; ++i)
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Spawning part. Start Transform: %s"), *WorkingTransform.ToString());
@@ -101,33 +162,39 @@ void ABuildableAutoSupport::BuildPartPlan(
 		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(PartPlan.Rotation.Pitch, PartPlan.Rotation.Yaw, PartPlan.Rotation.Roll).Quaternion());
 		SpawnTransform.AddToTranslation(PartPlan.RotationalPositionOffset);
 
-		auto* Buildable = Buildables->BeginSpawnBuildable(BuildableClass, SpawnTransform);
-		Buildable->FinishSpawning(SpawnTransform);
-
-		/** Spawns a hologram from recipe */
-		// static AFGHologram* SpawnHologramFromRecipe( TSubclassOf< class UFGRecipe > inRecipe, AActor* hologramOwner, const FVector& spawnLocation, APawn* hologramInstigator = nullptr, const TFunction< void( AFGHologram* ) >& preSpawnFunction = nullptr );
+		if (ParentHologram)
+		{
+			AFGHologram::SpawnChildHologramFromRecipe(
+				ParentHologram,
+				FName(FGuid::NewGuid().ToString()),
+				PartPlan.BuildRecipeClass,
+				this,
+				SpawnTransform.GetLocation(),
+				[&](AFGHologram* PreSpawnHolo)
+			{
+				PreSpawnHolo->SetActorRotation(SpawnTransform.GetRotation());
+				PreSpawnHolo->DoMultiStepPlacement(false);
+			});
+		}
+		else
+		{
+			ParentHologram = AFGHologram::SpawnHologramFromRecipe(
+				PartPlan.BuildRecipeClass,
+				this,
+				SpawnTransform.GetLocation(),
+				BuildInstigator,
+				[&](AFGHologram* PreSpawnHolo)
+			{
+				PreSpawnHolo->SetActorRotation(SpawnTransform.GetRotation());
+				PreSpawnHolo->DoMultiStepPlacement(false);
+				PreSpawnHolo->SetShouldSpawnChildHolograms(true);
+			});
+		}
 		
-		// auto* Hologram = World->SpawnActorDeferred<AFGBuildableHologram>(
-		// 	HologramClass,
-		// 	SpawnTransform,
-		// 	nullptr,
-		// 	Instigator);
-		//
-		// Hologram->SetBuildableClass(BuildableClass);
-		//
-		// Hologram->FinishSpawning(SpawnTransform);
-		
-		// TODO(k.a): play build effects and sounds
-		// Buildable->PlayBuildEffects(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-
-		// TODO(k.a): See if we can hook this into blueprint dismantle mode
-
 		// Update the transform
 		WorkingTransform.AddToTranslation(PartPlan.AfterPartPositionOffset);
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Next Transform: %s"), *WorkingTransform.ToString());
 	}
-
-	// TODO: subtract resources from inventory ( hologram/build gun might be responsibile for this.)
 }
 
 #pragma region IFGSaveInterface
@@ -142,8 +209,6 @@ void ABuildableAutoSupport::PreSaveGame_Implementation(int32 saveVersion, int32 
 	Super::PreSaveGame_Implementation(saveVersion, gameVersion);
 	
 	AutoSupportData.ClearInvalidReferences();
-
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PreSaveGame Start, Mid, End Orientation: %i,%i,%i"), AutoSupportData.StartPartOrientation, AutoSupportData.MiddlePartOrientation, AutoSupportData.EndPartOrientation);
 }
 
 void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
@@ -151,8 +216,6 @@ void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32
 	Super::PostLoadGame_Implementation(saveVersion, gameVersion);
 	
 	AutoSupportData.ClearInvalidReferences();
-
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PostLoadGame Start, Mid, End Orientation: %i,%i,%i"), AutoSupportData.StartPartOrientation, AutoSupportData.MiddlePartOrientation, AutoSupportData.EndPartOrientation);
 }
 
 #pragma endregion
@@ -296,6 +359,41 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	return Result;
 }
 
+bool ABuildableAutoSupport::PlanSinglePart(
+	const FAutoSupportTraceResult& TraceResult,
+	TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
+	const EAutoSupportBuildDirection PartOrientation,
+	FAutoSupportBuildPlanPartData& Plan,
+	float& OutSinglePartConsumedBuildSpace,
+	const AFGRecipeManager* RecipeManager) const
+{
+	Plan.PartDescriptorClass = PartDescriptorClass;
+	Plan.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(PartDescriptorClass);
+	UAutoSupportBlueprintLibrary::GetBuildableClearance(Plan.BuildableClass, Plan.BBox);
+		
+	// StartSize.Z > 0 && StartSize.Z <= MaxPartHeight
+	PlanPartPositioning(
+		Plan.BBox,
+		PartOrientation,
+		TraceResult.Direction,
+		OutSinglePartConsumedBuildSpace,
+		Plan);
+
+	// Should only be 1 recipe for a buildable...
+	auto StartPartRecipeClasses = RecipeManager->FindRecipesByProduct(Plan.PartDescriptorClass, true, true);
+	check(StartPartRecipeClasses.Num() <= 1);
+
+	if (const auto StartPartRecipeClass = StartPartRecipeClasses.Num() > 0 ? StartPartRecipeClasses[0] : nullptr; OutSinglePartConsumedBuildSpace > 0)
+	{
+		Plan.BuildRecipeClass = StartPartRecipeClass;
+		Plan.Count = 1;
+		return true;
+	}
+
+	Plan.Count = 0;
+	return false;
+}
+
 void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult, OUT FAutoSupportBuildPlan& OutPlan) const
 {
 	OutPlan = FAutoSupportBuildPlan();
@@ -307,29 +405,23 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 	// Plan the parts.
 	auto RemainingBuildDistance = TraceResult.BuildDistance;
 	float SinglePartConsumedBuildSpace = 0;
+
+	const auto* RecipeManager = AFGRecipeManager::Get(GetWorld());
 	
 	// Start with the top because that's where the auto support is planted.
 	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Planning Start Part Positioning"));
-		OutPlan.StartPart.PartDescriptorClass = AutoSupportData.StartPartDescriptor.Get();
-		OutPlan.StartPart.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.StartPartDescriptor.Get());
-		UAutoSupportBlueprintLibrary::GetBuildableClearance(OutPlan.StartPart.BuildableClass, OutPlan.StartPart.BBox);
-		
-		// StartSize.Z > 0 && StartSize.Z <= MaxPartHeight
-		PlanPartPositioning(
-			OutPlan.StartPart.BBox,
-			AutoSupportData.StartPartOrientation,
-			TraceResult.Direction,
-			SinglePartConsumedBuildSpace,
-			OutPlan.StartPart);
-		
-		RemainingBuildDistance -= SinglePartConsumedBuildSpace;
-		OutPlan.StartPart.Count = 1;
-
-		if (RemainingBuildDistance < 0)
+		if (PlanSinglePart(TraceResult, AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, OutPlan.StartPart, SinglePartConsumedBuildSpace, RecipeManager))
 		{
-			return;
+			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
+
+			OutPlan.StartPart.Count = 1;
+		
+			if (RemainingBuildDistance < 0)
+			{
+				return;
+			}
 		}
 	}
 	
@@ -337,60 +429,38 @@ void ABuildableAutoSupport::PlanBuild(const FAutoSupportTraceResult& TraceResult
 	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Planning End Part Positioning"));
-		OutPlan.EndPart.PartDescriptorClass = AutoSupportData.EndPartDescriptor.Get();
-		OutPlan.EndPart.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.EndPartDescriptor.Get());
-		UAutoSupportBlueprintLibrary::GetBuildableClearance(OutPlan.EndPart.BuildableClass, OutPlan.EndPart.BBox);
-		
-		FVector Discarded;
-		PlanPartPositioning(
-			OutPlan.EndPart.BBox,
-			AutoSupportData.EndPartOrientation,
-			TraceResult.Direction,
-			SinglePartConsumedBuildSpace,
-			OutPlan.EndPart);
-
-		RemainingBuildDistance -= SinglePartConsumedBuildSpace;
-		OutPlan.EndPart.Count = 1;
-
-		// TODO(k.a): set end positional offset
-
-		if (RemainingBuildDistance < 0)
+		if (PlanSinglePart(TraceResult, AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, OutPlan.EndPart, SinglePartConsumedBuildSpace, RecipeManager))
 		{
-			// Not enough room for more.
-			return;
+			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
+
+			OutPlan.EndPart.Count = 1;
+		
+			if (RemainingBuildDistance < 0)
+			{
+				return;
+			}
 		}
 	}
 	
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Planning Mid Part Positioning"));
-		OutPlan.MidPart.PartDescriptorClass = AutoSupportData.MiddlePartDescriptor.Get();
-		OutPlan.MidPart.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.MiddlePartDescriptor.Get());
-		UAutoSupportBlueprintLibrary::GetBuildableClearance(OutPlan.MidPart.BuildableClass, OutPlan.MidPart.BBox);
-		
-		float SingleMidPartConsumedSpace = 0;
-		PlanPartPositioning(
-			OutPlan.MidPart.BBox,
-			AutoSupportData.MiddlePartOrientation,
-			TraceResult.Direction,
-			SingleMidPartConsumedSpace,
-			OutPlan.MidPart);
-		
-		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SingleMidPartConsumedSpace);
-		RemainingBuildDistance -= NumMiddleParts * SingleMidPartConsumedSpace;
-
-		auto IsNearlyPerfectFit = RemainingBuildDistance <= 1.f;
-
-		if (!IsNearlyPerfectFit)
+		if (PlanSinglePart(TraceResult, AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, OutPlan.MidPart, SinglePartConsumedBuildSpace, RecipeManager))
 		{
-			NumMiddleParts++; // build an extra to fill the gap.
-			// Offset the end part to be flush with where the line trace hit or ended. We built an extra part so the direction is negative. We don't need to worry about the end part size because it was already subtracted from build distance.
-			OutPlan.EndPartPositionOffset = -TraceResult.Direction * (SingleMidPartConsumedSpace - RemainingBuildDistance);
+			auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
+			RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
+
+			auto IsNearlyPerfectFit = RemainingBuildDistance <= 1.f;
+			if (!IsNearlyPerfectFit)
+			{
+				NumMiddleParts++; // build an extra to fill the gap.
+				// Offset the end part to be flush with where the line trace hit or ended. We built an extra part so the direction is negative. We don't need to worry about the end part size because it was already subtracted from build distance.
+				OutPlan.EndPartPositionOffset = -TraceResult.Direction * (SinglePartConsumedBuildSpace - RemainingBuildDistance);
+			}
+		
+			MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *OutPlan.MidPart.BBox.GetSize().ToString(), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
+			OutPlan.MidPart.Count = NumMiddleParts;
 		}
-		
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::PlanBuild Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *OutPlan.MidPart.BBox.GetSize().ToString(), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
-		
-		OutPlan.MidPart.Count = NumMiddleParts;
 	}
 }
 
