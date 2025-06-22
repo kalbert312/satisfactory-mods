@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
+#include "FGRecipeManager.h"
 #include "ModTypes.h"
 #include "ModBlueprintLibrary.generated.h"
 
@@ -14,6 +16,9 @@ class AUTOSUPPORT_API UAutoSupportBlueprintLibrary : public UBlueprintFunctionLi
 	GENERATED_BODY()
 
 public:
+
+#pragma region Building Helpers
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static EAutoSupportBuildDirection GetOppositeDirection(EAutoSupportBuildDirection Direction);
 
@@ -27,11 +32,47 @@ public:
 	static void GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static void PlanBuild(UWorld* World, const FAutoSupportTraceResult& TraceResult, const FBuildableAutoSupportData& AutoSupportData, FAutoSupportBuildPlan& OutPlan);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static AFGHologram* CreateCompositeHologramFromPlan(const FAutoSupportBuildPlan& Plan, const FTransform& Transform, APawn* BuildInstigator, AActor* Owner);
+
+#pragma endregion
+
+#pragma region Inventory Helpers
+	
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static bool CanAffordItemBill(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot);
 	
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static void PayItemBill(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot, bool bTakeFromInventoryFirst);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
-	static bool PayItemBillIfAffordable(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot, bool bTakeFromInventoryFirst);
+	static bool PayItemBillIfAffordable(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot);
+
+#pragma endregion 
+
+private:
+	
+	static void SpawnPartPlanHolograms(
+		AFGHologram*& ParentHologram,
+		const FAutoSupportBuildPlanPartData& PartPlan,
+		APawn* BuildInstigator,
+		AActor* Owner,
+		FTransform& WorkingTransform);
+	
+	static bool PlanSinglePart(
+		const FAutoSupportTraceResult& TraceResult,
+		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
+		EAutoSupportBuildDirection PartOrientation,
+		FAutoSupportBuildPlanPartData& Plan,
+		float& OutSinglePartConsumedBuildSpace,
+		const AFGRecipeManager* RecipeManager);
+	
+	static void PlanPartPositioning(
+		const FBox& PartBBox,
+		EAutoSupportBuildDirection PartOrientation,
+		const FVector& Direction,
+		float& OutConsumedBuildSpace,
+		FAutoSupportBuildPlanPartData& Plan);
 };

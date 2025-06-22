@@ -4,10 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "BuildableAutoSupport_Types.h"
-#include "FGBuildable.h"
 #include "FGBuildableFactoryBuilding.h"
-#include "FGFactoryHologram.h"
-#include "FGRecipeManager.h"
 #include "BuildableAutoSupport.generated.h"
 
 class UFGBuildingDescriptor;
@@ -24,21 +21,24 @@ public:
 	ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	/**
-	 * Traces and creates a build plan
-	 * @param OutPlan 
-	 * @return 
+	 * Traces and creates a build plan.
+	 * @param OutPlan The plan
+	 * @return True if a plan was initialized.
 	 */
 	UFUNCTION(BlueprintCallable)
 	bool TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) const;
 
+	/**
+	 * The current auto support configuration for this actor.
+	 */
 	UPROPERTY(BlueprintReadWrite, SaveGame)
 	FBuildableAutoSupportData AutoSupportData;
 	
 	/**
-	 * Builds the supports based on the provided configuration.
+	 * Builds the supports based on the provided configuration. Requires a build instigator.
 	 */
 	UFUNCTION(BlueprintCallable)
-	void BuildSupports(APawn* BuildInstigator = nullptr);
+	void BuildSupports(APawn* BuildInstigator);
 
 #pragma region IFGSaveInterface
 	
@@ -75,44 +75,9 @@ protected:
 	 * @return The free distance.
 	 */
 	FAutoSupportTraceResult Trace() const;
-	
-	/**
-	 * Plans the build. Determines cost and provides some build dimensions.
-	 * @param TraceResult The trace result.
-	 * @param OutPlan The output build plan.
-	 */
-	void PlanBuild(const FAutoSupportTraceResult& TraceResult, FAutoSupportBuildPlan& OutPlan) const;
-
-	bool PlanSinglePart(
-		const FAutoSupportTraceResult& TraceResult,
-		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
-		EAutoSupportBuildDirection PartOrientation,
-		FAutoSupportBuildPlanPartData& Plan,
-		float& OutSinglePartConsumedBuildSpace,
-		const AFGRecipeManager* RecipeManager) const;
-
-	/**
-	 * Builds the parts using the working transform as a moving spawn point.
-	 * @param ParentHologram
-	 * @param PartPlan
-	 * @param BuildInstigator
-	 * @param WorkingTransform The spawn point of the part.
-	 */
-	void BuildPartPlan(
-		AFGHologram*& ParentHologram,
-		const FAutoSupportBuildPlanPartData& PartPlan,
-		APawn* BuildInstigator,
-		FTransform& WorkingTransform);
 
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
 	FORCEINLINE FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;
-	
-	static void PlanPartPositioning(
-		const FBox& PartBBox,
-		EAutoSupportBuildDirection PartOrientation,
-		const FVector& Direction,
-		float& OutConsumedBuildSpace,
-		FAutoSupportBuildPlanPartData& Plan);
 };
 
 UCLASS(Blueprintable)

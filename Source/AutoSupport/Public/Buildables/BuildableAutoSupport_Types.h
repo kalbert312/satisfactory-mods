@@ -180,6 +180,12 @@ struct FAutoSupportBuildPlanPartData
 	UPROPERTY()
 	FVector AfterPartPositionOffset = FVector::ZeroVector;
 
+	/**
+	 * The configured part orientation.
+	 */
+	UPROPERTY()
+	EAutoSupportBuildDirection Orientation;
+
 	FORCEINLINE bool IsUnspecified() const
 	{
 		return PartDescriptorClass == nullptr;
