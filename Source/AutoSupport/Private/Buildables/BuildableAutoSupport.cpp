@@ -2,13 +2,11 @@
 
 #include "BuildableAutoSupport.h"
 
+#include "AutoSupportModSubsystem.h"
 #include "DrawDebugHelpers.h"
-#include "FGBlueprintHologram.h"
 #include "FGBlueprintProxy.h"
-#include "FGBlueprintSubsystem.h"
-#include "FGBuildableHologram.h"
-#include "FGBuildEffectActor.h"
 #include "FGBuildingDescriptor.h"
+#include "FGCentralStorageSubsystem.h"
 #include "FGColoredInstanceMeshProxy.h"
 #include "FGConstructDisqualifier.h"
 #include "FGHologram.h"
@@ -18,7 +16,7 @@
 #include "LandscapeProxy.h"
 #include "ModBlueprintLibrary.h"
 #include "ModLogging.h"
-#include "Components/BoxComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 const FVector ABuildableAutoSupport::MaxPartSize = FVector(800, 800, 800);
 
@@ -28,36 +26,40 @@ ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectIni
 	mMeshComponentProxy->SetupAttachment(RootComponent);
 }
 
-void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
+bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) const
 {
-	check(BuildInstigator)
-	
 	if (!AutoSupportData.MiddlePartDescriptor.IsValid() && !AutoSupportData.StartPartDescriptor.IsValid() && !AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		// Nothing to build.
-		return;
+		return false;
 	}
 	
 	// Trace to know how much we're going to build.
 	const auto TraceResult = Trace();
 
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports BuildDistance: %f, IsTerrainHit: %s, Direction: %s"), TraceResult.BuildDistance, TEXT_CONDITION(TraceResult.IsLandscapeHit), *TraceResult.Direction.ToString());
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::TraceAndCreatePlan BuildDistance: %f, IsTerrainHit: %s, Direction: %s"), TraceResult.BuildDistance, TEXT_CONDITION(TraceResult.IsLandscapeHit), *TraceResult.Direction.ToString());
 
 	if (FMath::IsNearlyZero(TraceResult.BuildDistance))
 	{
 		// No room to build.
-		return;
+		return true;
 	}
-	
+
+	PlanBuild(TraceResult, OutPlan);
+	return true;
+}
+
+void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
+{
 	FAutoSupportBuildPlan Plan;
-	PlanBuild(TraceResult, Plan);
-	
-	// Check that the player building it has enough resources
-	if (!Plan.IsActionable())
+	if (!TraceAndCreatePlan(Plan))
 	{
+		// Nothing planned
 		return;
 	}
-	
+
+	AFGCharacterPlayer* Player = CastChecked<AFGCharacterPlayer>(BuildInstigator);
+
 	// Build the parts
 	auto* Buildables = AFGBuildableSubsystem::Get(GetWorld());
 	auto WorkingTransform = GetActorTransform();
@@ -87,9 +89,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	}
 
 	check(RootHologram);
-	
-	RootHologram->FinishSpawning(WorkingTransform);
-	
+
 	TArray<TSubclassOf<UFGConstructDisqualifier>> disqualifiers;
 	RootHologram->GetConstructDisqualifiers(disqualifiers);
 
@@ -98,30 +98,23 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		MOD_LOG(Verbose, TEXT("Disqualifier: %s"), *UFGConstructDisqualifier::GetDisqualifyingText(disqualifier).ToString())
 	}
 	
+	const auto* PlayerState = Player->GetPlayerStateChecked<AFGPlayerState>();
+	const auto BillOfParts = RootHologram->GetCost(true);
+	
+	if (!UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(Player, BillOfParts, true, PlayerState->GetTakeFromInventoryBeforeCentralStorage()))
+	{
+		RootHologram->Destroy();
+		return;
+	}
+	
 	// Construct
 	TArray<AActor*> ChildActors;
 	RootHologram->Construct(ChildActors, Buildables->GetNewNetConstructionID());
-
-	AFGBlueprintProxy* Proxy = GetWorld()->SpawnActorDeferred<AFGBlueprintProxy>(AFGBlueprintProxy::StaticClass(), RootHologram->GetActorTransform(), this, BuildInstigator);
-	Proxy->mBlueprintName = INVTEXT("BuildableAutoSupportFakeName");
-
-	FBlueprintRecord FakeRecord;
-	FakeRecord.BlueprintName = FString(TEXT("BuildableAutoSupportFakeName"));
-
-	FBlueprintHeader FakeHeader;
-	FakeHeader.BlueprintName = FString(TEXT("BuildableAutoSupportFakeName"));
-	FakeHeader.Dimensions = FIntVector(2000, 2000, 2000);
-	
-	Proxy->mBlueprintDescriptor = AFGBlueprintSubsystem::Get(GetWorld())->CreateBlueprintDescriptor(FakeRecord, FakeHeader, false);
 
 	FBox GroupBounds(ForceInit);
 	for (auto* ChildActor : ChildActors)
 	{
 		auto* Buildable = CastChecked<AFGBuildable>(ChildActor);
-		
-		Buildable->SetBlueprintProxy(Proxy);
-		Buildable->SetParentBuildableActor(Proxy);
-		Proxy->RegisterBuildable(Buildable);
 		
 		FBox PartBounds = Buildable->GetCombinedClearanceBox();
 
@@ -129,14 +122,8 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		
 		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Child Buildable: %s, %s, %s, %s"), *Buildable->GetName(), TEXT_CONDITION(Buildable->ShouldConvertToLightweight()), *PartBounds.ToString(), TEXT_CONDITION(Buildable->GetBlueprintProxy() == nullptr));
 	}
-	
-	Proxy->mLocalBounds = GroupBounds;
-	
-	Proxy->FinishSpawning(RootHologram->GetActorTransform());
-	
-	Proxy->ValidateExistanceOtherwiseSelfDestruct();
 
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Completed, Bounds: %s, %"), *GroupBounds.ToString(), TEXT_CONDITION(Proxy->GetBlueprintDescriptor() == nullptr));
+	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Completed, Bounds: %s, %"), *GroupBounds.ToString());
 	
 	// Dismantle self
 	Execute_Dismantle(this);
@@ -223,6 +210,12 @@ void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32
 void ABuildableAutoSupport::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (GetBlueprintProxy())
+	{
+		bAutoConfigure = false;
+		BuildSupports(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+	}
 
 	if (bAutoConfigure)
 	{

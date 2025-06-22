@@ -2,6 +2,10 @@
 #include "ModBlueprintLibrary.h"
 
 #include "FGBuildable.h"
+#include "FGCentralStorageSubsystem.h"
+#include "FGCharacterPlayer.h"
+#include "FGInventoryLibrary.h"
+#include "ModLogging.h"
 
 EAutoSupportBuildDirection UAutoSupportBlueprintLibrary::GetOppositeDirection(const EAutoSupportBuildDirection Direction)
 {
@@ -81,4 +85,82 @@ void UAutoSupportBlueprintLibrary::GetBuildableClearance(TSubclassOf<AFGBuildabl
 {
 	const auto Buildable = GetDefault<AFGBuildable>(BuildableClass);
 	OutBox = Buildable->GetCombinedClearanceBox();
+}
+
+bool UAutoSupportBlueprintLibrary::CanAffordItemBill(
+	AFGCharacterPlayer* Player,
+	const TArray<FItemAmount>& BillOfParts,
+	bool bTakeFromDepot)
+{
+	auto* World = Player->GetWorld();
+	const auto* Inventory = Player->GetInventory();
+	
+	if (Inventory->GetNoBuildCost())
+	{
+		MOD_LOG(Verbose, TEXT("CanAffordItemBill There's no build cost. Returning true"))
+		return true;
+	}
+
+	auto* CentralStorageSys = AFGCentralStorageSubsystem::Get(World);
+
+	for (const auto& BillOfPart : BillOfParts)
+	{
+		const auto InvAvailableNum = Inventory->GetNumItems(BillOfPart.ItemClass);
+		
+		const auto AvailableNum = bTakeFromDepot
+			? InvAvailableNum + CentralStorageSys->GetNumItemsFromCentralStorage(BillOfPart.ItemClass)
+			: InvAvailableNum;
+
+		MOD_LOG(Verbose, TEXT("CanAffordBuildPlan Item [%s] Cost: %i, Available %i"), *BillOfPart.ItemClass->GetName(), BillOfPart.Amount, AvailableNum)
+
+		if (AvailableNum < BillOfPart.Amount)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void UAutoSupportBlueprintLibrary::PayItemBill(
+	AFGCharacterPlayer* Player,
+	const TArray<FItemAmount>& BillOfParts,
+	bool bTakeFromDepot,
+	bool bTakeFromInventoryFirst)
+{
+	auto* Inventory = Player->GetInventory();
+
+	if (Inventory->GetNoBuildCost())
+	{
+		return;
+	}
+	
+	auto* CentralStorageSys = AFGCentralStorageSubsystem::Get(Player->GetWorld());
+	
+	for (auto& PartBill : BillOfParts)
+	{
+		if (bTakeFromDepot)
+		{
+			UFGInventoryLibrary::GrabItemsFromInventoryAndCentralStorage(Inventory, CentralStorageSys, bTakeFromInventoryFirst, PartBill.ItemClass, PartBill.Amount);
+		}
+		else
+		{
+			Inventory->Remove(PartBill.ItemClass, PartBill.Amount);
+		}
+	}
+}
+
+bool UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(
+	AFGCharacterPlayer* Player,
+	const TArray<FItemAmount>& BillOfParts,
+	const bool bTakeFromDepot,
+	const bool bTakeFromInventoryFirst)
+{
+	if (CanAffordItemBill(Player, BillOfParts, bTakeFromDepot))
+	{
+		PayItemBill(Player, BillOfParts, bTakeFromDepot, bTakeFromInventoryFirst);
+		return true;
+	}
+
+	return false;
 }

@@ -2,6 +2,10 @@
 
 #include "AutoSupportModSubsystem.h"
 
+#include "AutoSupportGameWorldModule.h"
+#include "WorldModuleManager.h"
+#include "Subsystem/SubsystemActorManager.h"
+
 #pragma region IFGSaveInterface
 
 void AAutoSupportModSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
@@ -71,6 +75,33 @@ void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 }
 
 #pragma endregion
+
+AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
+{
+	auto* WorldModuleManager = World->GetSubsystem<UWorldModuleManager>();
+	auto* WorldModule = CastChecked<UAutoSupportGameWorldModule>(WorldModuleManager->FindModule(FName("AutoSupport")));
+
+	// Make sure we retrieve the blueprint version
+	UClass* ImplClass = nullptr;
+	for (const auto& ModSubsystemClass : WorldModule->ModSubsystems)
+	{
+		if (ModSubsystemClass->IsChildOf<AAutoSupportModSubsystem>())
+		{
+			ImplClass = ModSubsystemClass;
+			break;
+		}
+	}
+
+	if (!ImplClass)
+	{
+		return nullptr;
+	}
+
+	check(ImplClass)
+	
+	auto* SubsystemActorManager = World->GetSubsystem<USubsystemActorManager>();
+	return CastChecked<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
+}
 
 bool AAutoSupportModSubsystem::IsValidAutoSupportPresetName(FString PresetName, OUT FString& OutName, OUT FText& OutError)
 {

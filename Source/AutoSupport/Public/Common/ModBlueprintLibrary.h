@@ -25,4 +25,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static void GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static bool CanAffordItemBill(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot);
+	
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static void PayItemBill(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot, bool bTakeFromInventoryFirst);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static bool PayItemBillIfAffordable(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot, bool bTakeFromInventoryFirst);
 };

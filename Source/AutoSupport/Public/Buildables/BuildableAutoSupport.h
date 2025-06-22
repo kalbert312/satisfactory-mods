@@ -23,6 +23,14 @@ public:
 	
 	ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	/**
+	 * Traces and creates a build plan
+	 * @param OutPlan 
+	 * @return 
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) const;
+
 	UPROPERTY(BlueprintReadWrite, SaveGame)
 	FBuildableAutoSupportData AutoSupportData;
 	
@@ -73,7 +81,7 @@ protected:
 	 * @param TraceResult The trace result.
 	 * @param OutPlan The output build plan.
 	 */
-	void PlanBuild(const FAutoSupportTraceResult& TraceResult, OUT FAutoSupportBuildPlan& OutPlan) const;
+	void PlanBuild(const FAutoSupportTraceResult& TraceResult, FAutoSupportBuildPlan& OutPlan) const;
 
 	bool PlanSinglePart(
 		const FAutoSupportTraceResult& TraceResult,
@@ -98,6 +106,7 @@ protected:
 
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
 	FORCEINLINE FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;
+	
 	static void PlanPartPositioning(
 		const FBox& PartBBox,
 		EAutoSupportBuildDirection PartOrientation,

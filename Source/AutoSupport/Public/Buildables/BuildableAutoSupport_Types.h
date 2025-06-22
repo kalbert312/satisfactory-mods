@@ -242,4 +242,3 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 		return (MidPart.IsUnspecified() || MidPart.IsActionable()) && (StartPart.IsUnspecified() || StartPart.IsActionable()) && (EndPart.IsUnspecified() || EndPart.IsActionable());
 	}
 };
-

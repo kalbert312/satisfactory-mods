@@ -14,6 +14,8 @@ class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IF
 	GENERATED_BODY()
 
 public:
+	static AAutoSupportModSubsystem* Get(const UWorld* World);
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	static bool IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError);
 
