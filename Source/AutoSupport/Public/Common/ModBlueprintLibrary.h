@@ -37,6 +37,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static AFGHologram* CreateCompositeHologramFromPlan(const FAutoSupportBuildPlan& Plan, const FTransform& Transform, APawn* BuildInstigator, AActor* Owner);
 
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static bool IsPlanActionable(const FAutoSupportBuildPlan& Plan);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static bool IsPartPlanUnspecified(const FAutoSupportBuildPlanPartData& PartPlan);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static bool IsPartPlanActionable(const FAutoSupportBuildPlanPartData& PartPlan);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static void GetTotalCost(const FAutoSupportBuildPlan& Plan, TArray<FItemAmount>& OutCost);
+
 #pragma endregion
 
 #pragma region Inventory Helpers

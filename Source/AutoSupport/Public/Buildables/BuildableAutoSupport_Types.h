@@ -129,63 +129,63 @@ struct FAutoSupportBuildPlanPartData
 	/**
 	 * The part's descriptor.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass = nullptr;
 
 	/**
 	 * The class of the part.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<AFGBuildable> BuildableClass = nullptr;
 
 	/**
 	 * The recipe used when building.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<UFGRecipe> BuildRecipeClass = nullptr;
 	
 	/**
 	 * The amount of it to build.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	int Count = 0;
 	
 	/**
 	 * The BBox data for the start part.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FBox BBox = FBox(ForceInit);
 
 	/**
 	 * The build position offset.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FVector BuildPositionOffset = FVector::ZeroVector;
 	
 	/**
 	 * Positional offset applied before and after part rotation.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FVector RotationalPositionOffset = FVector::ZeroVector;
 	
 	/**
 	 * Relative rotation to apply to part.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FRotator Rotation = FRotator::ZeroRotator;
 
 	/**
 	 * World direction aware next part position offset after part is built.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FVector AfterPartPositionOffset = FVector::ZeroVector;
 
 	/**
 	 * The configured part orientation.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	EAutoSupportBuildDirection Orientation;
-
+	
 	FORCEINLINE bool IsUnspecified() const
 	{
 		return PartDescriptorClass == nullptr;
@@ -205,37 +205,37 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	/**
 	 * The relative translation to apply to a copy of the actor transform to building.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FVector RelativeLocation = FVector::ZeroVector;
 
 	/**
 	 * The relative rotation to apply to a copy of the actor transform to begin building.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FRotator RelativeRotation = FRotator::ZeroRotator;
 	
 	/**
 	 * Plan for start parts.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FAutoSupportBuildPlanPartData StartPart;
 
 	/**
 	 * Plan for mid parts.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FAutoSupportBuildPlanPartData MidPart;
 
 	/**
 	 * Plan for end parts.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FAutoSupportBuildPlanPartData EndPart;
 	
 	/**
 	 * The world direction-aware position offset to build the end part at to make it seated correctly.
 	 */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	FVector EndPartPositionOffset = FVector::ZeroVector;
 	
 	FORCEINLINE bool IsActionable() const

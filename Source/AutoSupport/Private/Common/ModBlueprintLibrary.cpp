@@ -200,6 +200,61 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	}
 }
 
+bool UAutoSupportBlueprintLibrary::IsPlanActionable(const FAutoSupportBuildPlan& Plan)
+{
+	return Plan.IsActionable();
+}
+
+bool UAutoSupportBlueprintLibrary::IsPartPlanUnspecified(const FAutoSupportBuildPlanPartData& PartPlan)
+{
+	return PartPlan.IsUnspecified();
+}
+
+bool UAutoSupportBlueprintLibrary::IsPartPlanActionable(const FAutoSupportBuildPlanPartData& PartPlan)
+{
+	return PartPlan.IsActionable();
+}
+
+void UAutoSupportBlueprintLibrary::GetTotalCost(const FAutoSupportBuildPlan& Plan, TArray<FItemAmount>& OutCost)
+{
+	OutCost.Empty();
+
+	TMap<TSubclassOf<UFGItemDescriptor>, int32> ItemCounts;
+	
+	if (Plan.StartPart.IsActionable())
+	{
+		const auto StartCosts = UFGRecipe::GetIngredients(Plan.StartPart.BuildRecipeClass);
+		for (const auto& StartCostEnt : StartCosts)
+		{
+			ItemCounts.Add(StartCostEnt.ItemClass, ItemCounts.FindRef(StartCostEnt.ItemClass) + StartCostEnt.Amount * Plan.StartPart.Count);
+		}
+	}
+
+	if (Plan.MidPart.IsActionable())
+	{
+		const auto MidCosts = UFGRecipe::GetIngredients(Plan.MidPart.BuildRecipeClass);
+		for (const auto& MidCostEnt : MidCosts)
+		{
+			ItemCounts.Add(MidCostEnt.ItemClass, ItemCounts.FindRef(MidCostEnt.ItemClass) + MidCostEnt.Amount * Plan.MidPart.Count);
+		}
+	}
+
+	if (Plan.EndPart.IsActionable())
+	{
+		const auto EndCosts = UFGRecipe::GetIngredients(Plan.EndPart.BuildRecipeClass);
+		for (const auto& EndCostEnt : EndCosts)
+		{
+			ItemCounts.Add(EndCostEnt.ItemClass, ItemCounts.FindRef(EndCostEnt.ItemClass) + EndCostEnt.Amount * Plan.EndPart.Count);
+		}
+	}
+	
+	for (const auto& ItemCountEnt : ItemCounts)
+	{
+		MOD_LOG(Verbose, TEXT("GetTotalCost |> Item [%s] Count: %d"), *ItemCountEnt.Key->GetName(), ItemCountEnt.Value);
+		OutCost.Add(FItemAmount(ItemCountEnt.Key, ItemCountEnt.Value));
+	}
+}
+
 #pragma endregion
 
 #pragma region Inventory Helpers
