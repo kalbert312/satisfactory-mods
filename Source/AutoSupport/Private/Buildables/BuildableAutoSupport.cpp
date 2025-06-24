@@ -7,7 +7,6 @@
 #include "DrawDebugHelpers.h"
 #include "FGBlueprintProxy.h"
 #include "FGBuildingDescriptor.h"
-#include "FGColoredInstanceMeshProxy.h"
 #include "FGHologram.h"
 #include "FGPlayerController.h"
 #include "FGWaterVolume.h"
@@ -18,8 +17,6 @@
 
 ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	mMeshComponentProxy = CreateDefaultSubobject<UFGColoredInstanceMeshProxy>(TEXT("BuildableInstancedMeshProxy"));
-	mMeshComponentProxy->SetupAttachment(RootComponent);
 }
 
 bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) const
