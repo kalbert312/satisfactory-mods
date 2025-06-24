@@ -2,6 +2,7 @@
 
 #include "BuildableAutoSupport.h"
 
+#include "AutoSupportGameWorldModule.h"
 #include "AutoSupportModSubsystem.h"
 #include "DrawDebugHelpers.h"
 #include "FGBlueprintProxy.h"
@@ -15,8 +16,6 @@
 #include "ModLogging.h"
 #include "Kismet/GameplayStatics.h"
 
-const FVector ABuildableAutoSupport::MaxPartSize = FVector(800, 800, 800);
-
 ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	mMeshComponentProxy = CreateDefaultSubobject<UFGColoredInstanceMeshProxy>(TEXT("BuildableInstancedMeshProxy"));
@@ -25,6 +24,8 @@ ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectIni
 
 bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) const
 {
+	// IMPORTANT: This ticks while the interact dialog is open.
+	
 	if (!AutoSupportData.MiddlePartDescriptor.IsValid() && !AutoSupportData.StartPartDescriptor.IsValid() && !AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		// Nothing to build.
@@ -34,7 +35,7 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) c
 	// Trace to know how much we're going to build.
 	const auto TraceResult = Trace();
 
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::TraceAndCreatePlan BuildDistance: %f, IsTerrainHit: %s, Direction: %s"), TraceResult.BuildDistance, TEXT_CONDITION(TraceResult.IsLandscapeHit), *TraceResult.Direction.ToString());
+	MOD_LOG(Verbose, TEXT("BuildDistance: %f, IsTerrainHit: %s, Direction: %s"), TraceResult.BuildDistance, TEXT_CONDITION(TraceResult.IsLandscapeHit), *TraceResult.Direction.ToString());
 
 	if (FMath::IsNearlyZero(TraceResult.BuildDistance))
 	{
@@ -82,12 +83,12 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 
 		GroupBounds += PartBounds;
 		
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Child Buildable: %s, %s, %s, %s"), *Buildable->GetName(), TEXT_CONDITION(Buildable->ShouldConvertToLightweight()), *PartBounds.ToString(), TEXT_CONDITION(Buildable->GetBlueprintProxy() == nullptr));
+		MOD_LOG(Verbose, TEXT("Child Buildable: %s, %s, %s, %s"), *Buildable->GetName(), TEXT_CONDITION(Buildable->ShouldConvertToLightweight()), *PartBounds.ToString(), TEXT_CONDITION(Buildable->GetBlueprintProxy() == nullptr));
 	}
 
 	// TODO(k.a): Spawn a wrapper actor, similar to AFGBlueprintProxy
 
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildSupports Completed, Bounds: %s, %"), *GroupBounds.ToString());
+	MOD_LOG(Verbose, TEXT("Completed, Bounds: %s, %"), *GroupBounds.ToString());
 	
 	// Dismantle self
 	Execute_Dismantle(this);
@@ -107,11 +108,14 @@ void ABuildableAutoSupport::PreSaveGame_Implementation(int32 saveVersion, int32 
 	AutoSupportData.ClearInvalidReferences();
 }
 
+// This is called before BeginPlay
 void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	Super::PostLoadGame_Implementation(saveVersion, gameVersion);
 	
 	AutoSupportData.ClearInvalidReferences();
+
+	bIsLoadedFromSave = true;
 }
 
 #pragma endregion
@@ -120,17 +124,25 @@ void ABuildableAutoSupport::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (GetBlueprintProxy())
+	if (!bIsLoadedFromSave)
 	{
-		bAutoConfigure = false;
-		BuildSupports(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+		if (GetBlueprintProxy()) // Is it being built from a blueprint?
+		{
+			bAutoConfigure = false;
+
+			if (FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).GameplayDefaultsSection.AutomaticBlueprintBuild)
+			{
+				BuildSupports(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+			}
+		}
+
+		if (bAutoConfigure)
+		{
+			AutoConfigure();
+		}
 	}
 
-	if (bAutoConfigure)
-	{
-		AutoConfigure();
-		bAutoConfigure = false;
-	}
+	bAutoConfigure = false;
 }
 
 #pragma region Editor Only
@@ -160,7 +172,7 @@ void ABuildableAutoSupport::AutoConfigure()
 FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
 	FAutoSupportTraceResult Result;
-	Result.BuildDistance = MaxBuildDistance;
+	Result.BuildDistance = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
 	Result.BuildDirection = AutoSupportData.BuildDirection;
 
 	// Start building our trace params.
@@ -169,14 +181,14 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	QueryParams.AddIgnoredActor(this);
 
 	auto StartTransform = GetActorTransform();
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Transform: %s"), *StartTransform.ToString());
+	MOD_LOG(Verbose, TEXT("Start Transform: %s"), *StartTransform.ToString());
 	
 	// Set up a direction vector
 	auto DirectionVector = UAutoSupportBlueprintLibrary::GetDirectionVector(AutoSupportData.BuildDirection);
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Direction Vector: %s"), *DirectionVector.ToString());
+	MOD_LOG(Verbose, TEXT("Direction Vector: %s"), *DirectionVector.ToString());
 	
 	DirectionVector = StartTransform.GetRotation().RotateVector(DirectionVector);
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Rotated Direction Vector: %s"), *DirectionVector.ToString());
+	MOD_LOG(Verbose, TEXT("Rotated Direction Vector: %s"), *DirectionVector.ToString());
 	
 	Result.Direction = DirectionVector;
 	
@@ -188,12 +200,12 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	Result.StartLocation = GetActorTransform().TransformPosition(FaceRelativeLocation);
 	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(AutoSupportData.BuildDirection);
 	
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace Start Rel: %s, Abs: %s, Rel Rotation: %s"), *Result.StartRelativeLocation.ToString(), *Result.StartLocation.ToString(), *Result.StartRelativeRotation.ToString());
+	MOD_LOG(Verbose, TEXT("Start Rel: %s, Abs: %s, Rel Rotation: %s"), *Result.StartRelativeLocation.ToString(), *Result.StartLocation.ToString(), *Result.StartRelativeRotation.ToString());
 	
 	// The end location is constrained by a max distance.
 	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, DirectionVector);
 
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace End Location: %s"), *EndLocation.ToString());
+	MOD_LOG(Verbose, TEXT("End Location: %s"), *EndLocation.ToString());
 
 	const FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(.5, .5, .5));
 
@@ -213,7 +225,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 	if (HitResults.Num() == 0)
 	{
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace No Hits!"));
+		MOD_LOG(Verbose, TEXT("No Hits!"));
 		
 		return Result;
 	}
@@ -222,7 +234,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	for (const auto& HitResult : HitResults)
 	{
 		++HitIndex;
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::Trace HitResult[%i],Distance:%f: %s"), HitIndex, HitResult.Distance, *HitResult.ToString());
+		MOD_LOG(Verbose, TEXT("HitResult[%i] with distance %f: %s"), HitIndex, HitResult.Distance, *HitResult.ToString());
 
 		const auto* HitActor = HitResult.GetActor();
 		const auto IsLandscapeHit = HitActor && HitActor->IsA<ALandscapeProxy>();
@@ -232,7 +244,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		
 		MOD_LOG(
 			Verbose,
-			TEXT("BuildableAutoSupport::Trace Actor class: %s, Component class: %s, Is Landscape Hit: %s, Is Buildable Hit: %s, Is Abstract Instance Hit: %s, Is Pawn Hit: %s"),
+			TEXT("Actor class: %s, Component class: %s, Is Landscape Hit: %s, Is Buildable Hit: %s, Is Abstract Instance Hit: %s, Is Pawn Hit: %s"),
 			HitActor ? *HitActor->GetClass()->GetName() : TEXT_NULL,
 			HitComponent ? *HitComponent->GetClass()->GetName() : TEXT_NULL,
 			TEXT_CONDITION(IsLandscapeHit),
@@ -272,7 +284,7 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 	const auto ClearanceData = GetCombinedClearanceBox();
 	const auto Extent = ClearanceData.GetExtent();
 
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::GetCubeFaceRelativeLocation Clearance Data: %s"), *ClearanceData.ToString());
+	MOD_LOG(Verbose, TEXT("Clearance Data: %s"), *ClearanceData.ToString());
 	
 	switch (Direction)
 	{
@@ -293,6 +305,6 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 
 FORCEINLINE FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const
 {
-	return StartLocation + Direction * MaxBuildDistance;
+	return StartLocation + Direction * FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
 }
 

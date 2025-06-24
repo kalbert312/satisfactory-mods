@@ -28,3 +28,18 @@ bool UAutoSupportPartSearchConfig::IsPartBlocked(TSubclassOf<UFGBuildDescriptor>
 {
 	return Descriptor && BlockedParts.Contains(Descriptor);
 }
+
+bool UAutoSupportPartSearchConfig::TryGetPartMetadata(
+	const TSubclassOf<UFGBuildDescriptor> Descriptor,
+	FAutoSupportPartMetadata& OutPartMetadata) const
+{
+	if (const auto* Entry = PartMetadataMap.Find(Descriptor))
+	{
+		OutPartMetadata = *Entry;
+		return true;
+	}
+
+	return false;
+}
+
+

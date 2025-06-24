@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "FGBuildDescriptor.h"
+#include "ModTypes.h"
 #include "AutoSupportPartSearchConfig.generated.h"
 
 class UFGBuildSubCategory;
@@ -14,6 +15,30 @@ struct AUTOSUPPORT_API FAutoSupportSubCategoryList
 
 	UPROPERTY(EditDefaultsOnly)
 	TSet<TSubclassOf<UFGCategory>> SubCategories;
+};
+
+USTRUCT(BlueprintType)
+struct AUTOSUPPORT_API FAutoSupportPartMetadata
+{
+	GENERATED_BODY()
+
+	/**
+	 * True if there's a side of the part that is the ideal resting side for placement on an anchoring surface.
+	 */
+	UPROPERTY(EditDefaultsOnly)
+	bool bHasPreferredRestingSide = false;
+
+	/**
+	 * The side of the part that is the ideal resting side for placement on an anchoring surface.
+	 */
+	UPROPERTY(EditDefaultsOnly, meta=(EditCondition="bHasPreferredRestingSide"))
+	EAutoSupportBuildDirection PreferredRestingSide = EAutoSupportBuildDirection::Bottom;
+
+	/**
+	 * The default distance to bury the part if it is anchored to terrain. This helps avoid floating areas of the part.
+	 */
+	UPROPERTY(EditDefaultsOnly)
+	float DefaultBuryDistance = 0.f;
 };
 
 UCLASS(BlueprintType)
@@ -31,6 +56,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	bool IsPartBlocked(TSubclassOf<UFGBuildDescriptor> Descriptor) const;
+
+	UFUNCTION(BlueprintCallable)
+	bool TryGetPartMetadata(TSubclassOf<UFGBuildDescriptor> Descriptor, FAutoSupportPartMetadata& OutPartMetadata) const;
 	
 protected:
 	
@@ -51,5 +79,11 @@ protected:
 	 */
 	UPROPERTY(EditDefaultsOnly)
 	TSet<TSubclassOf<UFGBuildDescriptor>> BlockedParts;
+
+	/**
+	 * Well-known metadata for various buildables.
+	 */
+	UPROPERTY(EditDefaultsOnly)
+	TMap<TSubclassOf<UFGBuildDescriptor>, FAutoSupportPartMetadata> PartMetadataMap;
 	
 };

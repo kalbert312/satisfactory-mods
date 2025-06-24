@@ -15,9 +15,6 @@ class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildableFactoryBuilding
 	GENERATED_BODY()
 
 public:
-	static constexpr int MaxBuildDistance = 400 * 50; // 50 4m foundations
-	static const FVector MaxPartSize; // Avoid anything larger.
-	
 	ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	/**
@@ -64,6 +61,12 @@ protected:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, SaveGame, Category = "Auto Support")
 	bool bAutoConfigure = true;
+
+	/**
+	 * True if this actor was loaded from a save.
+	 */
+	UPROPERTY(Transient)
+	bool bIsLoadedFromSave = false;
 	
 	void AutoConfigure();
 

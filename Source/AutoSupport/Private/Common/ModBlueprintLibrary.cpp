@@ -107,19 +107,19 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 	
 	if (Plan.StartPart.IsActionable())
 	{
-		MOD_LOG(Verbose, TEXT("CreateCompositeHologramFromPlan |> Building Start Part, Orientation: %i"), static_cast<int32>(Plan.StartPart.Orientation));
+		MOD_LOG(Verbose, TEXT("Building Start Part, Orientation: %i"), static_cast<int32>(Plan.StartPart.Orientation));
 		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, BuildInstigator, Owner, WorkingTransform);
 	}
 
 	if (Plan.MidPart.IsActionable())
 	{
-		MOD_LOG(Verbose, TEXT("CreateCompositeHologramFromPlan |> Building Mid Parts, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
+		MOD_LOG(Verbose, TEXT("Building Mid Parts, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
 		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, BuildInstigator, Owner, WorkingTransform);
 	}
 
 	if (Plan.EndPart.IsActionable())
 	{
-		MOD_LOG(Verbose, TEXT("CreateCompositeHologramFromPlan |> Building End Part, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
+		MOD_LOG(Verbose, TEXT("Building End Part, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
 		WorkingTransform.AddToTranslation(Plan.EndPartPositionOffset);
 		
 		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, Owner, WorkingTransform);
@@ -147,7 +147,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	// Start with the top because that's where the auto support is planted.
 	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("PlanBuild |> Planning Start Part Positioning"));
+		MOD_LOG(Verbose, TEXT("Planning Start Part Positioning"));
 		if (PlanSinglePart(TraceResult, AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, OutPlan.StartPart, SinglePartConsumedBuildSpace, RecipeManager))
 		{
 			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
@@ -164,7 +164,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	// Do the end next. There may not be enough room for mid pieces.
 	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("PlanBuild |> Planning End Part Positioning"));
+		MOD_LOG(Verbose, TEXT("Planning End Part Positioning"));
 		if (PlanSinglePart(TraceResult, AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, OutPlan.EndPart, SinglePartConsumedBuildSpace, RecipeManager))
 		{
 			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
@@ -180,7 +180,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("PlanBuild |> Planning Mid Part Positioning"));
+		MOD_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
 		if (PlanSinglePart(TraceResult, AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, OutPlan.MidPart, SinglePartConsumedBuildSpace, RecipeManager))
 		{
 			auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
@@ -194,7 +194,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 				OutPlan.EndPartPositionOffset = -TraceResult.Direction * (SinglePartConsumedBuildSpace - RemainingBuildDistance);
 			}
 		
-			MOD_LOG(Verbose, TEXT("PlanBuild |> Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *OutPlan.MidPart.BBox.GetSize().ToString(), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
+			MOD_LOG(Verbose, TEXT("Mid Size: %s, Num Mid: %d, Perfect Fit: %s"), *OutPlan.MidPart.BBox.GetSize().ToString(), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
 			OutPlan.MidPart.Count = NumMiddleParts;
 		}
 	}
@@ -250,7 +250,7 @@ void UAutoSupportBlueprintLibrary::GetTotalCost(const FAutoSupportBuildPlan& Pla
 	
 	for (const auto& ItemCountEnt : ItemCounts)
 	{
-		MOD_LOG(Verbose, TEXT("GetTotalCost |> Item [%s] Count: %d"), *ItemCountEnt.Key->GetName(), ItemCountEnt.Value);
+		MOD_LOG(Verbose, TEXT("Item [%s] Count: %d"), *ItemCountEnt.Key->GetName(), ItemCountEnt.Value);
 		OutCost.Add(FItemAmount(ItemCountEnt.Key, ItemCountEnt.Value));
 	}
 }
@@ -269,7 +269,7 @@ bool UAutoSupportBlueprintLibrary::CanAffordItemBill(
 	
 	if (Inventory->GetNoBuildCost())
 	{
-		MOD_LOG(Verbose, TEXT("CanAffordItemBill |> There's no build cost. Returning true"))
+		MOD_LOG(Verbose, TEXT("There's no build cost. Returning true"))
 		return true;
 	}
 
@@ -283,7 +283,7 @@ bool UAutoSupportBlueprintLibrary::CanAffordItemBill(
 			? InvAvailableNum + CentralStorageSys->GetNumItemsFromCentralStorage(BillOfPart.ItemClass)
 			: InvAvailableNum;
 
-		MOD_LOG(Verbose, TEXT("CanAffordItemBill |> Item [%s] Cost: %i, Available %i"), *BillOfPart.ItemClass->GetName(), BillOfPart.Amount, AvailableNum)
+		MOD_LOG(Verbose, TEXT("Item [%s] Cost: %i, Available %i"), *BillOfPart.ItemClass->GetName(), BillOfPart.Amount, AvailableNum)
 
 		if (AvailableNum < BillOfPart.Amount)
 		{
@@ -351,7 +351,7 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 {
 	for (auto i = 0; i < PartPlan.Count; ++i)
 	{
-		MOD_LOG(Verbose, TEXT("SpawnPartPlanHolograms | Spawning part. Start Transform: %s"), *WorkingTransform.ToString());
+		MOD_LOG(Verbose, TEXT("Spawning part. Start Transform: %s"), *WorkingTransform.ToString());
 
 		// Copy the transform, then apply the orientation below
 		FTransform SpawnTransform = WorkingTransform;
@@ -394,7 +394,7 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 		
 		// Update the transform
 		WorkingTransform.AddToTranslation(PartPlan.AfterPartPositionOffset);
-		MOD_LOG(Verbose, TEXT("BuildableAutoSupport::BuildParts Next Transform: %s"), *WorkingTransform.ToString());
+		MOD_LOG(Verbose, TEXT("Next Transform: %s"), *WorkingTransform.ToString());
 	}
 }
 
@@ -468,15 +468,15 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	
 	const auto DeltaRot = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(PartOrientation));
 	
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Origin Offset: %s, Min: %s, Max: %s"), *OriginOffset.ToString(), *PartBBox.Min.ToString(), *PartBBox.Max.ToString());
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Extent: %s"), *PartBBox.GetExtent().ToString());
+	MOD_LOG(Verbose, TEXT("Origin Offset: %s, Min: %s, Max: %s"), *OriginOffset.ToString(), *PartBBox.Min.ToString(), *PartBBox.Max.ToString());
+	MOD_LOG(Verbose, TEXT("Extent: %s"), *PartBBox.GetExtent().ToString());
 	auto DirectionalOriginOffset = Direction * OriginOffset; // We're working with a world transform, so we must include our direction
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Directional Origin Offset: %s"), *DirectionalOriginOffset.ToString());
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform Delta Rotation: %s"), *DeltaRot.ToString());
+	MOD_LOG(Verbose, TEXT("Directional Origin Offset: %s"), *DirectionalOriginOffset.ToString());
+	MOD_LOG(Verbose, TEXT("Delta Rotation: %s"), *DeltaRot.ToString());
 
 	// This occurs before rotation, so we operate in the Z direction. Negate the result because we're building relative a transform position at the bottom of where the piece should be.
 	Plan.BuildPositionOffset = -1 * Direction * (AxisOriginOffset - (RelativeOffset / 2));
-	MOD_LOG(Verbose, TEXT("BuildableAutoSupport::OrientPartTransform BuildPositionOffset: %s"), *Plan.BuildPositionOffset.ToString());
+	MOD_LOG(Verbose, TEXT("BuildPositionOffset: %s"), *Plan.BuildPositionOffset.ToString());
 	
 	OutConsumedBuildSpace = RelativeOffset;
 	Plan.RotationalPositionOffset = DirectionalOriginOffset;

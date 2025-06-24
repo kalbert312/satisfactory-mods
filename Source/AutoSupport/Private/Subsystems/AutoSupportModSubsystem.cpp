@@ -3,6 +3,7 @@
 #include "AutoSupportModSubsystem.h"
 
 #include "AutoSupportGameWorldModule.h"
+#include "ModConstants.h"
 #include "WorldModuleManager.h"
 #include "Subsystem/SubsystemActorManager.h"
 
@@ -79,7 +80,7 @@ void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
 {
 	auto* WorldModuleManager = World->GetSubsystem<UWorldModuleManager>();
-	auto* WorldModule = CastChecked<UAutoSupportGameWorldModule>(WorldModuleManager->FindModule(FName("AutoSupport")));
+	auto* WorldModule = CastChecked<UGameWorldModule>(WorldModuleManager->FindModule(AutoSupportConstants::ModReference));
 
 	// Make sure we retrieve the blueprint version
 	UClass* ImplClass = nullptr;
@@ -96,8 +97,6 @@ AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
 	{
 		return nullptr;
 	}
-
-	check(ImplClass)
 	
 	auto* SubsystemActorManager = World->GetSubsystem<USubsystemActorManager>();
 	return CastChecked<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
