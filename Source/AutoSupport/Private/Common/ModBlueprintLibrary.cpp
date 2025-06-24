@@ -148,7 +148,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning Start Part Positioning"));
-		if (PlanSinglePart(TraceResult, AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, OutPlan.StartPart, SinglePartConsumedBuildSpace, RecipeManager))
+		if (PlanSinglePart(TraceResult, AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, OutPlan.StartPart, 0.f, SinglePartConsumedBuildSpace, RecipeManager))
 		{
 			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
 
@@ -165,7 +165,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning End Part Positioning"));
-		if (PlanSinglePart(TraceResult, AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, OutPlan.EndPart, SinglePartConsumedBuildSpace, RecipeManager))
+		if (PlanSinglePart(TraceResult, AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, OutPlan.EndPart, AutoSupportData.EndPartTerrainBuryDistance, SinglePartConsumedBuildSpace, RecipeManager))
 		{
 			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
 
@@ -181,7 +181,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
-		if (PlanSinglePart(TraceResult, AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, OutPlan.MidPart, SinglePartConsumedBuildSpace, RecipeManager))
+		if (PlanSinglePart(TraceResult, AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, OutPlan.MidPart, 0.f, SinglePartConsumedBuildSpace, RecipeManager))
 		{
 			auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
 			RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
@@ -403,6 +403,7 @@ bool UAutoSupportBlueprintLibrary::PlanSinglePart(
 	TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 	const EAutoSupportBuildDirection PartOrientation,
 	FAutoSupportBuildPlanPartData& Plan,
+	const float BuryDistance,
 	float& OutSinglePartConsumedBuildSpace,
 	const AFGRecipeManager* RecipeManager)
 {
@@ -416,6 +417,7 @@ bool UAutoSupportBlueprintLibrary::PlanSinglePart(
 		Plan.BBox,
 		PartOrientation,
 		TraceResult.Direction,
+		BuryDistance,
 		OutSinglePartConsumedBuildSpace,
 		Plan);
 
@@ -438,6 +440,7 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	const FBox& PartBBox,
 	const EAutoSupportBuildDirection PartOrientation,
 	const FVector& Direction,
+	const float BuryDistance,
 	float& OutConsumedBuildSpace,
 	FAutoSupportBuildPlanPartData& Plan)
 {
@@ -466,7 +469,7 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 			break;
 	}
 	
-	const auto DeltaRot = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(PartOrientation));
+	const auto DeltaRot = GetDirectionRotator(GetOppositeDirection(PartOrientation));
 	
 	MOD_LOG(Verbose, TEXT("Origin Offset: %s, Min: %s, Max: %s"), *OriginOffset.ToString(), *PartBBox.Min.ToString(), *PartBBox.Max.ToString());
 	MOD_LOG(Verbose, TEXT("Extent: %s"), *PartBBox.GetExtent().ToString());
@@ -474,14 +477,16 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	MOD_LOG(Verbose, TEXT("Directional Origin Offset: %s"), *DirectionalOriginOffset.ToString());
 	MOD_LOG(Verbose, TEXT("Delta Rotation: %s"), *DeltaRot.ToString());
 
-	// This occurs before rotation, so we operate in the Z direction. Negate the result because we're building relative a transform position at the bottom of where the piece should be.
-	Plan.BuildPositionOffset = -1 * Direction * (AxisOriginOffset - (RelativeOffset / 2));
+	const auto DirectionalBuryOffset = !FMath::IsNearlyZero(BuryDistance) ? Direction * BuryDistance : 0.f;
+
+	// Positioning occurs before rotation. Make sure we're respecting the right axis. Negate the result because we're building relative to a transform position at the bottom of where the piece should be.
+	Plan.BuildPositionOffset = -1 * (Direction * (AxisOriginOffset - RelativeOffset / 2) + DirectionalBuryOffset);
 	MOD_LOG(Verbose, TEXT("BuildPositionOffset: %s"), *Plan.BuildPositionOffset.ToString());
 	
 	OutConsumedBuildSpace = RelativeOffset;
 	Plan.RotationalPositionOffset = DirectionalOriginOffset;
 	Plan.Rotation = DeltaRot;
-	Plan.AfterPartPositionOffset = Direction * RelativeOffset;
+	Plan.AfterPartPositionOffset = Direction * RelativeOffset + BuryDistance;
 }
 
 #pragma endregion

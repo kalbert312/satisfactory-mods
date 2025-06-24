@@ -78,6 +78,7 @@ private:
 		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 		EAutoSupportBuildDirection PartOrientation,
 		FAutoSupportBuildPlanPartData& Plan,
+		float BuryDistance,
 		float& OutSinglePartConsumedBuildSpace,
 		const AFGRecipeManager* RecipeManager);
 	
@@ -85,6 +86,7 @@ private:
 		const FBox& PartBBox,
 		EAutoSupportBuildDirection PartOrientation,
 		const FVector& Direction,
+		float BuryDistance,
 		float& OutConsumedBuildSpace,
 		FAutoSupportBuildPlanPartData& Plan);
 };
