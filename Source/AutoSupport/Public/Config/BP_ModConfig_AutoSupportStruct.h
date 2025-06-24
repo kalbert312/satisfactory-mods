@@ -15,9 +15,6 @@ public:
     bool AutomaticWellKnownPartOrientation{};
 
     UPROPERTY(BlueprintReadWrite)
-    bool DefaultOnlyIntersectTerrain{};
-
-    UPROPERTY(BlueprintReadWrite)
     bool AutomaticBlueprintBuild{};
 };
 

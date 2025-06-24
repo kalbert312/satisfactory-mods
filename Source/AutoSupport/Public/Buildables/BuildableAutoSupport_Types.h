@@ -53,10 +53,16 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	EAutoSupportBuildDirection EndPartOrientation = EAutoSupportBuildDirection::Top;
 
 	/**
+	 * The distance to bury the part into terrain.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	float EndPartTerrainBuryDistance = 0.f;
+
+	/**
 	 * Set to true to only consider the terrain for the support collision trace.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	bool OnlyIntersectTerrain;
+	bool OnlyIntersectTerrain = false;
 
 	void ClearInvalidReferences()
 	{
@@ -86,6 +92,7 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 		Ar << Data.EndPartDescriptor;
 		Ar << Data.EndPartOrientation;
 		Ar << Data.OnlyIntersectTerrain;
+		Ar << Data.EndPartTerrainBuryDistance;
 		
 		return Ar;
 	}
