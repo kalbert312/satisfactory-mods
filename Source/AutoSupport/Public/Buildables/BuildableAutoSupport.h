@@ -65,8 +65,8 @@ protected:
 	/**
 	 * True if this actor was loaded from a save.
 	 */
-	UPROPERTY(Transient)
-	bool bIsLoadedFromSave = false;
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, SaveGame, Category = "Auto Support")
+	bool bIsNew = true;
 	
 	void AutoConfigure();
 

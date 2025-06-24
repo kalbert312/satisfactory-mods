@@ -35,10 +35,10 @@ struct AUTOSUPPORT_API FAutoSupportPartMetadata
 	EAutoSupportBuildDirection PreferredRestingSide = EAutoSupportBuildDirection::Bottom;
 
 	/**
-	 * The default distance to bury the part if it is anchored to terrain. This helps avoid floating areas of the part.
+	 * The default percentage of the part dimension to bury the part if it is anchored to terrain. This helps avoid floating areas of the part.
 	 */
-	UPROPERTY(EditDefaultsOnly)
-	float DefaultBuryDistance = 0.f;
+	UPROPERTY(EditDefaultsOnly, meta=(ClampMin=0, ClampMax=0.5f))
+	float DefaultBuryPercentage = 0.f;
 };
 
 UCLASS(BlueprintType)

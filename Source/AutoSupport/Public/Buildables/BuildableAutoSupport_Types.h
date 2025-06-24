@@ -56,7 +56,7 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	 * The distance to bury the part into terrain.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	float EndPartTerrainBuryDistance = 0.f;
+	float EndPartTerrainBuryPercentage = 0.f;
 
 	/**
 	 * Set to true to only consider the terrain for the support collision trace.
@@ -92,7 +92,7 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 		Ar << Data.EndPartDescriptor;
 		Ar << Data.EndPartOrientation;
 		Ar << Data.OnlyIntersectTerrain;
-		Ar << Data.EndPartTerrainBuryDistance;
+		Ar << Data.EndPartTerrainBuryPercentage;
 		
 		return Ar;
 	}

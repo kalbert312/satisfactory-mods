@@ -49,6 +49,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static void GetTotalCost(const FAutoSupportBuildPlan& Plan, TArray<FItemAmount>& OutCost);
 
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static float GetBuryDistance(TSubclassOf<AFGBuildable> BuildableClass, float BuryPercentage, EAutoSupportBuildDirection PartOrientation);
+
 #pragma endregion
 
 #pragma region Inventory Helpers
@@ -78,7 +81,6 @@ private:
 		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 		EAutoSupportBuildDirection PartOrientation,
 		FAutoSupportBuildPlanPartData& Plan,
-		float BuryDistance,
 		float& OutSinglePartConsumedBuildSpace,
 		const AFGRecipeManager* RecipeManager);
 	
@@ -86,7 +88,6 @@ private:
 		const FBox& PartBBox,
 		EAutoSupportBuildDirection PartOrientation,
 		const FVector& Direction,
-		float BuryDistance,
 		float& OutConsumedBuildSpace,
 		FAutoSupportBuildPlanPartData& Plan);
 };

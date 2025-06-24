@@ -105,14 +105,12 @@ void ABuildableAutoSupport::PreSaveGame_Implementation(int32 saveVersion, int32 
 	AutoSupportData.ClearInvalidReferences();
 }
 
-// This is called before BeginPlay
+// This is called before BeginPlay (even when not loading a game)
 void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	Super::PostLoadGame_Implementation(saveVersion, gameVersion);
 	
 	AutoSupportData.ClearInvalidReferences();
-
-	bIsLoadedFromSave = true;
 }
 
 #pragma endregion
@@ -121,15 +119,29 @@ void ABuildableAutoSupport::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!bIsLoadedFromSave)
+	// HACK: use build effect instigator as a "is newly built" indicator
+	bool bIsNew = mBuildEffectInstignator || mBuildEffectIsPlaying || mActiveBuildEffect;
+
+	if (bIsNew)
 	{
-		if (GetBlueprintProxy()) // Is it being built from a blueprint?
+		if (GetBlueprintDesigner()) // TODO(k.a): test blueprint designer
 		{
+			MOD_LOG(Verbose, TEXT("Has blueprint designer"));
+			bAutoConfigure = false;
+		}
+		else if (GetBlueprintProxy()) // Is it being built from a blueprint?
+		{
+			MOD_LOG(Verbose, TEXT("Built from blueprint"));
 			bAutoConfigure = false;
 
 			if (FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).GameplayDefaultsSection.AutomaticBlueprintBuild)
 			{
 				BuildSupports(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
+				MOD_LOG(Verbose, TEXT("Auto building!"));
+			}
+			else
+			{
+				MOD_LOG(Verbose, TEXT("Not auto building, config = false"));
 			}
 		}
 
@@ -163,6 +175,7 @@ EDataValidationResult ABuildableAutoSupport::IsDataValid(FDataValidationContext&
 
 void ABuildableAutoSupport::AutoConfigure()
 {
+	MOD_LOG(Verbose, TEXT("Auto Configuring"));
 	K2_AutoConfigure();
 }
 
@@ -194,7 +207,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	// set to top means the part will build flush to the "bottom" face of the cube and then topward.
 	auto FaceRelativeLocation = GetCubeFaceRelativeLocation(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
 	Result.StartRelativeLocation = DirectionVector * FaceRelativeLocation;
-	Result.StartLocation = GetActorTransform().TransformPosition(FaceRelativeLocation);
+	Result.StartLocation = GetActorTransform().TransformPosition(FaceRelativeLocation); // TODO(k.a): verify this works for Bottom
 	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(AutoSupportData.BuildDirection);
 	
 	MOD_LOG(Verbose, TEXT("Start Rel: %s, Abs: %s, Rel Rotation: %s"), *Result.StartRelativeLocation.ToString(), *Result.StartLocation.ToString(), *Result.StartRelativeRotation.ToString());
@@ -263,6 +276,13 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		{
 			Result.BuildDistance = HitResult.Distance;
 			Result.IsLandscapeHit = IsLandscapeHit;
+
+			if (IsLandscapeHit && AutoSupportData.EndPartDescriptor.IsValid())
+			{
+				// Bury the part if and extend the build distance.
+				Result.BuildDistance += UAutoSupportBlueprintLibrary::GetBuryDistance(UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.EndPartDescriptor.Get()), AutoSupportData.EndPartTerrainBuryPercentage, AutoSupportData.EndPartOrientation);
+			}
+			
 			return Result;
 		}
 	}
