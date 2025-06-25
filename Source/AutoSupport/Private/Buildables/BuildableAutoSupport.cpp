@@ -68,10 +68,15 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	RootHologram->Construct(ChildActors, Buildables->GetNewNetConstructionID());
 
 	// TODO(k.a): BBox not finished
+	// TODO(k.a): Spawn a wrapper actor, similar to AFGBlueprintProxy
 	FBox GroupBounds(ForceInit);
 	for (auto* ChildActor : ChildActors)
 	{
 		auto* Buildable = CastChecked<AFGBuildable>(ChildActor);
+
+		// TODO(k.a): apply customization data.
+		//  - check if actor order = start, mids, end. If so, we can loosely apply it that way. feels flakely
+		//  - might be able to hook AFGHologram::Construct and if the out children is a single element and the actor has a certain tag, apply that tag to the buildable constructed so we can match start/mid/end here.
 		
 		FBox PartBounds = Buildable->GetCombinedClearanceBox();
 
@@ -79,9 +84,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		
 		MOD_LOG(Verbose, TEXT("Child Buildable: %s, %s, %s, %s"), *Buildable->GetName(), TEXT_CONDITION(Buildable->ShouldConvertToLightweight()), *PartBounds.ToString(), TEXT_CONDITION(Buildable->GetBlueprintProxy() == nullptr));
 	}
-
-	// TODO(k.a): Spawn a wrapper actor, similar to AFGBlueprintProxy
-
+	
 	MOD_LOG(Verbose, TEXT("Completed, Bounds: %s, %"), *GroupBounds.ToString());
 	
 	// Dismantle self

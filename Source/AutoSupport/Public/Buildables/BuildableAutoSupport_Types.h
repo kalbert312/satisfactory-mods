@@ -29,6 +29,12 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	EAutoSupportBuildDirection StartPartOrientation = EAutoSupportBuildDirection::Bottom;
 
 	/**
+	 * The color customization to apply to the start part.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	TSubclassOf<UFGFactoryCustomizationDescriptor> StartPartColorDescriptor;
+
+	/**
 	 * The middle part descriptor for the auto support. This is the part that will be built in the middle of the support in a repeating pattern.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
@@ -41,6 +47,12 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	EAutoSupportBuildDirection MiddlePartOrientation = EAutoSupportBuildDirection::Bottom;
 
 	/**
+	 * The color customization to apply to the middle parts.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	TSubclassOf<UFGFactoryCustomizationDescriptor> MiddlePartColorDescriptor;
+
+	/**
 	 * The starting part descriptor for the auto support. This is the part that will be built last (on the ground in downwards build), relative to this actor.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
@@ -51,6 +63,12 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
 	EAutoSupportBuildDirection EndPartOrientation = EAutoSupportBuildDirection::Top;
+
+	/**
+	 * The color customization to apply to the end part.
+	 */
+	UPROPERTY(SaveGame, BlueprintReadWrite)
+	TSubclassOf<UFGFactoryCustomizationDescriptor> EndPartColorDescriptor;
 
 	/**
 	 * The distance to bury the part into terrain.
@@ -93,6 +111,9 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 		Ar << Data.EndPartOrientation;
 		Ar << Data.OnlyIntersectTerrain;
 		Ar << Data.EndPartTerrainBuryPercentage;
+		Ar << Data.StartPartColorDescriptor;
+		Ar << Data.MiddlePartColorDescriptor;
+		Ar << Data.EndPartColorDescriptor;
 		
 		return Ar;
 	}
