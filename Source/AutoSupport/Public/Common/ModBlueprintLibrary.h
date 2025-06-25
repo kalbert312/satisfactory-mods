@@ -87,7 +87,7 @@ private:
 	static void PlanPartPositioning(
 		const FBox& PartBBox,
 		EAutoSupportBuildDirection PartOrientation,
-		const FVector& Direction,
+		const FVector& TraceDirection,
 		float& OutConsumedBuildSpace,
 		FAutoSupportBuildPlanPartData& Plan);
 };

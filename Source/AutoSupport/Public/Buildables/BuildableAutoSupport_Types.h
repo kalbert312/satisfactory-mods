@@ -173,7 +173,7 @@ struct FAutoSupportBuildPlanPartData
 	 * Positional offset applied before and after part rotation.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FVector RotationalPositionOffset = FVector::ZeroVector;
+	FVector RotationTempPositionOffset = FVector::ZeroVector;
 	
 	/**
 	 * Relative rotation to apply to part.
