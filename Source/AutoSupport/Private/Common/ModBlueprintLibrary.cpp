@@ -458,12 +458,12 @@ bool UAutoSupportBlueprintLibrary::PlanSinglePart(
 	PlanPartPositioning(Plan.BBox, PartOrientation, Plan);
 
 	// Should only be 1 recipe for a buildable...
-	auto StartPartRecipeClasses = RecipeManager->FindRecipesByProduct(Plan.PartDescriptorClass, true, true);
-	check(StartPartRecipeClasses.Num() <= 1);
+	auto PartRecipeClasses = RecipeManager->FindRecipesByProduct(Plan.PartDescriptorClass, true, true);
+	check(PartRecipeClasses.Num() <= 1);
 
-	if (const auto StartPartRecipeClass = StartPartRecipeClasses.Num() > 0 ? StartPartRecipeClasses[0] : nullptr; StartPartRecipeClass && Plan.ConsumedBuildSpace > 0)
+	if (const auto PartRecipeClass = PartRecipeClasses.Num() > 0 ? PartRecipeClasses[0] : nullptr; PartRecipeClass && Plan.ConsumedBuildSpace > 0)
 	{
-		Plan.BuildRecipeClass = StartPartRecipeClass;
+		Plan.BuildRecipeClass = PartRecipeClass;
 		Plan.Count = 1;
 		return true;
 	}
