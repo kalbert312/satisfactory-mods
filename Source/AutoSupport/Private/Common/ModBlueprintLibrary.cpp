@@ -100,21 +100,21 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 	
 	// Build the parts
 	auto WorkingTransform = Transform;
-	WorkingTransform.AddToTranslation(Plan.RelativeLocation);
+	WorkingTransform.SetLocation(Plan.StartWorldLocation);
 	WorkingTransform.SetRotation(WorkingTransform.Rotator().Add(Plan.RelativeRotation.Pitch, Plan.RelativeRotation.Yaw, Plan.RelativeRotation.Roll).Quaternion());
-
+	
 	AFGHologram* RootHologram = nullptr; // we'll assign this while building
 	
 	if (Plan.StartPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("Building Start Part, Orientation: %i"), static_cast<int32>(Plan.StartPart.Orientation));
-		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, BuildInstigator, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, Plan.BuildWorldDirection, BuildInstigator, Owner, WorkingTransform);
 	}
 
 	if (Plan.MidPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("Building Mid Parts, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
-		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, BuildInstigator, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, Plan.BuildWorldDirection, BuildInstigator, Owner, WorkingTransform);
 	}
 
 	if (Plan.EndPart.IsActionable())
@@ -122,7 +122,7 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 		MOD_LOG(Verbose, TEXT("Building End Part, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
 		WorkingTransform.AddToTranslation(Plan.EndPartPositionOffset);
 		
-		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, Plan.BuildWorldDirection, BuildInstigator, Owner, WorkingTransform);
 	}
 
 	check(RootHologram)
@@ -135,12 +135,14 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	OutPlan = FAutoSupportBuildPlan();
 
 	// Copy trace result's relative location & rotation.
+	OutPlan.StartWorldLocation = TraceResult.StartLocation;
+	OutPlan.BuildWorldDirection = TraceResult.Direction;
+	
 	OutPlan.RelativeLocation = TraceResult.StartRelativeLocation;
 	OutPlan.RelativeRotation = TraceResult.StartRelativeRotation;
 	
 	// Plan the parts.
 	auto RemainingBuildDistance = TraceResult.BuildDistance;
-	float SinglePartConsumedBuildSpace = 0;
 
 	const auto* RecipeManager = AFGRecipeManager::Get(World);
 	
@@ -148,9 +150,9 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning Start Part Positioning"));
-		if (PlanSinglePart(TraceResult, AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, OutPlan.StartPart, SinglePartConsumedBuildSpace, RecipeManager))
+		if (PlanSinglePart(AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, OutPlan.StartPart, RecipeManager))
 		{
-			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
+			RemainingBuildDistance -= OutPlan.StartPart.ConsumedBuildSpace;
 
 			OutPlan.StartPart.Count = 1;
 			MOD_LOG(Verbose, TEXT("Num Start: %d"), OutPlan.StartPart.Count);
@@ -167,9 +169,9 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	{
 		MOD_LOG(Verbose, TEXT("Planning End Part Positioning"));
 		
-		if (PlanSinglePart(TraceResult, AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, OutPlan.EndPart, SinglePartConsumedBuildSpace, RecipeManager))
+		if (PlanSinglePart(AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, OutPlan.EndPart, RecipeManager))
 		{
-			RemainingBuildDistance -= SinglePartConsumedBuildSpace;
+			RemainingBuildDistance -= OutPlan.EndPart.ConsumedBuildSpace;
 			
 			OutPlan.EndPart.Count = 1;
 			MOD_LOG(Verbose, TEXT("Num End: %d"), OutPlan.EndPart.Count);
@@ -184,8 +186,9 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
-		if (PlanSinglePart(TraceResult, AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, OutPlan.MidPart, SinglePartConsumedBuildSpace,  RecipeManager))
+		if (PlanSinglePart(AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, OutPlan.MidPart, RecipeManager))
 		{
+			const auto SinglePartConsumedBuildSpace = OutPlan.MidPart.ConsumedBuildSpace;
 			auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
 			RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
 
@@ -388,6 +391,7 @@ bool UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(
 void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 	AFGHologram*& ParentHologram,
 	const FAutoSupportBuildPlanPartData& PartPlan,
+	const FVector& TraceDirection,
 	APawn* BuildInstigator,
 	AActor* Owner,
 	FTransform& WorkingTransform)
@@ -395,16 +399,7 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 	for (auto i = 0; i < PartPlan.Count; ++i)
 	{
 		// Copy the transform, then apply the orientation below
-		FTransform SpawnTransform = WorkingTransform;
-
-		SpawnTransform.AddToTranslation(PartPlan.BuildPositionOffset);
-
-		MOD_LOG(Verbose, TEXT("Spawning part at [%s]"), *SpawnTransform.ToString());
-
-		// Apply the orientation relative to the part's origin
-		SpawnTransform.AddToTranslation(-PartPlan.RotationTempPositionOffset);
-		SpawnTransform.SetRotation(SpawnTransform.Rotator().Add(PartPlan.Rotation.Pitch, PartPlan.Rotation.Yaw, PartPlan.Rotation.Roll).Quaternion());
-		SpawnTransform.AddToTranslation(PartPlan.RotationTempPositionOffset);
+		MOD_LOG(Verbose, TEXT("World Part Spawn Transform: [%s]"), *WorkingTransform.ToHumanReadableString());
 
 		if (ParentHologram)
 		{
@@ -413,10 +408,14 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				FName(FGuid::NewGuid().ToString()),
 				PartPlan.BuildRecipeClass,
 				Owner,
-				SpawnTransform.GetLocation(),
+				WorkingTransform.GetLocation(),
 				[&](AFGHologram* PreSpawnHolo)
 			{
-				PreSpawnHolo->SetActorRotation(SpawnTransform.GetRotation());
+				PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
+					
+				PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);;
+				PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
+					
 				PreSpawnHolo->DoMultiStepPlacement(false);
 			});
 		}
@@ -425,28 +424,30 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 			ParentHologram = AFGHologram::SpawnHologramFromRecipe(
 				PartPlan.BuildRecipeClass,
 				Owner,
-				SpawnTransform.GetLocation(),
+				WorkingTransform.GetLocation(),
 				BuildInstigator,
 				[&](AFGHologram* PreSpawnHolo)
 			{
-				PreSpawnHolo->SetActorRotation(SpawnTransform.GetRotation());
+				PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
+				
+				PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);
+				PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
+					
 				PreSpawnHolo->DoMultiStepPlacement(false);
 				PreSpawnHolo->SetShouldSpawnChildHolograms(true);
 			});
 		}
 		
 		// Update the transform
-		WorkingTransform.AddToTranslation(PartPlan.AfterPartPositionOffset);
-		MOD_LOG(Verbose, TEXT("Next Transform: %s"), *WorkingTransform.ToString());
+		WorkingTransform.AddToTranslation(TraceDirection * PartPlan.ConsumedBuildSpace);
+		MOD_LOG(Verbose, TEXT("Next Transform: [%s]"), *WorkingTransform.ToHumanReadableString());
 	}
 }
 
 bool UAutoSupportBlueprintLibrary::PlanSinglePart(
-	const FAutoSupportTraceResult& TraceResult,
 	TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 	const EAutoSupportBuildDirection PartOrientation,
 	FAutoSupportBuildPlanPartData& Plan,
-	float& OutSinglePartConsumedBuildSpace,
 	const AFGRecipeManager* RecipeManager)
 {
 	Plan.PartDescriptorClass = PartDescriptorClass;
@@ -454,18 +455,13 @@ bool UAutoSupportBlueprintLibrary::PlanSinglePart(
 	Plan.Orientation = PartOrientation;
 	GetBuildableClearance(Plan.BuildableClass, Plan.BBox);
 	
-	PlanPartPositioning(
-		Plan.BBox,
-		PartOrientation,
-		TraceResult.Direction,
-		OutSinglePartConsumedBuildSpace,
-		Plan);
+	PlanPartPositioning(Plan.BBox, PartOrientation, Plan);
 
 	// Should only be 1 recipe for a buildable...
 	auto StartPartRecipeClasses = RecipeManager->FindRecipesByProduct(Plan.PartDescriptorClass, true, true);
 	check(StartPartRecipeClasses.Num() <= 1);
 
-	if (const auto StartPartRecipeClass = StartPartRecipeClasses.Num() > 0 ? StartPartRecipeClasses[0] : nullptr; StartPartRecipeClass && OutSinglePartConsumedBuildSpace > 0)
+	if (const auto StartPartRecipeClass = StartPartRecipeClasses.Num() > 0 ? StartPartRecipeClasses[0] : nullptr; StartPartRecipeClass && Plan.ConsumedBuildSpace > 0)
 	{
 		Plan.BuildRecipeClass = StartPartRecipeClass;
 		Plan.Count = 1;
@@ -479,48 +475,57 @@ bool UAutoSupportBlueprintLibrary::PlanSinglePart(
 void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	const FBox& PartBBox,
 	const EAutoSupportBuildDirection PartOrientation,
-	const FVector& TraceDirection,
-	float& OutConsumedBuildSpace,
 	FAutoSupportBuildPlanPartData& Plan)
 {
-	// Roll = X, Pitch = Y, Yaw = Z
+	// Reminders:
+	// - Roll = X, Pitch = Y, Yaw = Z
+	// - The world transform we're building along is at the point closest to the trace origin. The space proceeding it is what we will occupy here.
+	// Assertions working in local space:
+	// - A part's UP is +Z. The local trace direction is fixed to +Z as well.
+	// - If the part's BBox center is 0,0,0, its origin = buildable actor pivot.
+	
 	const auto PartSize = PartBBox.GetSize();
-	// We need an offset to translate by before and after the rotation is applied to return the part to it's occupying space in the auto support.
-	const auto OriginOffset = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
-	float AxisOriginOffset = OriginOffset.Z;
-	float RelativeOffset = PartSize.Z;
-	
-	// NOTE: we're always assuming a part's UP is +Z here.
-	switch (PartOrientation)
-	{
-		default:
-			// No-op
-			break;
-		case EAutoSupportBuildDirection::Front:
-		case EAutoSupportBuildDirection::Back:
-			RelativeOffset = PartSize.Y;
-			AxisOriginOffset = OriginOffset.Y;
-			break;
-		case EAutoSupportBuildDirection::Left:
-		case EAutoSupportBuildDirection::Right:
-			RelativeOffset = PartSize.X;
-			AxisOriginOffset = OriginOffset.X;
-			break;
-	}
+	const auto ActorOriginCenterOffset = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
+	const auto LocalTraceDirection = FVector::UpVector;
 
-	OutConsumedBuildSpace = RelativeOffset;
+	// First, rotate the part.
+	const auto DeltaRot = GetDirectionRotator(PartOrientation);
+	Plan.DeltaRotation = DeltaRot;
+
+	// Next, apply translations. We need to fit correctly in the space we're supposed to occupy in the build, while respecting the differing
+	// sizes of the part along X,Y,Z as well as the mesh's pivot relative to the buildable actor that will be placed.
+	const auto RotatedSize = DeltaRot.RotateVector(PartSize).GetAbs();
+	const auto RotatedActorOriginCenterOffset = DeltaRot.RotateVector(ActorOriginCenterOffset);
+	const auto RotatedTraceDirection = DeltaRot.RotateVector(LocalTraceDirection);
+	const auto DeltaSize = RotatedSize - PartSize;
+	const auto DeltaActorOriginCenterOffset = RotatedActorOriginCenterOffset - ActorOriginCenterOffset;
+	const auto BottomingOffset = -DeltaRot.RotateVector(PartBBox.Min); // TODO(k.a): check this again
 	
-	const auto DeltaRot = GetDirectionRotator(GetOppositeDirection(PartOrientation));
-	Plan.Rotation = DeltaRot;
-	Plan.RotationTempPositionOffset = TraceDirection * OriginOffset; // We're working with a world transform, so we must include our direction
-	// Positioning occurs before rotation. Make sure we're respecting the right axis. Negate the result because we're building relative to a transform position at the bottom of where the piece should be.
-	Plan.BuildPositionOffset = -1 * (TraceDirection * (AxisOriginOffset - RelativeOffset / 2)); // TODO(k.a): this isn't right. rotational
-	Plan.AfterPartPositionOffset = TraceDirection * RelativeOffset;
+	Plan.ConsumedBuildSpace = RotatedSize.Z; // Z is rel trace direction
 	
-	MOD_LOG(Verbose, TEXT("Origin Offset: [%s], BBox Min [%s], BBox Max: [%s]"), *OriginOffset.ToCompactString(), *PartBBox.Min.ToCompactString(), *PartBBox.Max.ToCompactString());
-	MOD_LOG(Verbose, TEXT("Extent: [%s], Delta Rotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToCompactString());
-	MOD_LOG(Verbose, TEXT("RotationTempPositionOffset: [%s], BuildPositionOffset: [%s]"), *Plan.RotationTempPositionOffset.ToCompactString(), *Plan.BuildPositionOffset.ToCompactString());
-	MOD_LOG(Verbose, TEXT("AfterPartPositionOffset: [%s]"), *Plan.AfterPartPositionOffset.ToCompactString());
+	// The first translation is undoing the "translation" done because of rotation on the TRACE AXIS.
+	//   Example: Pillar piece, the buildable actor pivot is 0,0,0 and mesh origin is 0,0,0, but we need to be built relative to bottom, so we need to go up +Z by -minZ
+	//   Example: Wall piece, the buildable actor pivot is 0,0,0 but the mesh is bottom aligned with the pivot. The size of the part is 800,10,400 making the origin offset from actor pivot 0,0,200.
+	//     If we don't rotate: Do nothing, we're already where we should be
+	//     If we rotate right: The rotated size is 400,10,800. Our size DOUBLED along our travel axis, so we need to push the part up +Z by half (and thus the rest of the parts we'll build)
+	//     If we rotate to top (180deg): The rotated size is still 800,800,400, but now we are offset -400 Z of the occupying space.
+	Plan.PostRotationLocalTranslation = LocalTraceDirection * (DeltaSize + DeltaActorOriginCenterOffset) + LocalTraceDirection * BottomingOffset;
+
+	if (PartOrientation != EAutoSupportBuildDirection::Top && PartOrientation != EAutoSupportBuildDirection::Bottom)
+	{
+		// The second translation is undoing the "translation" done because of rotation on the AXIS PERPENDICULAR TO TRACE.
+		//   Example: Pillar piece, the buildable actor pivot is 0,0,0 and mesh origin is 0,0,0, so we don't need to do anything here.
+		//   Example: Wall piece, the buildable actor pivot is 0,0,0 but the mesh is bottom aligned with the pivot. The size of the part is 800,10,400 making the origin offset from actor pivot 0,0,200.
+		//     If we don't rotate: Do nothing, we're already where we should be
+		//     If we rotate right: The rotated size is 400,10,800. Our size HALVED along our perpendicular X axis, so we need to push the part by its size towards -X (this does not affect other parts)
+		//     If we rotate to top: The rotated size is still 800,10,400, but we are still where we should be horizontally. 
+		Plan.PostRotationLocalTranslation += -1 * RotatedTraceDirection * (DeltaSize + DeltaActorOriginCenterOffset) + -1 * RotatedTraceDirection * BottomingOffset;
+	}
+	
+	MOD_LOG(Verbose, TEXT("Origin Offset: [%s], BBox Min [%s], BBox Max: [%s]"), *ActorOriginCenterOffset.ToCompactString(), *PartBBox.Min.ToCompactString(), *PartBBox.Max.ToCompactString());
+	MOD_LOG(Verbose, TEXT("Extent: [%s], DeltaRotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToCompactString());
+	MOD_LOG(Verbose, TEXT("DeltaSize: [%s], DeltaActorOriginCenterOffset: [%s], BottomingOffset: [%s]"), *DeltaSize.ToCompactString(), *DeltaActorOriginCenterOffset.ToCompactString(), *BottomingOffset.ToCompactString());
+	MOD_LOG(Verbose, TEXT("ConsumedBuildSpace: [%f], PostRotationLocalTranslation: [%s]"), Plan.ConsumedBuildSpace, *Plan.PostRotationLocalTranslation.ToCompactString());
 }
 
 #pragma endregion

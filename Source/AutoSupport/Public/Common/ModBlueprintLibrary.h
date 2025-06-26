@@ -72,22 +72,19 @@ private:
 	static void SpawnPartPlanHolograms(
 		AFGHologram*& ParentHologram,
 		const FAutoSupportBuildPlanPartData& PartPlan,
+		const FVector& TraceDirection,
 		APawn* BuildInstigator,
 		AActor* Owner,
 		FTransform& WorkingTransform);
 	
 	static bool PlanSinglePart(
-		const FAutoSupportTraceResult& TraceResult,
 		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 		EAutoSupportBuildDirection PartOrientation,
 		FAutoSupportBuildPlanPartData& Plan,
-		float& OutSinglePartConsumedBuildSpace,
 		const AFGRecipeManager* RecipeManager);
 	
 	static void PlanPartPositioning(
 		const FBox& PartBBox,
 		EAutoSupportBuildDirection PartOrientation,
-		const FVector& TraceDirection,
-		float& OutConsumedBuildSpace,
 		FAutoSupportBuildPlanPartData& Plan);
 };

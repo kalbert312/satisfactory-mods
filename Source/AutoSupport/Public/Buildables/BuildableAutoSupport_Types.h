@@ -185,28 +185,22 @@ struct FAutoSupportBuildPlanPartData
 	FBox BBox = FBox(ForceInit);
 
 	/**
-	 * The build position offset.
+	 * The build location offset in part local space.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FVector BuildPositionOffset = FVector::ZeroVector;
+	FVector PostRotationLocalTranslation = FVector::ZeroVector;
 	
 	/**
-	 * Positional offset applied before and after part rotation.
+	 * Local rotation to apply to part.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FVector RotationTempPositionOffset = FVector::ZeroVector;
-	
-	/**
-	 * Relative rotation to apply to part.
-	 */
-	UPROPERTY(BlueprintReadWrite)
-	FRotator Rotation = FRotator::ZeroRotator;
+	FRotator DeltaRotation = FRotator::ZeroRotator;
 
 	/**
-	 * World direction aware next part position offset after part is built.
+	 * The build space that will be occupied by this part.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FVector AfterPartPositionOffset = FVector::ZeroVector;
+	float ConsumedBuildSpace = 0;
 
 	/**
 	 * The configured part orientation.
@@ -241,6 +235,18 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	 */
 	UPROPERTY(BlueprintReadWrite)
 	FRotator RelativeRotation = FRotator::ZeroRotator;
+
+	/**
+	 * The world location to start building.
+	 */
+	UPROPERTY(BlueprintReadWrite)
+	FVector StartWorldLocation = FVector::ZeroVector;
+	
+	/**
+	 * The build world direction (world trace direction).
+	 */
+	UPROPERTY(BlueprintReadWrite)
+	FVector BuildWorldDirection = FVector::ZeroVector;
 	
 	/**
 	 * Plan for start parts.
