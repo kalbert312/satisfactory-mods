@@ -8,6 +8,7 @@
 #include "FGBlueprintProxy.h"
 #include "FGBuildingDescriptor.h"
 #include "FGHologram.h"
+#include "FGLightweightBuildableSubsystem.h"
 #include "FGPlayerController.h"
 #include "FGWaterVolume.h"
 #include "LandscapeProxy.h"
@@ -64,25 +65,45 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	
 	// Construct
 	auto* Buildables = AFGBuildableSubsystem::Get(GetWorld());
-	TArray<AActor*> ChildActors;
-	RootHologram->Construct(ChildActors, Buildables->GetNewNetConstructionID());
+	auto* LightBuildables = AFGLightweightBuildableSubsystem::Get(GetWorld());
+	
+	TArray<AActor*> HologramSpawnedActors;
+	auto* StartBuildable = CastChecked<AFGBuildable>(RootHologram->Construct(HologramSpawnedActors, Buildables->GetNewNetConstructionID()));
+	HologramSpawnedActors.Insert(StartBuildable, 0);
 
 	// TODO(k.a): BBox not finished
 	// TODO(k.a): Spawn a wrapper actor, similar to AFGBlueprintProxy
 	FBox GroupBounds(ForceInit);
-	for (auto* ChildActor : ChildActors)
+
+	int32 i = 0;
+	for (auto* HologramSpawnedActor : HologramSpawnedActors)
 	{
-		auto* Buildable = CastChecked<AFGBuildable>(ChildActor);
+		auto* Buildable = CastChecked<AFGBuildable>(HologramSpawnedActor);
 
-		// TODO(k.a): apply customization data.
-		//  - check if actor order = start, mids, end. If so, we can loosely apply it that way. feels flakely
-		//  - might be able to hook AFGHologram::Construct and if the out children is a single element and the actor has a certain tag, apply that tag to the buildable constructed so we can match start/mid/end here.
-		
-		FBox PartBounds = Buildable->GetCombinedClearanceBox();
+		auto CustomizationData = Plan.MidPart.CustomizationData;
 
-		GroupBounds += PartBounds;
+		if (i == 0)
+		{
+			CustomizationData = Plan.StartPart.CustomizationData;
+		}
+		else if (i == HologramSpawnedActors.Num() - 1)
+		{
+			CustomizationData = Plan.EndPart.CustomizationData;
+		}
 		
-		MOD_LOG(Verbose, TEXT("Child Buildable: %s, %s, %s, %s"), *Buildable->GetName(), TEXT_CONDITION(Buildable->ShouldConvertToLightweight()), *PartBounds.ToString(), TEXT_CONDITION(Buildable->GetBlueprintProxy() == nullptr));
+		Buildable->SetCustomizationData_Native(CustomizationData);
+		if (Buildable->ManagedByLightweightBuildableSubsystem())
+		{
+			LightBuildables->CopyCustomizationDataFromTemporaryToInstance(Buildable);
+		}
+		
+		MOD_LOG(Verbose, TEXT("Buildable[%i]: Name: [%s], ShouldConvertToLightweight: [%s], ManagedByLightweight: [%s] Customization Swatch: [%s]"),
+			i,
+			*Buildable->GetName(),
+			TEXT_CONDITION(Buildable->ShouldConvertToLightweight()),
+			TEXT_CONDITION(Buildable->ManagedByLightweightBuildableSubsystem()),
+			CustomizationData.SwatchDesc ? *(CustomizationData.SwatchDesc->GetName()) : TEXT_EMPTY);
+		++i;
 	}
 	
 	MOD_LOG(Verbose, TEXT("Completed, Bounds: %s, %"), *GroupBounds.ToString());
@@ -182,7 +203,7 @@ void ABuildableAutoSupport::AutoConfigure()
 FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
 	MOD_LOG(Verbose, TEXT("BEGIN TRACE ---------------------------"));
-	// World +X = East, World +Y = 
+	// World +X = East, World +Y = South, +Z = Sky
 	FAutoSupportTraceResult Result;
 	Result.BuildDistance = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
 	Result.BuildDirection = AutoSupportData.BuildDirection;

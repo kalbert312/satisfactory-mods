@@ -80,6 +80,7 @@ private:
 	static bool PlanSinglePart(
 		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 		EAutoSupportBuildDirection PartOrientation,
+		const FFactoryCustomizationData& PartCustomization,
 		FAutoSupportBuildPlanPartData& Plan,
 		const AFGRecipeManager* RecipeManager);
 	

@@ -3,6 +3,7 @@
 
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
+#include "FGBuildableHologram.h"
 #include "FGCentralStorageSubsystem.h"
 #include "FGCharacterPlayer.h"
 #include "FGHologram.h"
@@ -150,7 +151,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning Start Part Positioning"));
-		if (PlanSinglePart(AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, OutPlan.StartPart, RecipeManager))
+		if (PlanSinglePart(AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, AutoSupportData.StartPartCustomization, OutPlan.StartPart, RecipeManager))
 		{
 			RemainingBuildDistance -= OutPlan.StartPart.ConsumedBuildSpace;
 
@@ -168,8 +169,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning End Part Positioning"));
-		
-		if (PlanSinglePart(AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, OutPlan.EndPart, RecipeManager))
+		if (PlanSinglePart(AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, AutoSupportData.MiddlePartCustomization, OutPlan.EndPart, RecipeManager))
 		{
 			RemainingBuildDistance -= OutPlan.EndPart.ConsumedBuildSpace;
 			
@@ -186,7 +186,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
-		if (PlanSinglePart(AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, OutPlan.MidPart, RecipeManager))
+		if (PlanSinglePart(AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, AutoSupportData.EndPartCustomization, OutPlan.MidPart, RecipeManager))
 		{
 			const auto SinglePartConsumedBuildSpace = OutPlan.MidPart.ConsumedBuildSpace;
 			auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
@@ -410,14 +410,17 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				Owner,
 				WorkingTransform.GetLocation(),
 				[&](AFGHologram* PreSpawnHolo)
-			{
-				PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
-					
-				PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);;
-				PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
-					
-				PreSpawnHolo->DoMultiStepPlacement(false);
-			});
+				{
+					PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
+
+					PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);;
+					PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
+
+					PreSpawnHolo->DoMultiStepPlacement(false);
+
+					// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
+					// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
+				});
 		}
 		else
 		{
@@ -427,15 +430,18 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				WorkingTransform.GetLocation(),
 				BuildInstigator,
 				[&](AFGHologram* PreSpawnHolo)
-			{
-				PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
-				
-				PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);
-				PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
-					
-				PreSpawnHolo->DoMultiStepPlacement(false);
-				PreSpawnHolo->SetShouldSpawnChildHolograms(true);
-			});
+				{
+					PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
+
+					PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);
+					PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
+
+					PreSpawnHolo->DoMultiStepPlacement(false);
+					PreSpawnHolo->SetShouldSpawnChildHolograms(true);
+
+					// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
+					// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
+				});
 		}
 		
 		// Update the transform
@@ -447,12 +453,14 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 bool UAutoSupportBlueprintLibrary::PlanSinglePart(
 	TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 	const EAutoSupportBuildDirection PartOrientation,
+	const FFactoryCustomizationData& PartCustomization,
 	FAutoSupportBuildPlanPartData& Plan,
 	const AFGRecipeManager* RecipeManager)
 {
 	Plan.PartDescriptorClass = PartDescriptorClass;
 	Plan.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(PartDescriptorClass);
 	Plan.Orientation = PartOrientation;
+	Plan.CustomizationData = PartCustomization;
 	GetBuildableClearance(Plan.BuildableClass, Plan.BBox);
 	
 	PlanPartPositioning(Plan.BBox, PartOrientation, Plan);

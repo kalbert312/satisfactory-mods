@@ -32,7 +32,7 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	 * The color customization to apply to the start part.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	TSubclassOf<UFGFactoryCustomizationDescriptor> StartPartColorDescriptor;
+	FFactoryCustomizationData StartPartCustomization;
 
 	/**
 	 * The middle part descriptor for the auto support. This is the part that will be built in the middle of the support in a repeating pattern.
@@ -47,10 +47,10 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	EAutoSupportBuildDirection MiddlePartOrientation = EAutoSupportBuildDirection::Bottom;
 
 	/**
-	 * The color customization to apply to the middle parts.
+	 * The customization to apply to the middle parts.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	TSubclassOf<UFGFactoryCustomizationDescriptor> MiddlePartColorDescriptor;
+	FFactoryCustomizationData MiddlePartCustomization;
 
 	/**
 	 * The starting part descriptor for the auto support. This is the part that will be built last (on the ground in downwards build), relative to this actor.
@@ -65,10 +65,10 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 	EAutoSupportBuildDirection EndPartOrientation = EAutoSupportBuildDirection::Top;
 
 	/**
-	 * The color customization to apply to the end part.
+	 * The customization to apply to the end part.
 	 */
 	UPROPERTY(SaveGame, BlueprintReadWrite)
-	TSubclassOf<UFGFactoryCustomizationDescriptor> EndPartColorDescriptor;
+	FFactoryCustomizationData EndPartCustomization;
 
 	/**
 	 * The distance to bury the part into terrain.
@@ -111,9 +111,9 @@ struct AUTOSUPPORT_API FBuildableAutoSupportData
 		Ar << Data.EndPartOrientation;
 		Ar << Data.OnlyIntersectTerrain;
 		Ar << Data.EndPartTerrainBuryPercentage;
-		Ar << Data.StartPartColorDescriptor;
-		Ar << Data.MiddlePartColorDescriptor;
-		Ar << Data.EndPartColorDescriptor;
+		Ar << Data.StartPartCustomization;
+		Ar << Data.MiddlePartCustomization;
+		Ar << Data.EndPartCustomization;
 		
 		return Ar;
 	}
@@ -171,6 +171,12 @@ struct FAutoSupportBuildPlanPartData
 	 */
 	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<UFGRecipe> BuildRecipeClass = nullptr;
+
+	/**
+	 * The customization to apply.
+	 */
+	UPROPERTY(BlueprintReadWrite)
+	FFactoryCustomizationData CustomizationData;
 	
 	/**
 	 * The amount of it to build.
