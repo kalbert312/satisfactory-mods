@@ -6,8 +6,10 @@
 #include "FGBuildableHologram.h"
 #include "FGCentralStorageSubsystem.h"
 #include "FGCharacterPlayer.h"
+#include "FGGameUI.h"
 #include "FGHologram.h"
 #include "FGInventoryLibrary.h"
+#include "FGPlayerController.h"
 #include "FGPlayerState.h"
 #include "FGRecipeManager.h"
 #include "ModLogging.h"
@@ -169,7 +171,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning End Part Positioning"));
-		if (PlanSinglePart(AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, AutoSupportData.MiddlePartCustomization, OutPlan.EndPart, RecipeManager))
+		if (PlanSinglePart(AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, AutoSupportData.EndPartCustomization, OutPlan.EndPart, RecipeManager))
 		{
 			RemainingBuildDistance -= OutPlan.EndPart.ConsumedBuildSpace;
 			
@@ -186,7 +188,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
 		MOD_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
-		if (PlanSinglePart(AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, AutoSupportData.EndPartCustomization, OutPlan.MidPart, RecipeManager))
+		if (PlanSinglePart(AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, AutoSupportData.MiddlePartCustomization, OutPlan.MidPart, RecipeManager))
 		{
 			const auto SinglePartConsumedBuildSpace = OutPlan.MidPart.ConsumedBuildSpace;
 			auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
@@ -382,6 +384,48 @@ bool UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(
 	PayItemBill(Player, BillOfParts, bTakeFromDepot, PlayerState->GetTakeFromInventoryBeforeCentralStorage());
 		
 	return true;
+}
+
+int32 UAutoSupportBlueprintLibrary::LeaseWidgetsExact(
+	APlayerController* Controller,
+	TSubclassOf<UUserWidget> WidgetClass,
+	TArray<UUserWidget*>& LeasedWidgetPool,
+	int32 Count,
+	TArray<UUserWidget*>& OutRemovedWidgets)
+{
+	OutRemovedWidgets.Empty();
+	int32 NewStartIndex = -1;
+	
+	if (LeasedWidgetPool.Num() == Count)
+	{
+		return NewStartIndex;
+	}
+
+	const auto* FController = CastChecked<AFGPlayerController>(Controller);
+	auto* GameUI = FController->GetGameUI();
+	
+	if (LeasedWidgetPool.Num() < Count)
+	{
+		NewStartIndex = LeasedWidgetPool.Num();
+		for (auto i = NewStartIndex; i < Count; ++i)
+		{
+			auto* NewWidget = GameUI->RequestWidget(WidgetClass);
+			LeasedWidgetPool.Add(NewWidget);
+		}
+	}
+	else
+	{
+		for (auto i = LeasedWidgetPool.Num() - 1; i >= Count; --i)
+		{
+			const auto Widget = LeasedWidgetPool[i];
+			Widget->RemoveFromParent();
+			GameUI->ReleaseWidget(Widget);
+			LeasedWidgetPool.RemoveAt(i);
+			OutRemovedWidgets.Add(Widget);
+		}
+	}
+
+	return NewStartIndex;
 }
 
 #pragma endregion

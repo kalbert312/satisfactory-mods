@@ -65,7 +65,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static bool PayItemBillIfAffordable(AFGCharacterPlayer* Player, const TArray<FItemAmount>& BillOfParts, bool bTakeFromDepot);
 
-#pragma endregion 
+#pragma endregion
+
+#pragma region UI Helpers
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport", meta = (ArrayParam = "LeasedWidgetPool", DeterminesOutputType="WidgetClass", DynamicOutputParam="OutRemovedWidgets", ReturnDisplayName="New Start Index"))
+	static int32 LeaseWidgetsExact(
+		APlayerController* Controller,
+		UPARAM(meta=(AllowAbstract=false)) TSubclassOf<UUserWidget> WidgetClass,
+		UPARAM(Ref) TArray<UUserWidget*>& LeasedWidgetPool,
+		int32 Count,
+		TArray<UUserWidget*>& OutRemovedWidgets);
+
+#pragma endregion
 
 private:
 	
