@@ -4,6 +4,7 @@
 
 #include "AutoSupportGameWorldModule.h"
 #include "AutoSupportModSubsystem.h"
+#include "BuildableAutoSupportProxy.h"
 #include "DrawDebugHelpers.h"
 #include "FGBlueprintProxy.h"
 #include "FGBuildingDescriptor.h"
@@ -71,6 +72,12 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	auto* StartBuildable = CastChecked<AFGBuildable>(RootHologram->Construct(HologramSpawnedActors, Buildables->GetNewNetConstructionID()));
 	HologramSpawnedActors.Insert(StartBuildable, 0);
 
+	auto* SupportProxy = GetWorld()->SpawnActorDeferred<ABuildableAutoSupportProxy>(
+		AutoSupportProxyClass,
+		GetActorTransform(),
+		nullptr,
+		BuildInstigator);
+	
 	// TODO(k.a): BBox not finished
 	// TODO(k.a): Spawn a wrapper actor, similar to AFGBlueprintProxy
 	FBox GroupBounds(ForceInit);
@@ -97,6 +104,8 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 			LightBuildables->CopyCustomizationDataFromTemporaryToInstance(Buildable);
 		}
 		
+		SupportProxy->RegisterBuildable(Buildable);
+		
 		MOD_LOG(Verbose, TEXT("Buildable[%i]: Name: [%s], ShouldConvertToLightweight: [%s], ManagedByLightweight: [%s] Customization Swatch: [%s]"),
 			i,
 			*Buildable->GetName(),
@@ -105,6 +114,8 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 			CustomizationData.SwatchDesc ? *(CustomizationData.SwatchDesc->GetName()) : TEXT_EMPTY);
 		++i;
 	}
+
+	SupportProxy->FinishSpawning(GetActorTransform());
 	
 	MOD_LOG(Verbose, TEXT("Completed, Bounds: %s, %"), *GroupBounds.ToString());
 	

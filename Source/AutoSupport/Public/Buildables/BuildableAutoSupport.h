@@ -3,10 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BuildableAutoSupportProxy.h"
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildableFactoryBuilding.h"
 #include "BuildableAutoSupport.generated.h"
 
+class ABuildableAutoSupportProxy;
 class UFGBuildingDescriptor;
 
 UCLASS(Abstract, Blueprintable)
@@ -62,14 +64,26 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, SaveGame, Category = "Auto Support")
 	bool bAutoConfigure = true;
 	
+	/**
+	 * The auto support proxy actor class to use.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Auto Support")
+	TSubclassOf<ABuildableAutoSupportProxy> AutoSupportProxyClass;
+	
+	/**
+	 * The auto support proxy this buildable is registered to.
+	 */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
+	TWeakObjectPtr<ABuildableAutoSupportProxy> AutoSupportProxy;
+	
 	void AutoConfigure();
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
 	void K2_AutoConfigure();
 	
 	/**
-	 * Traces to the terrain.
-	 * @return The free distance.
+	 * Traces and gather data for auto support build planning.
+	 * @return The trace results.
 	 */
 	FAutoSupportTraceResult Trace() const;
 
