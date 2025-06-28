@@ -3,9 +3,97 @@
 #include "AutoSupportModSubsystem.h"
 
 #include "AutoSupportGameWorldModule.h"
+#include "BuildableAutoSupportProxy.h"
 #include "ModConstants.h"
+#include "ModLogging.h"
 #include "WorldModuleManager.h"
 #include "Subsystem/SubsystemActorManager.h"
+
+AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
+{
+	const auto* WorldModuleManager = World->GetSubsystem<UWorldModuleManager>();
+	auto* WorldModule = CastChecked<UGameWorldModule>(WorldModuleManager->FindModule(AutoSupportConstants::ModReference));
+
+	// Make sure we retrieve the blueprint version
+	UClass* ImplClass = nullptr;
+	for (const auto& ModSubsystemClass : WorldModule->ModSubsystems)
+	{
+		if (ModSubsystemClass->IsChildOf<AAutoSupportModSubsystem>())
+		{
+			ImplClass = ModSubsystemClass;
+			break;
+		}
+	}
+
+	if (!ImplClass)
+	{
+		return nullptr;
+	}
+	
+	auto* SubsystemActorManager = World->GetSubsystem<USubsystemActorManager>();
+	return CastChecked<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
+}
+
+void AAutoSupportModSubsystem::Init()
+{
+	Super::Init();
+
+	auto* World = GetWorld();
+	
+	auto* Buildables = AFGBuildableSubsystem::Get(World);
+	Buildables->mBuildableRemovedDelegate.AddDynamic(this, &AAutoSupportModSubsystem::OnWorldBuildableRemoved);
+	
+	MOD_LOG(Verbose, TEXT("Added AFGBuildableSubsystem delegates"))
+}
+
+void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
+{
+	MOD_LOG(Verbose, TEXT("Invoked"))
+
+	const FAutoSupportBuildableHandle Handle(Buildable);
+	check(Handle.IsDataValid());
+	auto ProxyPtr = ProxyByBuildable.FindRef(Handle);
+
+	if (!ProxyPtr.IsValid())
+	{
+		MOD_LOG(Verbose, TEXT("No proxy found. IsNull: [%s], IsValid: [%s]"), TEXT_BOOL(ProxyPtr.IsExplicitlyNull()), TEXT_BOOL(ProxyPtr.IsValid()))
+		MOD_LOG(Verbose, TEXT("Lookup handle: [%s]"), TEXT_STR(Handle.ToString()))
+
+		for (const auto& Entry : ProxyByBuildable)
+		{
+			MOD_LOG(Verbose, TEXT("Existing registered handle: [%s]"), TEXT_STR(Entry.Key.ToString()))
+		}
+		
+		return;
+	}
+	
+	MOD_LOG(Verbose, TEXT("Found proxy. Removing handle and unregistering buildable."))
+	const auto Removed = ProxyByBuildable.Remove(Handle);
+	check(Removed == 1)
+	ProxyPtr->UnregisterBuildable(Buildable);
+}
+
+void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy* Proxy)
+{
+	MOD_LOG(Verbose, TEXT("Invoked"))
+	
+	TArray<FAutoSupportBuildableHandle> BuildablesToRemove;
+	
+	for (const auto& Entry : ProxyByBuildable)
+	{
+		if (Entry.Value == Proxy)
+		{
+			BuildablesToRemove.Add(Entry.Key);
+		}
+	}
+
+	MOD_LOG(Verbose, TEXT("Found %i entries to remove"), BuildablesToRemove.Num())
+	
+	for (const auto& Buildable : BuildablesToRemove)
+	{
+		ProxyByBuildable.Remove(Buildable);
+	}
+}
 
 #pragma region IFGSaveInterface
 
@@ -77,31 +165,6 @@ void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 
 #pragma endregion
 
-AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
-{
-	auto* WorldModuleManager = World->GetSubsystem<UWorldModuleManager>();
-	auto* WorldModule = CastChecked<UGameWorldModule>(WorldModuleManager->FindModule(AutoSupportConstants::ModReference));
-
-	// Make sure we retrieve the blueprint version
-	UClass* ImplClass = nullptr;
-	for (const auto& ModSubsystemClass : WorldModule->ModSubsystems)
-	{
-		if (ModSubsystemClass->IsChildOf<AAutoSupportModSubsystem>())
-		{
-			ImplClass = ModSubsystemClass;
-			break;
-		}
-	}
-
-	if (!ImplClass)
-	{
-		return nullptr;
-	}
-	
-	auto* SubsystemActorManager = World->GetSubsystem<USubsystemActorManager>();
-	return CastChecked<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
-}
-
 bool AAutoSupportModSubsystem::IsValidAutoSupportPresetName(FString PresetName, OUT FString& OutName, OUT FText& OutError)
 {
 	PresetName = PresetName.TrimStartAndEnd();
@@ -120,4 +183,17 @@ bool AAutoSupportModSubsystem::IsValidAutoSupportPresetName(FString PresetName, 
 	}
 
 	return true;
+}
+
+void AAutoSupportModSubsystem::RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy)
+{
+	check(Proxy);
+	MOD_LOG(Verbose, TEXT("Registering handle [%s] to proxy [%s]"), TEXT_STR(Handle.ToString()), TEXT_STR(Proxy->GetName()))
+	
+	if (ProxyByBuildable.Contains(Handle))
+	{
+		checkf(false, TEXT("Handle already exists! [%s]"), TEXT_STR(Handle.ToString()))
+	}
+	
+	ProxyByBuildable.Add(Handle, Proxy);
 }

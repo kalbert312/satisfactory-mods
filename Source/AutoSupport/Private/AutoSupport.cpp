@@ -2,6 +2,7 @@
 
 #include "AutoSupport.h"
 
+#include "AutoSupportModSubsystem.h"
 #include "Common/ModLogging.h"
 #include "NativeHookManager.h"
 
@@ -26,6 +27,15 @@ void FAutoSupportModule::RegisterHooks()
 {
 	MOD_LOG(Verbose, TEXT("Registering native hooks."))
 
+	SUBSCRIBE_UOBJECT_METHOD(AFGBuildable, EndPlay, [](auto& Scope, AFGBuildable* Buildable, const EEndPlayReason::Type EndType)
+	{
+		if (Buildable->ShouldConvertToLightweight()) 
+		{
+			// call our subsys delegate in this case b/c it isn't working. This is to solve not catching removals on individual buildables for support proxys.
+			auto* SupportSubsys = AAutoSupportModSubsystem::Get(Buildable->GetWorld());
+			SupportSubsys->OnWorldBuildableRemoved(Buildable);
+		}
+	});
 	// TODO
 }
 

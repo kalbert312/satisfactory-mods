@@ -4,9 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "FGSaveInterface.h"
+#include "Common/ModTypes.h"
 #include "Buildables/BuildableAutoSupport_Types.h"
 #include "SML/Public/Subsystem/ModSubsystem.h"
 #include "AutoSupportModSubsystem.generated.h"
+
+class ABuildableAutoSupportProxy;
 
 UCLASS(Blueprintable)
 class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IFGSaveInterface
@@ -18,7 +21,14 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	static bool IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError);
+	
+	void RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy);
+	
+	void OnProxyDestroyed(const ABuildableAutoSupportProxy* Proxy);
 
+	UFUNCTION()
+	void OnWorldBuildableRemoved(AFGBuildable* Buildable);
+	
 #pragma region IFGSaveInterface
 	
 	virtual void PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
@@ -70,4 +80,13 @@ protected:
 	 */
 	UPROPERTY(VisibleInstanceOnly, SaveGame)
 	TMap<FString, FBuildableAutoSupportData> AutoSupportPresets;
+
+	/**
+	 * This is used to respond to deletion events on the buildables and notify the proxy a buildable it contains has been destroyed.
+	 */
+	UPROPERTY(Transient)
+	TMap<FAutoSupportBuildableHandle, TWeakObjectPtr<ABuildableAutoSupportProxy>> ProxyByBuildable;
+	
+	virtual void Init() override;
+
 };

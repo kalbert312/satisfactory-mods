@@ -2,11 +2,14 @@
 
 #include "BuildableAutoSupportProxy.h"
 
+#include "AutoSupportModSubsystem.h"
 #include "FGBuildable.h"
 #include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "ModLogging.h"
 #include "Components/BoxComponent.h"
+
+// TODO(k.a): Check that non-lightweight handles save and load correctly.
 
 ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 {
@@ -21,8 +24,10 @@ ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 {
 	check(Buildable);
+
+	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 	
-	FAutoSupportProxyBuildableHandle Handle;
+	FAutoSupportBuildableHandle Handle;
 	Handle.Buildable = Buildable;
 	Handle.BuildableClass = Buildable->GetClass();
 	
@@ -30,20 +35,43 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 	{
 		Handle.LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
 	}
-
-	if (!Handle.Buildable.IsValid() && Handle.LightweightRuntimeIndex < 0)
+	
+	if (!Handle.IsDataValid())
 	{
 		check(!"Buildable is invalid")
 	}
 
 	RegisteredHandles.Add(Handle);
-
-	MOD_LOG(Verbose, TEXT("Registered buildable. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(Handle.BuildableClass), Handle.LightweightRuntimeIndex)
+	if (HasActorBegunPlay())
+	{
+		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
+	}
+	
+	MOD_LOG(Verbose, TEXT("Registered buildable. Handle: [%s]"), TEXT_STR(Handle.ToString()))
 }
 
+// This is called by the auto support subsystem
 void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
 {
-	// RegisteredBuildables.Remove(Buildable);
+	if (!Buildable)
+	{
+		return;
+	}
+	
+	MOD_LOG(Verbose, TEXT("Unregistering buildable. Class: [%s], Index: [%i]"), TEXT_OBJ_CLS_NAME(Buildable), Buildable->GetRuntimeDataIndex())
+
+	const FAutoSupportBuildableHandle FindHandle(Buildable);
+	
+	for (auto i = RegisteredHandles.Num() - 1; i >= 0; --i)
+	{
+		if (const auto& Handle = RegisteredHandles[i]; Handle == FindHandle)
+		{
+			RegisteredHandles.RemoveAt(i);
+			MOD_LOG(Verbose, TEXT("Removed buildable. Index: [%i]"), i)
+			DestroyIfEmpty();
+			break;
+		}
+	}
 }
 
 void ABuildableAutoSupportProxy::CalculateBounds()
@@ -56,11 +84,19 @@ void ABuildableAutoSupportProxy::BeginPlay()
 	Super::BeginPlay();
 
 	MOD_LOG(Verbose, TEXT("%i buildables registered."), RegisteredHandles.Num())
+
+	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+
+	for (const auto& Handle : RegisteredHandles)
+	{
+		// It's transient to the subsys, so reregister.
+		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
+	}
 	
 	CalculateBounds();
 }
 
-FAutoSupportProxyBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
+FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 {
 	MOD_LOG(Verbose, TEXT("Ensuring buildables are available for %i buildables."), RegisteredHandles.Num())
 	
@@ -133,7 +169,7 @@ FAutoSupportProxyBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAv
 	auto* RootHandle = &RegisteredHandles[0];
 	MOD_LOG(Verbose, TEXT("Root buildable handle, Class: [%s]"), TEXT_CLS_NAME(RootHandle->BuildableClass))
 	RootHandle->Buildable->SetParentBuildableActor(nullptr);
-
+	
 	// Set up parent actor for dismantle
 	for (auto i = 1; i < RegisteredHandles.Num(); ++i)
 	{
@@ -177,9 +213,19 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 
 		auto* Temporary = BuildableHandle.Buildable.Get();
 		Temporary->SetBlockCleanupOfTemporary(false);
+		
 		MOD_LOG(Verbose, TEXT("Temporary marked for cleanup. Handle index: [%i], Class: [%s], ManagedByLightweightSys: [%s], IsLightweightTemporary: [%s]"), i, TEXT_CLS_NAME(BuildableHandle.BuildableClass), TEXT_BOOL(Temporary->ManagedByLightweightBuildableSubsystem()), TEXT_BOOL(Temporary->GetIsLightweightTemporary()))
 		
 		BuildableHandle.Buildable = nullptr;
+	}
+}
+
+void ABuildableAutoSupportProxy::DestroyIfEmpty()
+{
+	if (RegisteredHandles.Num() == 0)
+	{
+		MOD_LOG(Verbose, TEXT("Destroying empty proxy"));
+		Destroy();
 	}
 }
 
@@ -205,6 +251,15 @@ void ABuildableAutoSupportProxy::StopIsLookedAtForDismantle_Implementation(AFGCh
 {
 	bIsHoveredForDismantle = false;
 	RemoveTemporaries(byCharacter);
+}
+
+void ABuildableAutoSupportProxy::Destroyed()
+{
+	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+
+	SupportSubsys->OnProxyDestroyed(this);
+	
+	Super::Destroyed();
 }
 
 void ABuildableAutoSupportProxy::Dismantle_Implementation()
@@ -236,8 +291,7 @@ void ABuildableAutoSupportProxy::GetChildDismantleActors_Implementation(TArray<A
 void ABuildableAutoSupportProxy::GetDismantleDependencies_Implementation(TArray<AActor*>& out_dismantleDependencies) const
 {
 	check(bBuildablesAvailable)
-
-	// NOTE: 
+	
 	// for (auto& Handle : RegisteredHandles)
 	// {
 	// 	Execute_GetDismantleDependencies(Handle.Buildable.Get(), out_dismantleDependencies);
@@ -310,6 +364,7 @@ void ABuildableAutoSupportProxy::PreLoadGame_Implementation(int32 saveVersion, i
 
 void ABuildableAutoSupportProxy::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
+
 }
 
 void ABuildableAutoSupportProxy::GatherDependencies_Implementation(TArray<UObject*>& out_dependentObjects)

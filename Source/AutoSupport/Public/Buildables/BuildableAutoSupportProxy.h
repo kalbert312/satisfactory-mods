@@ -5,36 +5,12 @@
 #include "CoreMinimal.h"
 #include "FGBuildable.h"
 #include "FGDismantleInterface.h"
+#include "ModTypes.h"
 #include "GameFramework/Actor.h"
 #include "BuildableAutoSupportProxy.generated.h"
 
 class AFGBuildable;
 class UBoxComponent;
-
-USTRUCT(BlueprintType)
-struct AUTOSUPPORT_API FAutoSupportProxyBuildableHandle
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(SaveGame)
-	TWeakObjectPtr<AFGBuildable> Buildable;
-
-	UPROPERTY(SaveGame)
-	TSubclassOf<AFGBuildable> BuildableClass;
-
-	UPROPERTY(SaveGame)
-	int32 LightweightRuntimeIndex = -1;
-
-	FORCEINLINE bool IsLightweightType() const
-	{
-		return LightweightRuntimeIndex >= 0;
-	}
-
-	FORCEINLINE bool IsDataValid() const
-	{
-		return IsValid(BuildableClass);
-	}
-};
 
 /**
  * Like AFGBlueprintProxy but for auto supports.
@@ -51,6 +27,8 @@ public:
 	void UnregisterBuildable(AFGBuildable* Buildable);
 
 	void CalculateBounds();
+
+	void DestroyIfEmpty();
 
 #pragma region IFGSaveInterface
 	
@@ -85,16 +63,18 @@ public:
 
 #pragma endregion
 
+	virtual void Destroyed() override;
+
 protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Auto Support")
 	TObjectPtr<UBoxComponent> BuildablesBoundingBox;
 
 	/**
-	 * The registered buildable handles. The first entry is considered the root buildable.
+	 * The registered buildable handles.
 	 */
 	UPROPERTY(VisibleInstanceOnly, Category = "Auto Support", SaveGame)
-	TArray<FAutoSupportProxyBuildableHandle> RegisteredHandles;
+	TArray<FAutoSupportBuildableHandle> RegisteredHandles;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Auto Support", SaveGame)
 	bool bIsDismantled = false;
@@ -107,7 +87,7 @@ protected:
 
 	virtual void BeginPlay() override;
 
-	FORCEINLINE const FAutoSupportProxyBuildableHandle* GetRootHandle() const
+	FORCEINLINE const FAutoSupportBuildableHandle* GetRootHandle() const
 	{
 		return RegisteredHandles.Num() > 0 ? &RegisteredHandles[0] : nullptr;
 	}
@@ -120,17 +100,6 @@ protected:
 		return RootHandle->Buildable.Get();
 	}
 
-	FORCEINLINE AFGBuildable* GetCheckedDismantleRootBuildable() const
-	{
-		if (RegisteredHandles.Num() == 0)
-		{
-			return nullptr;
-		}
-
-		check(RegisteredHandles[RegisteredHandles.Num() - 1].Buildable.IsValid());
-		return RegisteredHandles[RegisteredHandles.Num() - 1].Buildable.Get();
-	}
-
-	FAutoSupportProxyBuildableHandle* EnsureBuildablesAvailable();
+	FAutoSupportBuildableHandle* EnsureBuildablesAvailable();
 	void RemoveTemporaries(AFGCharacterPlayer* Player);
 };
