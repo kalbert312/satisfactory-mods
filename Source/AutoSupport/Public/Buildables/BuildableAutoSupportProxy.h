@@ -25,27 +25,14 @@ struct AUTOSUPPORT_API FAutoSupportProxyBuildableHandle
 	UPROPERTY(SaveGame)
 	int32 LightweightRuntimeIndex = -1;
 
-	UPROPERTY(Transient)
-	TWeakObjectPtr<AFGBuildable> Temporary;
-
 	FORCEINLINE bool IsLightweightType() const
 	{
 		return LightweightRuntimeIndex >= 0;
 	}
 
-	FORCEINLINE bool HasBuildable() const
+	FORCEINLINE bool IsDataValid() const
 	{
-		return Temporary.IsValid() || Buildable.IsValid();
-	}
-
-	FORCEINLINE bool IsValidHandle() const
-	{
-		return IsValid(BuildableClass) && (Buildable.IsValid() || LightweightRuntimeIndex >= 0);
-	}
-
-	FORCEINLINE AFGBuildable* GetBuildable() const
-	{
-		return Buildable.IsValid() ? Buildable.Get() : Temporary.IsValid() ? Temporary.Get() : nullptr;
+		return IsValid(BuildableClass);
 	}
 };
 
@@ -109,9 +96,41 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, Category = "Auto Support", SaveGame)
 	TArray<FAutoSupportProxyBuildableHandle> RegisteredHandles;
 
+	UPROPERTY(VisibleInstanceOnly, Category = "Auto Support", SaveGame)
+	bool bIsDismantled = false;
+
+	UPROPERTY(Transient, VisibleInstanceOnly, Category = "Auto Support")
+	bool bIsHoveredForDismantle = false;
+
+	UPROPERTY(Transient, VisibleInstanceOnly, Category = "Auto Support")
+	bool bBuildablesAvailable = false;
+
 	virtual void BeginPlay() override;
 
-	const FAutoSupportProxyBuildableHandle* GetRootHandle() const;
+	FORCEINLINE const FAutoSupportProxyBuildableHandle* GetRootHandle() const
+	{
+		return RegisteredHandles.Num() > 0 ? &RegisteredHandles[0] : nullptr;
+	}
+
+	FORCEINLINE AFGBuildable* GetCheckedRootBuildable() const
+	{
+		auto* RootHandle = GetRootHandle();
+		check(RootHandle);
+		check(RootHandle->Buildable.IsValid());
+		return RootHandle->Buildable.Get();
+	}
+
+	FORCEINLINE AFGBuildable* GetCheckedDismantleRootBuildable() const
+	{
+		if (RegisteredHandles.Num() == 0)
+		{
+			return nullptr;
+		}
+
+		check(RegisteredHandles[RegisteredHandles.Num() - 1].Buildable.IsValid());
+		return RegisteredHandles[RegisteredHandles.Num() - 1].Buildable.Get();
+	}
+
 	FAutoSupportProxyBuildableHandle* EnsureBuildablesAvailable();
-	void RemoveTemporaries();
+	void RemoveTemporaries(AFGCharacterPlayer* Player);
 };

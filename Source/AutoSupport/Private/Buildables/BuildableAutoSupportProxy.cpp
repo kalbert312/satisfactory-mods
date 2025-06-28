@@ -3,6 +3,7 @@
 #include "BuildableAutoSupportProxy.h"
 
 #include "FGBuildable.h"
+#include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "ModLogging.h"
 #include "Components/BoxComponent.h"
@@ -19,6 +20,8 @@ ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 
 void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 {
+	check(Buildable);
+	
 	FAutoSupportProxyBuildableHandle Handle;
 	Handle.Buildable = Buildable;
 	Handle.BuildableClass = Buildable->GetClass();
@@ -34,6 +37,8 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 	}
 
 	RegisteredHandles.Add(Handle);
+
+	MOD_LOG(Verbose, TEXT("Registered buildable. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(Handle.BuildableClass), Handle.LightweightRuntimeIndex)
 }
 
 void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
@@ -55,89 +60,126 @@ void ABuildableAutoSupportProxy::BeginPlay()
 	CalculateBounds();
 }
 
-const FAutoSupportProxyBuildableHandle* ABuildableAutoSupportProxy::GetRootHandle() const
-{
-	return RegisteredHandles.Num() > 0 ? &RegisteredHandles[0] : nullptr;
-}
-
 FAutoSupportProxyBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 {
+	MOD_LOG(Verbose, TEXT("Ensuring buildables are available for %i buildables."), RegisteredHandles.Num())
+	
 	if (RegisteredHandles.Num() == 0)
 	{
+		bBuildablesAvailable = true;
 		return nullptr;
 	}
 	
 	auto* LightBuildables = AFGLightweightBuildableSubsystem::Get(GetWorld());
-
-	FAutoSupportProxyBuildableHandle* RootHandle = &RegisteredHandles[0];
-	TArray<int32> IndexesToRemove;
 	
 	for (auto i = RegisteredHandles.Num() - 1; i >= 0; --i)
 	{
 		auto& BuildableHandle = RegisteredHandles[i];
 		
-		if (!BuildableHandle.IsValidHandle())
+		if (!BuildableHandle.IsDataValid())
 		{
-			MOD_LOG(Verbose, TEXT("Buildable is invalid. Class: [%s], Index: [%i]"), BuildableHandle.BuildableClass ? *BuildableHandle.BuildableClass->GetName() : TEXT_NULL, BuildableHandle.LightweightRuntimeIndex)
+			MOD_LOG(Verbose, TEXT("Buildable data is invalid. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
 			RegisteredHandles.RemoveAt(i);
 			continue;
 		}
 
-		auto* Buildable = BuildableHandle.GetBuildable();
-		
-		if (BuildableHandle.IsLightweightType() && !BuildableHandle.Temporary.IsValid())
+		if (!BuildableHandle.IsLightweightType()) // Check non-lightweight validity
 		{
-			MOD_LOG(Verbose, TEXT("Spawning buildable from lightweight. Class: [%s], Index: [%i]"), *(BuildableHandle.BuildableClass->GetName()), BuildableHandle.LightweightRuntimeIndex)
-			auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(BuildableHandle.BuildableClass, BuildableHandle.LightweightRuntimeIndex);
-			check(InstanceData);
-			bool bWasSpawned = false;
-			const auto* NewTemporary = LightBuildables->FindOrSpawnBuildableForRuntimeData(BuildableHandle.BuildableClass, InstanceData, BuildableHandle.LightweightRuntimeIndex, bWasSpawned);
-
-			if (bWasSpawned)
+			if (!BuildableHandle.Buildable.IsValid())
 			{
-				check(NewTemporary);
-
-				Buildable = NewTemporary->Buildable;
-				Buildable->SetBlockCleanupOfTemporary(true);
-			
-				BuildableHandle.Temporary = Buildable;
-			}
-			else
-			{
-				MOD_LOG(Verbose, TEXT("The handle at [%i] is not valid, removing it."), i)
+				MOD_LOG(Verbose, TEXT("The buildable instance at [%i] is invalid, removing handle. Lightweight: [FALSE]"), i)
 				RegisteredHandles.RemoveAt(i);
-				continue;
 			}
+
+			continue;
+		}
+
+		if (BuildableHandle.Buildable.IsValid())
+		{
+			MOD_LOG(Verbose, TEXT("The buildable instance at handle index [%i] is already available."), i)
+			continue;
+		}
+
+		// Lightweight, spawn in a temporary
+		MOD_LOG(Verbose, TEXT("Spawning buildable from lightweight. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
+		auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(BuildableHandle.BuildableClass, BuildableHandle.LightweightRuntimeIndex);
+		check(InstanceData);
+		MOD_LOG(Verbose, TEXT("Instance data, IsValid: [%s]"), TEXT_BOOL(InstanceData->IsValid()))
+
+		if (!InstanceData->IsValid())
+		{
+			MOD_LOG(Verbose, TEXT("The lightweight buildable instance data at [%i] is invalid, removing handle."), i)
+			RegisteredHandles.RemoveAt(i);
+			continue;
 		}
 		
-		if (i > 0)
-		{
-			// TODO(k.a): should this be chained or a single root?
-			Buildable->SetParentBuildableActor(RootHandle->GetBuildable());
-		}
+		bool bWasSpawned = false;
+		const auto* NewTemporaryHandle = LightBuildables->FindOrSpawnBuildableForRuntimeData(BuildableHandle.BuildableClass, InstanceData, BuildableHandle.LightweightRuntimeIndex, bWasSpawned);
+		
+		MOD_LOG(Verbose, TEXT("The lightweight buildable handle at [%i], TemporarySpawned: [%s]."), i, TEXT_BOOL(bWasSpawned))
+		
+		check(NewTemporaryHandle)
+		check(NewTemporaryHandle->Buildable);
+		BuildableHandle.Buildable = NewTemporaryHandle->Buildable;
+		BuildableHandle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
 	}
 
+	if (RegisteredHandles.Num() == 0)
+	{
+		bBuildablesAvailable = true;
+		return nullptr;
+	}
+	
+	auto* RootHandle = &RegisteredHandles[0];
+	MOD_LOG(Verbose, TEXT("Root buildable handle, Class: [%s]"), TEXT_CLS_NAME(RootHandle->BuildableClass))
+	RootHandle->Buildable->SetParentBuildableActor(nullptr);
+
+	// Set up parent actor for dismantle
+	for (auto i = 1; i < RegisteredHandles.Num(); ++i)
+	{
+		MOD_LOG(Verbose, TEXT("Set parent buildable for handle at [%i]."), i)
+		RegisteredHandles[i].Buildable->SetParentBuildableActor(RootHandle->Buildable.Get());
+	}
+
+	bBuildablesAvailable = true;
 	return RootHandle;
 }
 
-void ABuildableAutoSupportProxy::RemoveTemporaries()
+void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 {
-	MOD_LOG(Verbose, TEXT("Begin"))
+	MOD_LOG(Verbose, TEXT("Removing temporaries for up to %i buildables."), RegisteredHandles.Num())
+	bBuildablesAvailable = false;
+	auto* Outline = Player ? Player->GetOutline() : nullptr;
 	
 	for (auto i = 0; i < RegisteredHandles.Num(); ++i)
 	{
 		auto& BuildableHandle = RegisteredHandles[i];
 
-		if (!BuildableHandle.IsLightweightType() || !BuildableHandle.Temporary.IsValid())
+		if (!BuildableHandle.Buildable.IsValid())
 		{
 			continue;
 		}
 
-		auto* Temporary = BuildableHandle.Temporary.Get();
-		Temporary->SetBlockCleanupOfTemporary(false);
-		MOD_LOG(Verbose, TEXT("Temporary Class: [%s], ManagedByLightweightSys: [%s], IsLightweightTemporary: [%s]"), *(BuildableHandle.BuildableClass->GetName()), TEXT_CONDITION(Temporary->ManagedByLightweightBuildableSubsystem()), TEXT_CONDITION(Temporary->GetIsLightweightTemporary()))
+		auto* Buildable = BuildableHandle.Buildable.Get();
+	
+		if (Outline)
+		{
+			Outline->HideOutline(Buildable);
+			Outline->ShowOutline(this, EOutlineColor::OC_NONE);
+		}
 		
-		BuildableHandle.Temporary = nullptr;
+		Buildable->SetParentBuildableActor(nullptr);
+
+		if (!BuildableHandle.IsLightweightType())
+		{
+			continue;
+		}
+
+		auto* Temporary = BuildableHandle.Buildable.Get();
+		Temporary->SetBlockCleanupOfTemporary(false);
+		MOD_LOG(Verbose, TEXT("Temporary marked for cleanup. Handle index: [%i], Class: [%s], ManagedByLightweightSys: [%s], IsLightweightTemporary: [%s]"), i, TEXT_CLS_NAME(BuildableHandle.BuildableClass), TEXT_BOOL(Temporary->ManagedByLightweightBuildableSubsystem()), TEXT_BOOL(Temporary->GetIsLightweightTemporary()))
+		
+		BuildableHandle.Buildable = nullptr;
 	}
 }
 
@@ -148,56 +190,78 @@ bool ABuildableAutoSupportProxy::CanDismantle_Implementation() const
 	return true;
 }
 
+FText ABuildableAutoSupportProxy::GetDismantleDisplayName_Implementation(AFGCharacterPlayer* byCharacter) const
+{
+	return FText::FromString(FString("Auto Support"));
+}
+
+void ABuildableAutoSupportProxy::StartIsLookedAtForDismantle_Implementation(AFGCharacterPlayer* byCharacter)
+{
+	bIsHoveredForDismantle = true;
+	EnsureBuildablesAvailable();
+}
+
+void ABuildableAutoSupportProxy::StopIsLookedAtForDismantle_Implementation(AFGCharacterPlayer* byCharacter)
+{
+	bIsHoveredForDismantle = false;
+	RemoveTemporaries(byCharacter);
+}
+
 void ABuildableAutoSupportProxy::Dismantle_Implementation()
 {
+	MOD_LOG(Verbose, TEXT("Dismantle called. Buildables available: [%s], IsHoveredForDismantle: [%s]"), TEXT_BOOL(bBuildablesAvailable), TEXT_BOOL(bIsHoveredForDismantle))
 	MOD_LOG(Verbose, TEXT("Dismantling %i buildables..."), RegisteredHandles.Num())
+	EnsureBuildablesAvailable();
 
-	if (const auto* RootHandle = EnsureBuildablesAvailable(); RootHandle->HasBuildable())
-	{
-		Execute_Dismantle(RootHandle->GetBuildable());
-		Destroy();
-	}
+	Destroy();
 }
 
 void ABuildableAutoSupportProxy::GetChildDismantleActors_Implementation(TArray<AActor*>& out_ChildDismantleActors) const
 {
+	MOD_LOG(Verbose, TEXT("BuildablesAvailable: [%s], HoveredForDismantle: [%s]"), TEXT_BOOL(bBuildablesAvailable), TEXT_BOOL(bIsHoveredForDismantle))
+	
+	if (!bBuildablesAvailable)
+	{
+		return;
+	}
+
+	for (auto& Handle : RegisteredHandles)
+	{
+		out_ChildDismantleActors.Add(Handle.Buildable.Get());
+	}
+
+	MOD_LOG(Verbose, TEXT("Dismantle child actors, Count: [%i]"), out_ChildDismantleActors.Num())
 }
 
 void ABuildableAutoSupportProxy::GetDismantleDependencies_Implementation(TArray<AActor*>& out_dismantleDependencies) const
 {
-	// for (auto Buildable : RegisteredHandles)
+	check(bBuildablesAvailable)
+
+	// NOTE: 
+	// for (auto& Handle : RegisteredHandles)
 	// {
-	// 	if (IsValid(Buildable))
-	// 	{
-	// 		Execute_GetDismantleDependencies(Buildable, out_dismantleDependencies);
-	// 	}
+	// 	Execute_GetDismantleDependencies(Handle.Buildable.Get(), out_dismantleDependencies);
 	// }
+
+	MOD_LOG(Verbose, TEXT("Dismantle dependencies, Count: [%i]"), out_dismantleDependencies.Num())
 }
 
 void ABuildableAutoSupportProxy::GetDismantleDisqualifiers_Implementation(
 	TArray<TSubclassOf<UFGConstructDisqualifier>>& out_dismantleDisqualifiers,
 	const TArray<AActor*>& allSelectedActors) const
 {
-	// for (auto Buildable : RegisteredHandles)
-	// {
-	// 	if (IsValid(Buildable))
-	// 	{
-	// 		Execute_GetDismantleDisqualifiers(Buildable, out_dismantleDisqualifiers, allSelectedActors);
-	// 	}
-	// }
 }
 
 void ABuildableAutoSupportProxy::GetDismantleRefund_Implementation(TArray<FInventoryStack>& out_refund, bool noBuildCostEnabled) const
 {
-	if (auto* RootHandle = GetRootHandle(); RootHandle->HasBuildable())
-	{
-		Execute_GetDismantleRefund(RootHandle->GetBuildable(), out_refund, noBuildCostEnabled);
-	}
+	// NOTE: This is for this actor only. The refunds from registered buildables are propagated via get GetChildDismantleActors.
 }
 
 FVector ABuildableAutoSupportProxy::GetRefundSpawnLocationAndArea_Implementation(const FVector& aimHitLocation, float& out_radius) const
 {
-	return FVector::ZeroVector;
+	const auto* RootBuildable = GetCheckedRootBuildable();
+
+	return Execute_GetRefundSpawnLocationAndArea(RootBuildable, aimHitLocation, out_radius);
 }
 
 void ABuildableAutoSupportProxy::PreUpgrade_Implementation()
@@ -216,21 +280,6 @@ bool ABuildableAutoSupportProxy::SupportsDismantleDisqualifiers_Implementation()
 
 void ABuildableAutoSupportProxy::Upgrade_Implementation(AActor* newActor)
 {
-}
-
-FText ABuildableAutoSupportProxy::GetDismantleDisplayName_Implementation(AFGCharacterPlayer* byCharacter) const
-{
-	return FText::FromString(FString("TODO Dismantle Name"));
-}
-
-void ABuildableAutoSupportProxy::StartIsLookedAtForDismantle_Implementation(AFGCharacterPlayer* byCharacter)
-{
-	EnsureBuildablesAvailable();
-}
-
-void ABuildableAutoSupportProxy::StopIsLookedAtForDismantle_Implementation(AFGCharacterPlayer* byCharacter)
-{
-	RemoveTemporaries();
 }
 
 #pragma endregion
