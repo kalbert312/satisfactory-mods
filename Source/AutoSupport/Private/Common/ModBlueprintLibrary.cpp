@@ -3,7 +3,6 @@
 
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
-#include "FGBuildableHologram.h"
 #include "FGCentralStorageSubsystem.h"
 #include "FGCharacterPlayer.h"
 #include "FGGameUI.h"
@@ -32,6 +31,8 @@ EAutoSupportBuildDirection UAutoSupportBlueprintLibrary::GetOppositeDirection(co
 			return EAutoSupportBuildDirection::Right;
 		case EAutoSupportBuildDirection::Right:
 			return EAutoSupportBuildDirection::Left;
+		default:
+			break;
 	}
 
 	checkf(Direction != Direction, TEXT("Direction is %i"), static_cast<int32>(Direction));
@@ -456,9 +457,9 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				[&](AFGHologram* PreSpawnHolo)
 				{
 					PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
-
-					PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);;
-					PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
+					
+					PreSpawnHolo->AddActorLocalOffset(PartPlan.LocalTranslation);
+					PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation);
 
 					PreSpawnHolo->DoMultiStepPlacement(false);
 
@@ -476,9 +477,9 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				[&](AFGHologram* PreSpawnHolo)
 				{
 					PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
-
-					PreSpawnHolo->AddActorLocalRotation(PartPlan.DeltaRotation);
-					PreSpawnHolo->AddActorLocalOffset(PartPlan.PostRotationLocalTranslation);
+					
+					PreSpawnHolo->AddActorLocalOffset(PartPlan.LocalTranslation);
+					PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation);
 
 					PreSpawnHolo->DoMultiStepPlacement(false);
 					PreSpawnHolo->SetShouldSpawnChildHolograms(true);
@@ -542,42 +543,48 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 
 	// First, rotate the part.
 	const auto DeltaRot = GetDirectionRotator(PartOrientation);
-	Plan.DeltaRotation = DeltaRot;
+	Plan.LocalRotation = DeltaRot;
 
 	// Next, apply translations. We need to fit correctly in the space we're supposed to occupy in the build, while respecting the differing
 	// sizes of the part along X,Y,Z as well as the mesh's pivot relative to the buildable actor that will be placed.
 	const auto RotatedSize = DeltaRot.RotateVector(PartSize).GetAbs();
-	const auto RotatedActorOriginCenterOffset = DeltaRot.RotateVector(ActorOriginCenterOffset);
-	const auto RotatedTraceDirection = DeltaRot.RotateVector(LocalTraceDirection);
 	const auto DeltaSize = RotatedSize - PartSize;
-	const auto DeltaActorOriginCenterOffset = RotatedActorOriginCenterOffset - ActorOriginCenterOffset;
-	const auto BottomingOffset = -DeltaRot.RotateVector(PartBBox.Min); // TODO(k.a): check this again
 	
 	Plan.ConsumedBuildSpace = RotatedSize.Z; // Z is rel trace direction
-	
-	// The first translation is undoing the "translation" done because of rotation on the TRACE AXIS.
-	//   Example: Pillar piece, the buildable actor pivot is 0,0,0 and mesh origin is 0,0,0, but we need to be built relative to bottom, so we need to go up +Z by -minZ
-	//   Example: Wall piece, the buildable actor pivot is 0,0,0 but the mesh is bottom aligned with the pivot. The size of the part is 800,10,400 making the origin offset from actor pivot 0,0,200.
-	//     If we don't rotate: Do nothing, we're already where we should be
-	//     If we rotate right: The rotated size is 400,10,800. Our size DOUBLED along our travel axis, so we need to push the part up +Z by half (and thus the rest of the parts we'll build)
-	//     If we rotate to top (180deg): The rotated size is still 800,800,400, but now we are offset -400 Z of the occupying space.
-	Plan.PostRotationLocalTranslation = LocalTraceDirection * (DeltaSize + DeltaActorOriginCenterOffset) + LocalTraceDirection * BottomingOffset;
 
-	if (PartOrientation != EAutoSupportBuildDirection::Top && PartOrientation != EAutoSupportBuildDirection::Bottom)
+	auto LocalParallelOffset = PartOrientation == EAutoSupportBuildDirection::Bottom || PartOrientation == EAutoSupportBuildDirection::Top
+		? -PartBBox.Min.Z // align the bottom of the part with transform we'll be working off of. 
+		: 0; 
+	LocalParallelOffset += FMath::IsNearlyZero(DeltaSize.Z) || DeltaSize.Z >= 0 ? DeltaSize.Z : (PartSize.Z + DeltaSize.Z) / 2.f;
+	FVector LocalTranslation = FVector(0, 0, LocalParallelOffset);
+
+	if (!ActorOriginCenterOffset.IsNearlyZero())
 	{
-		// The second translation is undoing the "translation" done because of rotation on the AXIS PERPENDICULAR TO TRACE.
-		//   Example: Pillar piece, the buildable actor pivot is 0,0,0 and mesh origin is 0,0,0, so we don't need to do anything here.
-		//   Example: Wall piece, the buildable actor pivot is 0,0,0 but the mesh is bottom aligned with the pivot. The size of the part is 800,10,400 making the origin offset from actor pivot 0,0,200.
-		//     If we don't rotate: Do nothing, we're already where we should be
-		//     If we rotate right: The rotated size is 400,10,800. Our size HALVED along our perpendicular X axis, so we need to push the part by its size towards -X (this does not affect other parts)
-		//     If we rotate to top: The rotated size is still 800,10,400, but we are still where we should be horizontally. 
-		Plan.PostRotationLocalTranslation += -1 * RotatedTraceDirection * (DeltaSize + DeltaActorOriginCenterOffset) + -1 * RotatedTraceDirection * BottomingOffset;
+		switch (PartOrientation)
+		{
+			case EAutoSupportBuildDirection::Front:
+				LocalTranslation.Y = -1 * PartSize.Y / 2.f;
+				break;
+			case EAutoSupportBuildDirection::Back:
+				LocalTranslation.Y = PartSize.Y / 2.f;
+				break;
+			case EAutoSupportBuildDirection::Left:
+				LocalTranslation.X = 1 * PartSize.Z / 2.f;
+				break;
+			case EAutoSupportBuildDirection::Right:
+				LocalTranslation.X = -PartSize.Z / 2.f;
+				break;
+			default:
+				break;
+		}
 	}
+	
+	Plan.LocalTranslation = LocalTranslation;
 	
 	MOD_LOG(Verbose, TEXT("Origin Offset: [%s], BBox Min [%s], BBox Max: [%s]"), *ActorOriginCenterOffset.ToCompactString(), *PartBBox.Min.ToCompactString(), *PartBBox.Max.ToCompactString());
 	MOD_LOG(Verbose, TEXT("Extent: [%s], DeltaRotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToCompactString());
-	MOD_LOG(Verbose, TEXT("DeltaSize: [%s], DeltaActorOriginCenterOffset: [%s], BottomingOffset: [%s]"), *DeltaSize.ToCompactString(), *DeltaActorOriginCenterOffset.ToCompactString(), *BottomingOffset.ToCompactString());
-	MOD_LOG(Verbose, TEXT("ConsumedBuildSpace: [%f], PostRotationLocalTranslation: [%s]"), Plan.ConsumedBuildSpace, *Plan.PostRotationLocalTranslation.ToCompactString());
+	MOD_LOG(Verbose, TEXT("DeltaSize: [%s], ConsumedBuildSpace: [%f]"), *DeltaSize.ToCompactString(), Plan.ConsumedBuildSpace);
+	MOD_LOG(Verbose, TEXT("LocalTranslation: [%s], LocalTranslation: [%s]"), TEXT_STR(LocalTranslation.ToCompactString()), TEXT_STR(Plan.LocalTranslation.ToCompactString()))
 }
 
 #pragma endregion

@@ -194,13 +194,13 @@ struct FAutoSupportBuildPlanPartData
 	 * The build location offset in part local space.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FVector PostRotationLocalTranslation = FVector::ZeroVector;
+	FVector LocalTranslation = FVector::ZeroVector;
 	
 	/**
 	 * Local rotation to apply to part.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FRotator DeltaRotation = FRotator::ZeroRotator;
+	FRotator LocalRotation = FRotator::ZeroRotator;
 
 	/**
 	 * The build space that will be occupied by this part.

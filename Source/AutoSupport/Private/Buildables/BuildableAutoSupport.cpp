@@ -79,7 +79,6 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		BuildInstigator);
 	
 	// TODO(k.a): BBox not finished
-	// TODO(k.a): Spawn a wrapper actor, similar to AFGBlueprintProxy
 	FBox GroupBounds(ForceInit);
 
 	int32 i = 0;
