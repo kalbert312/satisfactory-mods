@@ -162,7 +162,7 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 	if (Plan.EndPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("Building End Part, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
-		WorkingTransform.AddToTranslation(Plan.EndPartPositionOffset);
+		WorkingTransform.AddToTranslation(FVector::UpVector * Plan.EndPartPositionOffset);
 		
 		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, SupportProxy, Owner, WorkingTransform);
 	}
@@ -251,9 +251,9 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 				NumMiddleParts++; // build an extra to fill the gap.
 				
 				// Offset the end part to be flush with where the line trace hit or ended. We built an extra part so the direction is negative because we're moving backwards. We don't need to worry about the end part size because it was already subtracted from build distance.
-				OutPlan.EndPartPositionOffset = -TraceResult.Direction * (SinglePartConsumedBuildSpace - RemainingBuildDistance);
+				OutPlan.EndPartPositionOffset = -1 * (SinglePartConsumedBuildSpace - RemainingBuildDistance);
 
-				MOD_LOG(Verbose, TEXT("Not a perfect fit. Added extra mid part and offsetting end part position by [%s]"), *OutPlan.EndPartPositionOffset.ToString());
+				MOD_LOG(Verbose, TEXT("Not a perfect fit. Added extra mid part and offsetting end part position by [%f]"), OutPlan.EndPartPositionOffset);
 			}
 			
 			OutPlan.MidPart.Count = NumMiddleParts;
@@ -609,10 +609,10 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 				LocalTranslation.Y = PartSize.Y / 2.f;
 				break;
 			case EAutoSupportBuildDirection::Left:
-				LocalTranslation.X = 1 * PartSize.Z / 2.f;
+				LocalTranslation.X = PartSize.Z / 2.f;
 				break;
 			case EAutoSupportBuildDirection::Right:
-				LocalTranslation.X = -PartSize.Z / 2.f;
+				LocalTranslation.X = -1 * PartSize.Z / 2.f;
 				break;
 			default:
 				break;

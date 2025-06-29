@@ -279,10 +279,10 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	FAutoSupportBuildPlanPartData EndPart;
 	
 	/**
-	 * The world direction-aware position offset to build the end part at to make it seated correctly.
+	 * The position offset to build the end part at to make it seated correctly.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FVector EndPartPositionOffset = FVector::ZeroVector;
+	float EndPartPositionOffset = 0.f;
 	
 	FORCEINLINE bool IsActionable() const
 	{
