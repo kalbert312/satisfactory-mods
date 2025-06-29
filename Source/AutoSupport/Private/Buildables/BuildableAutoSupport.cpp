@@ -246,7 +246,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	// This is so the build consumes the space occupied by the auto support and is not awkwardly offset. // Example: Build direction
 	// set to top means the part will build flush to the "bottom" face of the cube and then topward.
 	const auto FaceRelLocation = GetCubeFaceRelativeLocation(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
-	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection));
+	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection)).Quaternion();
 	Result.StartRelativeLocation = FaceRelLocation;
 	Result.StartLocation = StartTransform.TransformPosition(FaceRelLocation);
 	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, TraceAbsDirection);
@@ -256,7 +256,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		TEXT("Face rel location: [%s], Trace start rel loc & rot: [%s][%s], Abs loc start [%s] with end delta: [%s]"),
 		*FaceRelLocation.ToCompactString(),
 		*Result.StartRelativeLocation.ToCompactString(),
-		*Result.StartRelativeRotation.ToCompactString(),
+		*Result.StartRelativeRotation.ToString(),
 		*Result.StartLocation.ToCompactString(),
 		*((EndLocation - Result.StartLocation).ToCompactString()));
 

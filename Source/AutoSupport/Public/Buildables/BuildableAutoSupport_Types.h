@@ -137,7 +137,7 @@ struct AUTOSUPPORT_API FAutoSupportTraceResult
 	FVector StartRelativeLocation = FVector::ZeroVector;
 
 	UPROPERTY()
-	FRotator StartRelativeRotation = FRotator::ZeroRotator;
+	FQuat StartRelativeRotation = FQuat::Identity;
 
 	UPROPERTY()
 	FVector Direction = FVector::ZeroVector;
@@ -200,7 +200,7 @@ struct FAutoSupportBuildPlanPartData
 	 * Local rotation to apply to part.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FRotator LocalRotation = FRotator::ZeroRotator;
+	FQuat LocalRotation = FQuat::Identity;
 
 	/**
 	 * The build space that will be occupied by this part.
@@ -240,7 +240,7 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	 * The relative rotation to apply to a copy of the actor transform to begin building.
 	 */
 	UPROPERTY(BlueprintReadWrite)
-	FRotator RelativeRotation = FRotator::ZeroRotator;
+	FQuat RelativeRotation = FQuat::Identity;
 
 	/**
 	 * The world location to start building.

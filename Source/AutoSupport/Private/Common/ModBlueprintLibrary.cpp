@@ -105,7 +105,13 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 	// Build the parts
 	auto WorkingTransform = Transform;
 	WorkingTransform.SetLocation(Plan.StartWorldLocation);
-	WorkingTransform.SetRotation(WorkingTransform.Rotator().Add(Plan.RelativeRotation.Pitch, Plan.RelativeRotation.Yaw, Plan.RelativeRotation.Roll).Quaternion());
+	WorkingTransform.ConcatenateRotation(Plan.RelativeRotation);
+	MOD_LOG(
+		Verbose,
+		TEXT("WorkingTransform Up: [%s], Forward: [%s], Right: [%s]"),
+		*WorkingTransform.GetRotation().GetUpVector().ToCompactString(),
+		*WorkingTransform.GetRotation().GetForwardVector().ToCompactString(),
+		*WorkingTransform.GetRotation().GetRightVector().ToCompactString())
 	
 	AFGHologram* RootHologram = nullptr; // we'll assign this while building
 	
@@ -441,11 +447,25 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 	AActor* Owner,
 	FTransform& WorkingTransform)
 {
+	auto PreSpawnFn = [&](AFGHologram* PreSpawnHolo)
+	{
+		MOD_LOG(Verbose, TEXT("Pre-Spawn Hologram: WorldRotation: [%s], LocalRotation: [%s], LocalTranslation: [%s]"), *WorkingTransform.ToString(), *PartPlan.LocalRotation.ToString(), *PartPlan.LocalTranslation.ToCompactString());
+		PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
+					
+		PreSpawnHolo->AddActorLocalOffset(PartPlan.LocalTranslation);
+		PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation); // TODO(k.a): the local rotation isn't apply correctly when the actor is rotated
+
+		PreSpawnHolo->DoMultiStepPlacement(false);
+			
+		// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
+		// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
+	};
+	
 	for (auto i = 0; i < PartPlan.Count; ++i)
 	{
 		// Copy the transform, then apply the orientation below
 		MOD_LOG(Verbose, TEXT("World Part Spawn Transform: [%s]"), *WorkingTransform.ToHumanReadableString());
-
+		
 		if (ParentHologram)
 		{
 			AFGHologram::SpawnChildHologramFromRecipe(
@@ -454,18 +474,7 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				PartPlan.BuildRecipeClass,
 				Owner,
 				WorkingTransform.GetLocation(),
-				[&](AFGHologram* PreSpawnHolo)
-				{
-					PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
-					
-					PreSpawnHolo->AddActorLocalOffset(PartPlan.LocalTranslation);
-					PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation);
-
-					PreSpawnHolo->DoMultiStepPlacement(false);
-
-					// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
-					// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
-				});
+				PreSpawnFn);
 		}
 		else
 		{
@@ -474,19 +483,9 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				Owner,
 				WorkingTransform.GetLocation(),
 				BuildInstigator,
-				[&](AFGHologram* PreSpawnHolo)
-				{
-					PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
-					
-					PreSpawnHolo->AddActorLocalOffset(PartPlan.LocalTranslation);
-					PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation);
+				PreSpawnFn);
 
-					PreSpawnHolo->DoMultiStepPlacement(false);
-					PreSpawnHolo->SetShouldSpawnChildHolograms(true);
-
-					// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
-					// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
-				});
+			ParentHologram->SetShouldSpawnChildHolograms(true);
 		}
 		
 		// Update the transform
@@ -539,10 +538,9 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	
 	const auto PartSize = PartBBox.GetSize();
 	const auto ActorOriginCenterOffset = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
-	const auto LocalTraceDirection = FVector::UpVector;
 
 	// First, rotate the part.
-	const auto DeltaRot = GetDirectionRotator(PartOrientation);
+	const auto DeltaRot = GetDirectionRotator(PartOrientation).Quaternion();
 	Plan.LocalRotation = DeltaRot;
 
 	// Next, apply translations. We need to fit correctly in the space we're supposed to occupy in the build, while respecting the differing
@@ -582,7 +580,7 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	Plan.LocalTranslation = LocalTranslation;
 	
 	MOD_LOG(Verbose, TEXT("Origin Offset: [%s], BBox Min [%s], BBox Max: [%s]"), *ActorOriginCenterOffset.ToCompactString(), *PartBBox.Min.ToCompactString(), *PartBBox.Max.ToCompactString());
-	MOD_LOG(Verbose, TEXT("Extent: [%s], DeltaRotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToCompactString());
+	MOD_LOG(Verbose, TEXT("Extent: [%s], DeltaRotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToString());
 	MOD_LOG(Verbose, TEXT("DeltaSize: [%s], ConsumedBuildSpace: [%f]"), *DeltaSize.ToCompactString(), Plan.ConsumedBuildSpace);
 	MOD_LOG(Verbose, TEXT("LocalTranslation: [%s], LocalTranslation: [%s]"), TEXT_STR(LocalTranslation.ToCompactString()), TEXT_STR(Plan.LocalTranslation.ToCompactString()))
 }
