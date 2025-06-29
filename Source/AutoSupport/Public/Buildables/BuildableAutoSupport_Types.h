@@ -231,6 +231,12 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	GENERATED_BODY()
 
 	/**
+	 * The build direction relative to the cube.
+	 */
+	UPROPERTY(BlueprintReadWrite)
+	EAutoSupportBuildDirection BuildDirection = EAutoSupportBuildDirection::Top;
+
+	/**
 	 * The relative translation to apply to a copy of the actor transform to building.
 	 */
 	UPROPERTY(BlueprintReadWrite)

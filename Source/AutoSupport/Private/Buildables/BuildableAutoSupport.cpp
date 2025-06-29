@@ -55,14 +55,18 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 
 	AFGCharacterPlayer* Player = CastChecked<AFGCharacterPlayer>(BuildInstigator);
 
-	auto* RootHologram = UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(Plan, GetActorTransform(), BuildInstigator, this);
+	ABuildableAutoSupportProxy* SupportProxy = nullptr;
+	auto* RootHologram = UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(Plan, AutoSupportProxyClass, BuildInstigator, this, this, SupportProxy);
 	const auto BillOfParts = RootHologram->GetCost(true);
 	
 	if (!UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(Player, BillOfParts, true))
 	{
 		RootHologram->Destroy();
+		SupportProxy->Destroy();
 		return;
 	}
+	
+	auto FinalProxyTransform = SupportProxy->GetActorTransform();
 	
 	// Construct
 	auto* Buildables = AFGBuildableSubsystem::Get(GetWorld());
@@ -71,12 +75,6 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	TArray<AActor*> HologramSpawnedActors;
 	auto* StartBuildable = CastChecked<AFGBuildable>(RootHologram->Construct(HologramSpawnedActors, Buildables->GetNewNetConstructionID()));
 	HologramSpawnedActors.Insert(StartBuildable, 0);
-
-	auto* SupportProxy = GetWorld()->SpawnActorDeferred<ABuildableAutoSupportProxy>(
-		AutoSupportProxyClass,
-		GetActorTransform(),
-		nullptr,
-		BuildInstigator);
 	
 	// TODO(k.a): BBox not finished
 	FBox GroupBounds(ForceInit);
@@ -114,7 +112,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		++i;
 	}
 
-	SupportProxy->FinishSpawning(GetActorTransform());
+	SupportProxy->FinishSpawning(FinalProxyTransform);
 	
 	MOD_LOG(Verbose, TEXT("Completed, Bounds: %s, %"), *GroupBounds.ToString());
 	

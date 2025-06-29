@@ -29,13 +29,22 @@ public:
 	static FRotator GetDirectionRotator(EAutoSupportBuildDirection Direction);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
+	static FRotator GetForwardVectorRotator(EAutoSupportBuildDirection Direction);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static void GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static void PlanBuild(UWorld* World, const FAutoSupportTraceResult& TraceResult, const FBuildableAutoSupportData& AutoSupportData, FAutoSupportBuildPlan& OutPlan);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
-	static AFGHologram* CreateCompositeHologramFromPlan(const FAutoSupportBuildPlan& Plan, const FTransform& Transform, APawn* BuildInstigator, AActor* Owner);
+	static AFGHologram* CreateCompositeHologramFromPlan(
+		const FAutoSupportBuildPlan& Plan,
+		TSubclassOf<ABuildableAutoSupportProxy> ProxyClass,
+		APawn* BuildInstigator,
+		AActor* Parent,
+		AActor* Owner,
+		ABuildableAutoSupportProxy*& OutProxy);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static bool IsPlanActionable(const FAutoSupportBuildPlan& Plan);
@@ -84,8 +93,8 @@ private:
 	static void SpawnPartPlanHolograms(
 		AFGHologram*& ParentHologram,
 		const FAutoSupportBuildPlanPartData& PartPlan,
-		const FVector& TraceDirection,
 		APawn* BuildInstigator,
+		AActor* Parent,
 		AActor* Owner,
 		FTransform& WorkingTransform);
 	

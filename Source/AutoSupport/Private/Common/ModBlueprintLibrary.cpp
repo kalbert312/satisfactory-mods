@@ -1,6 +1,7 @@
 ﻿
 #include "ModBlueprintLibrary.h"
 
+#include "BuildableAutoSupportProxy.h"
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
 #include "FGCentralStorageSubsystem.h"
@@ -91,6 +92,32 @@ FRotator UAutoSupportBlueprintLibrary::GetDirectionRotator(EAutoSupportBuildDire
 	return DeltaRot;
 }
 
+FRotator UAutoSupportBlueprintLibrary::GetForwardVectorRotator(const EAutoSupportBuildDirection Direction)
+{
+	FRotator DeltaRot(0, 0, 0);
+	
+	switch (Direction)
+	{
+		default:
+		case EAutoSupportBuildDirection::Bottom:
+		case EAutoSupportBuildDirection::Top:
+		case EAutoSupportBuildDirection::Front:
+			// No-op
+			break;
+		case EAutoSupportBuildDirection::Back:
+			DeltaRot.Pitch = 180;
+			break;
+		case EAutoSupportBuildDirection::Left:
+			DeltaRot.Roll = -90;
+			break;
+		case EAutoSupportBuildDirection::Right:
+			DeltaRot.Roll = -90;
+			break;
+	}
+
+	return DeltaRot;
+}
+
 void UAutoSupportBlueprintLibrary::GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox)
 {
 	const auto Buildable = GetDefault<AFGBuildable>(BuildableClass);
@@ -98,33 +125,38 @@ void UAutoSupportBlueprintLibrary::GetBuildableClearance(TSubclassOf<AFGBuildabl
 }
 
 AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
-	const FAutoSupportBuildPlan& Plan, const FTransform& Transform, APawn* BuildInstigator, AActor* Owner)
+	const FAutoSupportBuildPlan& Plan,
+	TSubclassOf<ABuildableAutoSupportProxy> ProxyClass,
+	APawn* BuildInstigator,
+	AActor* Parent,
+	AActor* Owner,
+	ABuildableAutoSupportProxy*& OutProxy)
 {
 	check(BuildInstigator)
+
+	// Spawn a proxy container for the parts.
+	auto* SupportProxy = BuildInstigator->GetWorld()->SpawnActorDeferred<ABuildableAutoSupportProxy>(
+		ProxyClass,
+		FTransform(Plan.StartWorldLocation), // place it at the origin of the trace
+		nullptr,
+		BuildInstigator);
+
+	OutProxy = SupportProxy;
 	
 	// Build the parts
-	auto WorkingTransform = Transform;
-	WorkingTransform.SetLocation(Plan.StartWorldLocation);
-	WorkingTransform.ConcatenateRotation(Plan.RelativeRotation);
-	MOD_LOG(
-		Verbose,
-		TEXT("WorkingTransform Up: [%s], Forward: [%s], Right: [%s]"),
-		*WorkingTransform.GetRotation().GetUpVector().ToCompactString(),
-		*WorkingTransform.GetRotation().GetForwardVector().ToCompactString(),
-		*WorkingTransform.GetRotation().GetRightVector().ToCompactString())
-	
+	auto WorkingTransform = FTransform::Identity; // Build the holograms in relative space
 	AFGHologram* RootHologram = nullptr; // we'll assign this while building
 	
 	if (Plan.StartPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("Building Start Part, Orientation: %i"), static_cast<int32>(Plan.StartPart.Orientation));
-		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, Plan.BuildWorldDirection, BuildInstigator, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, BuildInstigator, SupportProxy, Owner, WorkingTransform);
 	}
 
 	if (Plan.MidPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("Building Mid Parts, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
-		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, Plan.BuildWorldDirection, BuildInstigator, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, BuildInstigator, SupportProxy, Owner, WorkingTransform);
 	}
 
 	if (Plan.EndPart.IsActionable())
@@ -132,10 +164,21 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 		MOD_LOG(Verbose, TEXT("Building End Part, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
 		WorkingTransform.AddToTranslation(Plan.EndPartPositionOffset);
 		
-		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, Plan.BuildWorldDirection, BuildInstigator, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, SupportProxy, Owner, WorkingTransform);
 	}
 
 	check(RootHologram)
+
+	// TODO(k.a): understand the rotation calculation better. I trailed and errored for a bit. Need a visualization.
+	
+	// Rotation: Apply the rotation of the parent actor.
+	const auto WorldRot = Parent ? Parent->GetActorRotation().Quaternion() : FQuat::Identity;
+	SupportProxy->SetActorRotation(WorldRot);
+
+	// ...then relative rotation of the build direction.
+	// ...then forward vector rotation of the build direction, but relative to the build dir rot.
+	const auto LocalRot = GetForwardVectorRotator(Plan.BuildDirection).Quaternion() * Plan.RelativeRotation;
+	SupportProxy->AddActorLocalRotation(LocalRot);
 
 	return RootHologram;
 }
@@ -146,10 +189,11 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 
 	// Copy trace result's relative location & rotation.
 	OutPlan.StartWorldLocation = TraceResult.StartLocation;
-	OutPlan.BuildWorldDirection = TraceResult.Direction;
-	
 	OutPlan.RelativeLocation = TraceResult.StartRelativeLocation;
 	OutPlan.RelativeRotation = TraceResult.StartRelativeRotation;
+	
+	OutPlan.BuildDirection = TraceResult.BuildDirection;
+	OutPlan.BuildWorldDirection = TraceResult.Direction;
 	
 	// Plan the parts.
 	auto RemainingBuildDistance = TraceResult.BuildDistance;
@@ -442,21 +486,16 @@ int32 UAutoSupportBlueprintLibrary::LeaseWidgetsExact(
 void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 	AFGHologram*& ParentHologram,
 	const FAutoSupportBuildPlanPartData& PartPlan,
-	const FVector& TraceDirection,
 	APawn* BuildInstigator,
+	AActor* Parent,
 	AActor* Owner,
 	FTransform& WorkingTransform)
 {
 	auto PreSpawnFn = [&](AFGHologram* PreSpawnHolo)
 	{
-		MOD_LOG(Verbose, TEXT("Pre-Spawn Hologram: WorldRotation: [%s], LocalRotation: [%s], LocalTranslation: [%s]"), *WorkingTransform.ToString(), *PartPlan.LocalRotation.ToString(), *PartPlan.LocalTranslation.ToCompactString());
-		PreSpawnHolo->SetActorRotation(WorkingTransform.GetRotation());
-					
 		PreSpawnHolo->AddActorLocalOffset(PartPlan.LocalTranslation);
-		PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation); // TODO(k.a): the local rotation isn't apply correctly when the actor is rotated
-
+		PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation);
 		PreSpawnHolo->DoMultiStepPlacement(false);
-			
 		// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
 		// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
 	};
@@ -468,13 +507,15 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 		
 		if (ParentHologram)
 		{
-			AFGHologram::SpawnChildHologramFromRecipe(
+			auto* Child = AFGHologram::SpawnChildHologramFromRecipe(
 				ParentHologram,
 				FName(FGuid::NewGuid().ToString()),
 				PartPlan.BuildRecipeClass,
 				Owner,
 				WorkingTransform.GetLocation(),
 				PreSpawnFn);
+
+			Child->AttachToActor(Parent, FAttachmentTransformRules::KeepRelativeTransform);
 		}
 		else
 		{
@@ -486,10 +527,11 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				PreSpawnFn);
 
 			ParentHologram->SetShouldSpawnChildHolograms(true);
+			ParentHologram->AttachToActor(Parent, FAttachmentTransformRules::KeepRelativeTransform);
 		}
 		
 		// Update the transform
-		WorkingTransform.AddToTranslation(TraceDirection * PartPlan.ConsumedBuildSpace);
+		WorkingTransform.AddToTranslation(FVector::UpVector * PartPlan.ConsumedBuildSpace); // local space dir is UP.
 		MOD_LOG(Verbose, TEXT("Next Transform: [%s]"), *WorkingTransform.ToHumanReadableString());
 	}
 }
