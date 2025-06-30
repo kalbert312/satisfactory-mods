@@ -134,12 +134,24 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 {
 	check(BuildInstigator)
 
+	// TODO(k.a): understand the rotation calculation better. I trialed and errored for a bit. Need a visualization.
+	// Rotation: Calculate the world rot from the following rotations. Reminder: right most are applied first.
+	// NOTE: Changing rotation between SpawnActorDeferred and FinishingSpawning can be a recipe for disaster.
+	const auto WorldRot =
+		(Parent ? Parent->GetActorRotation().Quaternion() : FQuat::Identity) // world rotation
+		* GetForwardVectorRotator(Plan.BuildDirection).Quaternion() // forward vector rotation of the build direction, but relative to the build dir rot
+		* Plan.RelativeRotation; // relative rotation of the build direction
+
+	const FTransform ProxyTransform(WorldRot, Plan.StartWorldLocation);
+	
 	// Spawn a proxy container for the parts.
 	auto* SupportProxy = BuildInstigator->GetWorld()->SpawnActorDeferred<ABuildableAutoSupportProxy>(
 		ProxyClass,
-		FTransform(Plan.StartWorldLocation), // place it at the origin of the trace
+		ProxyTransform, // place it at the origin of the trace
 		nullptr,
 		BuildInstigator);
+
+	FBox LocalBoundingBox(ForceInit);
 
 	OutProxy = SupportProxy;
 	
@@ -150,13 +162,13 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 	if (Plan.StartPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("Building Start Part, Orientation: %i"), static_cast<int32>(Plan.StartPart.Orientation));
-		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, BuildInstigator, SupportProxy, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, BuildInstigator, SupportProxy, Owner, WorkingTransform, LocalBoundingBox);
 	}
 
 	if (Plan.MidPart.IsActionable())
 	{
 		MOD_LOG(Verbose, TEXT("Building Mid Parts, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
-		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, BuildInstigator, SupportProxy, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, BuildInstigator, SupportProxy, Owner, WorkingTransform, LocalBoundingBox);
 	}
 
 	if (Plan.EndPart.IsActionable())
@@ -164,21 +176,16 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 		MOD_LOG(Verbose, TEXT("Building End Part, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
 		WorkingTransform.AddToTranslation(FVector::UpVector * Plan.EndPartPositionOffset);
 		
-		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, SupportProxy, Owner, WorkingTransform);
+		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, SupportProxy, Owner, WorkingTransform, LocalBoundingBox);
 	}
 
 	check(RootHologram)
 
-	// TODO(k.a): understand the rotation calculation better. I trailed and errored for a bit. Need a visualization.
-	
-	// Rotation: Apply the rotation of the parent actor.
-	const auto WorldRot = Parent ? Parent->GetActorRotation().Quaternion() : FQuat::Identity;
-	SupportProxy->SetActorRotation(WorldRot);
+	MOD_LOG(Verbose, TEXT("Local Bounding Box: %s"), *LocalBoundingBox.ToString())
 
-	// ...then relative rotation of the build direction.
-	// ...then forward vector rotation of the build direction, but relative to the build dir rot.
-	const auto LocalRot = GetForwardVectorRotator(Plan.BuildDirection).Quaternion() * Plan.RelativeRotation;
-	SupportProxy->AddActorLocalRotation(LocalRot);
+	LocalBoundingBox.IsValid = true; // ...
+	
+	SupportProxy->UpdateBoundingBox(LocalBoundingBox);
 
 	return RootHologram;
 }
@@ -489,7 +496,8 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 	APawn* BuildInstigator,
 	AActor* Parent,
 	AActor* Owner,
-	FTransform& WorkingTransform)
+	FTransform& WorkingTransform,
+	FBox& WorkingBBox)
 {
 	auto PreSpawnFn = [&](AFGHologram* PreSpawnHolo)
 	{
@@ -499,15 +507,24 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 		// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
 		// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
 	};
+
+	const auto PartExtent = PartPlan.BBox.GetExtent();
+	
+	WorkingBBox.Min.X = FMath::Min(WorkingBBox.Min.X, -PartExtent.X);
+	WorkingBBox.Min.Y = FMath::Min(WorkingBBox.Min.Y, -PartExtent.Y);
+		
+	WorkingBBox.Max.X = FMath::Max(WorkingBBox.Max.X, PartExtent.X);
+	WorkingBBox.Max.Y = FMath::Max(WorkingBBox.Max.Y, PartExtent.Y);
 	
 	for (auto i = 0; i < PartPlan.Count; ++i)
 	{
 		// Copy the transform, then apply the orientation below
 		MOD_LOG(Verbose, TEXT("World Part Spawn Transform: [%s]"), *WorkingTransform.ToHumanReadableString());
+		AFGHologram* Hologram = nullptr;
 		
 		if (ParentHologram)
 		{
-			auto* Child = AFGHologram::SpawnChildHologramFromRecipe(
+			Hologram = AFGHologram::SpawnChildHologramFromRecipe(
 				ParentHologram,
 				FName(FGuid::NewGuid().ToString()),
 				PartPlan.BuildRecipeClass,
@@ -515,7 +532,7 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				WorkingTransform.GetLocation(),
 				PreSpawnFn);
 
-			Child->AttachToActor(Parent, FAttachmentTransformRules::KeepRelativeTransform);
+			Hologram->AttachToActor(Parent, FAttachmentTransformRules::KeepRelativeTransform);
 		}
 		else
 		{
@@ -526,12 +543,18 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				BuildInstigator,
 				PreSpawnFn);
 
+			Hologram = ParentHologram;
+
 			ParentHologram->SetShouldSpawnChildHolograms(true);
 			ParentHologram->AttachToActor(Parent, FAttachmentTransformRules::KeepRelativeTransform);
 		}
+
+		// Update the BBox
+		WorkingBBox.Max.Z += PartPlan.ConsumedBuildSpace;
 		
 		// Update the transform
-		WorkingTransform.AddToTranslation(FVector::UpVector * PartPlan.ConsumedBuildSpace); // local space dir is UP.
+		WorkingTransform.AddToTranslation(FVector::UpVector * PartPlan.ConsumedBuildSpace); 
+		
 		MOD_LOG(Verbose, TEXT("Next Transform: [%s]"), *WorkingTransform.ToHumanReadableString());
 	}
 }

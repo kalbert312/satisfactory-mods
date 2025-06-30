@@ -66,8 +66,6 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		return;
 	}
 	
-	auto FinalProxyTransform = SupportProxy->GetActorTransform();
-	
 	// Construct
 	auto* Buildables = AFGBuildableSubsystem::Get(GetWorld());
 	auto* LightBuildables = AFGLightweightBuildableSubsystem::Get(GetWorld());
@@ -75,9 +73,6 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	TArray<AActor*> HologramSpawnedActors;
 	auto* StartBuildable = CastChecked<AFGBuildable>(RootHologram->Construct(HologramSpawnedActors, Buildables->GetNewNetConstructionID()));
 	HologramSpawnedActors.Insert(StartBuildable, 0);
-	
-	// TODO(k.a): BBox not finished
-	FBox GroupBounds(ForceInit);
 
 	int32 i = 0;
 	for (auto* HologramSpawnedActor : HologramSpawnedActors)
@@ -103,7 +98,9 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		
 		SupportProxy->RegisterBuildable(Buildable);
 		
-		MOD_LOG(Verbose, TEXT("Buildable[%i]: Name: [%s], ShouldConvertToLightweight: [%s], ManagedByLightweight: [%s] Customization Swatch: [%s]"),
+		MOD_LOG(
+			Verbose,
+			TEXT("Buildable[%i]: Name: [%s], ShouldConvertToLightweight: [%s], ManagedByLightweight: [%s] Customization Swatch: [%s]"),
 			i,
 			*Buildable->GetName(),
 			TEXT_CONDITION(Buildable->ShouldConvertToLightweight()),
@@ -114,7 +111,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 
 	SupportProxy->FinishSpawning(FinalProxyTransform);
 	
-	MOD_LOG(Verbose, TEXT("Completed, Bounds: %s, %"), *GroupBounds.ToString());
+	MOD_LOG(Verbose, TEXT("Completed, SupportProxy transform: [%s]"), *SupportProxy->GetActorTransform().ToHumanReadableString());
 	
 	// Dismantle self
 	Execute_Dismantle(this);

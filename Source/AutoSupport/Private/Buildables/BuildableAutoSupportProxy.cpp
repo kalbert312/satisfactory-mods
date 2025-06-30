@@ -7,18 +7,13 @@
 #include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "ModLogging.h"
-#include "Components/BoxComponent.h"
 
 // TODO(k.a): Check that non-lightweight handles save and load correctly.
 
 ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 {
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
-	RootComponent->SetMobility(EComponentMobility::Type::Static);
-	
-	BuildablesBoundingBox = CreateDefaultSubobject<UBoxComponent>(TEXT("BuildablesBoundingBox"));
-	BuildablesBoundingBox->SetMobility(EComponentMobility::Type::Static);
-	BuildablesBoundingBox->SetupAttachment(RootComponent);
+	RootComponent->SetMobility(EComponentMobility::Type::Movable);
 }
 
 void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
@@ -74,9 +69,9 @@ void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
 	}
 }
 
-void ABuildableAutoSupportProxy::CalculateBounds()
+void ABuildableAutoSupportProxy::UpdateBoundingBox(const FBox& NewBounds)
 {
-	// BuildablesBoundingBox->SetBoxExtent(FVector(400, 400, 400)); // TESTING
+	K2_UpdateBoundingBox(NewBounds);
 }
 
 void ABuildableAutoSupportProxy::BeginPlay()
@@ -92,8 +87,6 @@ void ABuildableAutoSupportProxy::BeginPlay()
 		// It's transient to the subsys, so reregister.
 		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
 	}
-	
-	CalculateBounds();
 }
 
 FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
@@ -253,13 +246,16 @@ void ABuildableAutoSupportProxy::StopIsLookedAtForDismantle_Implementation(AFGCh
 	RemoveTemporaries(byCharacter);
 }
 
-void ABuildableAutoSupportProxy::Destroyed()
+void ABuildableAutoSupportProxy::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+	if (EndPlayReason == EEndPlayReason::Destroyed)
+	{
+		auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 
-	SupportSubsys->OnProxyDestroyed(this);
+		SupportSubsys->OnProxyDestroyed(this);
+	}
 	
-	Super::Destroyed();
+	Super::EndPlay(EndPlayReason);
 }
 
 void ABuildableAutoSupportProxy::Dismantle_Implementation()

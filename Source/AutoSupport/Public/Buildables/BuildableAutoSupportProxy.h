@@ -14,6 +14,7 @@ class UBoxComponent;
 
 /**
  * Like AFGBlueprintProxy but for auto supports.
+ * Blueprint needs to set up collider with build gun.
  */
 UCLASS(Blueprintable)
 class AUTOSUPPORT_API ABuildableAutoSupportProxy : public AActor, public IFGDismantleInterface, public IFGSaveInterface
@@ -26,8 +27,11 @@ public:
 	void RegisterBuildable(AFGBuildable* Buildable);
 	void UnregisterBuildable(AFGBuildable* Buildable);
 
-	void CalculateBounds();
+	void UpdateBoundingBox(const FBox& NewBounds);
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void K2_UpdateBoundingBox(const FBox& NewBounds);
+	
 	void DestroyIfEmpty();
 
 #pragma region IFGSaveInterface
@@ -63,13 +67,7 @@ public:
 
 #pragma endregion
 
-	virtual void Destroyed() override;
-
 protected:
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Auto Support")
-	TObjectPtr<UBoxComponent> BuildablesBoundingBox;
-
 	/**
 	 * The registered buildable handles.
 	 */
@@ -102,4 +100,6 @@ protected:
 
 	FAutoSupportBuildableHandle* EnsureBuildablesAvailable();
 	void RemoveTemporaries(AFGCharacterPlayer* Player);
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

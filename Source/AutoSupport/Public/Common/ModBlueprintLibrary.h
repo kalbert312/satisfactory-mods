@@ -96,7 +96,8 @@ private:
 		APawn* BuildInstigator,
 		AActor* Parent,
 		AActor* Owner,
-		FTransform& WorkingTransform);
+		FTransform& WorkingTransform,
+		FBox& WorkingBBox);
 	
 	static bool PlanSinglePart(
 		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,

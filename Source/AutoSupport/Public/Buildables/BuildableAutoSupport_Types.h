@@ -185,7 +185,7 @@ struct FAutoSupportBuildPlanPartData
 	int Count = 0;
 	
 	/**
-	 * The BBox data for the start part.
+	 * The BBox data for the part.
 	 */
 	UPROPERTY(BlueprintReadWrite)
 	FBox BBox = FBox(ForceInit);
