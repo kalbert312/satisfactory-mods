@@ -31,10 +31,7 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 		Handle.LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
 	}
 	
-	if (!Handle.IsDataValid())
-	{
-		check(!"Buildable is invalid")
-	}
+	check(Handle.IsDataValid());
 
 	RegisteredHandles.Add(Handle);
 	if (HasActorBegunPlay())
@@ -142,7 +139,7 @@ FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailab
 			continue;
 		}
 		
-		bool bWasSpawned = false;
+		auto bWasSpawned = false;
 		const auto* NewTemporaryHandle = LightBuildables->FindOrSpawnBuildableForRuntimeData(BuildableHandle.BuildableClass, InstanceData, BuildableHandle.LightweightRuntimeIndex, bWasSpawned);
 		
 		MOD_LOG(Verbose, TEXT("The lightweight buildable handle at [%i], TemporarySpawned: [%s]."), i, TEXT_BOOL(bWasSpawned))

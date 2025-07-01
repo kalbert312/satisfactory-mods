@@ -109,7 +109,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		++i;
 	}
 
-	SupportProxy->FinishSpawning(FinalProxyTransform);
+	SupportProxy->FinishSpawning(SupportProxy->GetActorTransform());
 	
 	MOD_LOG(Verbose, TEXT("Completed, SupportProxy transform: [%s]"), *SupportProxy->GetActorTransform().ToHumanReadableString());
 	
@@ -144,6 +144,11 @@ void ABuildableAutoSupport::PostLoadGame_Implementation(int32 saveVersion, int32
 void ABuildableAutoSupport::BeginPlay()
 {
 	Super::BeginPlay();
+
+	MOD_LOG(
+		Verbose,
+		TEXT("Actor Flags: RF_WasLoaded: [%s]"),
+		*TEXT_BOOL(HasAnyFlags(RF_WasLoaded)))
 
 	// HACK: use build effect instigator as a "is newly built" indicator
 	const auto bIsNew = mBuildEffectInstignator || mBuildEffectIsPlaying || mActiveBuildEffect;
@@ -248,10 +253,10 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 	MOD_LOG(
 		Verbose,
-		TEXT("Face rel location: [%s], Trace start rel loc & rot: [%s][%s], Abs loc start [%s] with end delta: [%s]"),
+		TEXT("Face rel location: [%s], Trace start rel loc & rot: [%s][%s], Trace start abs loc [%s] with end delta: [%s]"),
 		*FaceRelLocation.ToCompactString(),
 		*Result.StartRelativeLocation.ToCompactString(),
-		*Result.StartRelativeRotation.ToString(),
+		*Result.StartRelativeRotation.Rotator().ToCompactString(),
 		*Result.StartLocation.ToCompactString(),
 		*((EndLocation - Result.StartLocation).ToCompactString()));
 
