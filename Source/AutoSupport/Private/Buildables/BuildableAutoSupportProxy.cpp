@@ -71,13 +71,29 @@ void ABuildableAutoSupportProxy::UpdateBoundingBox(const FBox& NewBounds)
 	K2_UpdateBoundingBox(NewBounds);
 }
 
+void ABuildableAutoSupportProxy::OnBuildModeUpdate(
+	TSubclassOf<UFGBuildGunModeDescriptor> BuildMode,
+	ULocalPlayer* LocalPlayer)
+{
+	K2_OnBuildModeUpdate(BuildMode, LocalPlayer);
+}
+
 void ABuildableAutoSupportProxy::BeginPlay()
 {
 	Super::BeginPlay();
 
 	MOD_LOG(Verbose, TEXT("%i buildables registered."), RegisteredHandles.Num())
 
+	if (DestroyIfEmpty())
+	{
+		return;
+	}
+
 	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+
+	OnBuildModeUpdate(nullptr, nullptr); // Init.
+
+	SupportSubsys->RegisterProxy(this);
 
 	for (const auto& Handle : RegisteredHandles)
 	{
@@ -210,13 +226,16 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 	}
 }
 
-void ABuildableAutoSupportProxy::DestroyIfEmpty()
+bool ABuildableAutoSupportProxy::DestroyIfEmpty()
 {
-	if (RegisteredHandles.Num() == 0)
+	if (RegisteredHandles.Num() != 0)
 	{
-		MOD_LOG(Verbose, TEXT("Destroying empty proxy"));
-		Destroy();
+		return false;
 	}
+	
+	MOD_LOG(Verbose, TEXT("Destroying empty proxy"));
+	Destroy();
+	return true;
 }
 
 #pragma region IFGDismantleInterface

@@ -145,11 +145,6 @@ void ABuildableAutoSupport::BeginPlay()
 {
 	Super::BeginPlay();
 
-	MOD_LOG(
-		Verbose,
-		TEXT("Actor Flags: RF_WasLoaded: [%s]"),
-		*TEXT_BOOL(HasAnyFlags(RF_WasLoaded)))
-
 	// HACK: use build effect instigator as a "is newly built" indicator
 	const auto bIsNew = mBuildEffectInstignator || mBuildEffectIsPlaying || mActiveBuildEffect;
 

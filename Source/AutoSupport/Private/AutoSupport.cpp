@@ -2,9 +2,11 @@
 
 #include "AutoSupport.h"
 
+#include "AutoSupportModLocalPlayerSubsystem.h"
 #include "AutoSupportModSubsystem.h"
-#include "Common/ModLogging.h"
+#include "FGBuildGun.h"
 #include "NativeHookManager.h"
+#include "Common/ModLogging.h"
 
 #define LOCTEXT_NAMESPACE "FAutoSupportModule"
 
@@ -36,7 +38,48 @@ void FAutoSupportModule::RegisterHooks()
 			SupportSubsys->OnWorldBuildableRemoved(Buildable);
 		}
 	});
-	// TODO
+
+	SUBSCRIBE_UOBJECT_METHOD_AFTER(AFGBuildGun, BeginPlay, [](AFGBuildGun* BuildGun)
+	{
+		const auto* LocalPlayer = Cast<ULocalPlayer>(BuildGun->GetNetOwningPlayer());
+
+		if (!LocalPlayer)
+		{
+			MOD_LOG(Verbose, TEXT("No local player found."))
+			return;
+		}
+		
+		auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
+		check(LocalSubsys)
+
+		LocalSubsys->OnBuildGunBeginPlay(BuildGun);
+	});
+
+	SUBSCRIBE_UOBJECT_METHOD(AFGEquipment, EndPlay, [](auto& Scope, AFGEquipment* Equipment, EEndPlayReason::Type EndType)
+	{
+		auto* BuildGun = Cast<AFGBuildGun>(Equipment);
+
+		if (!BuildGun)
+		{
+			return;
+		}
+		
+		if (EndType == EEndPlayReason::Type::Destroyed)
+		{
+			const auto* LocalPlayer = Cast<ULocalPlayer>(BuildGun->GetNetOwningPlayer());
+
+			if (!LocalPlayer)
+			{
+				MOD_LOG(Verbose, TEXT("No local player found."))
+				return;
+			}
+					
+			auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
+			check(LocalSubsys)
+
+			LocalSubsys->OnBuildGunEndPlay(BuildGun, EndType);
+		}
+	});
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -9,6 +9,7 @@
 #include "GameFramework/Actor.h"
 #include "BuildableAutoSupportProxy.generated.h"
 
+class UFGBuildGunModeDescriptor;
 class AFGBuildable;
 class UBoxComponent;
 
@@ -28,11 +29,14 @@ public:
 	void UnregisterBuildable(AFGBuildable* Buildable);
 
 	void UpdateBoundingBox(const FBox& NewBounds);
-
 	UFUNCTION(BlueprintImplementableEvent)
 	void K2_UpdateBoundingBox(const FBox& NewBounds);
 	
-	void DestroyIfEmpty();
+	void OnBuildModeUpdate(TSubclassOf<UFGBuildGunModeDescriptor> BuildMode, ULocalPlayer* LocalPlayer);
+	UFUNCTION(BlueprintImplementableEvent)
+	void K2_OnBuildModeUpdate(TSubclassOf<UFGBuildGunModeDescriptor> BuildMode, ULocalPlayer* LocalPlayer);
+
+	bool DestroyIfEmpty();
 
 #pragma region IFGSaveInterface
 	

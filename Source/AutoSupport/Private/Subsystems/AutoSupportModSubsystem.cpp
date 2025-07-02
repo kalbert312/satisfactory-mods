@@ -3,10 +3,12 @@
 #include "AutoSupportModSubsystem.h"
 
 #include "AutoSupportGameWorldModule.h"
+#include "AutoSupportModLocalPlayerSubsystem.h"
 #include "BuildableAutoSupportProxy.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
 #include "WorldModuleManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "Subsystem/SubsystemActorManager.h"
 
 AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
@@ -56,20 +58,20 @@ void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 
 	if (!ProxyPtr.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("No proxy found. IsNull: [%s], IsValid: [%s]"), TEXT_BOOL(ProxyPtr.IsExplicitlyNull()), TEXT_BOOL(ProxyPtr.IsValid()))
-		MOD_LOG(Verbose, TEXT("Lookup handle: [%s]"), TEXT_STR(Handle.ToString()))
-
-		for (const auto& Entry : ProxyByBuildable)
-		{
-			MOD_LOG(Verbose, TEXT("Existing registered handle: [%s]"), TEXT_STR(Entry.Key.ToString()))
-		}
+		// MOD_LOG(Verbose, TEXT("No proxy found. IsNull: [%s], IsValid: [%s]"), TEXT_BOOL(ProxyPtr.IsExplicitlyNull()), TEXT_BOOL(ProxyPtr.IsValid()))
+		// MOD_LOG(Verbose, TEXT("Lookup handle: [%s]"), TEXT_STR(Handle.ToString()))
+		//
+		// for (const auto& Entry : ProxyByBuildable)
+		// {
+		// 	MOD_LOG(Verbose, TEXT("Existing registered handle: [%s]"), TEXT_STR(Entry.Key.ToString()))
+		// }
 		
 		return;
 	}
 	
 	MOD_LOG(Verbose, TEXT("Found proxy. Removing handle and unregistering buildable."))
 	const auto Removed = ProxyByBuildable.Remove(Handle);
-	check(Removed == 1)
+	check(Removed == 1) // Check the equality contract is working as intended.
 	ProxyPtr->UnregisterBuildable(Buildable);
 }
 
@@ -93,6 +95,8 @@ void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy
 	{
 		ProxyByBuildable.Remove(Buildable);
 	}
+
+	AllProxies.Remove(Proxy);
 }
 
 #pragma region IFGSaveInterface
@@ -183,6 +187,23 @@ bool AAutoSupportModSubsystem::IsValidAutoSupportPresetName(FString PresetName, 
 	}
 
 	return true;
+}
+
+void AAutoSupportModSubsystem::RegisterProxy(ABuildableAutoSupportProxy* Proxy)
+{
+	AllProxies.Add(Proxy);
+
+	if (const auto* GameInstance = GetWorld()->GetGameInstance())
+	{
+		for (const auto* LocalPlayer : GameInstance->GetLocalPlayers())
+		{
+			if (LocalPlayer)
+			{
+				const auto* ModLocalPlayerSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
+				ModLocalPlayerSubsys->SyncProxyWithBuildGunState(Proxy);
+			}
+		}
+	}
 }
 
 void AAutoSupportModSubsystem::RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy)

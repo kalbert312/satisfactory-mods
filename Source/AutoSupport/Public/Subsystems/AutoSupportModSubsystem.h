@@ -16,12 +16,15 @@ class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IF
 {
 	GENERATED_BODY()
 
+	friend class UAutoSupportModLocalPlayerSubsystem;
+	
 public:
 	static AAutoSupportModSubsystem* Get(const UWorld* World);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	static bool IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError);
-	
+
+	void RegisterProxy(ABuildableAutoSupportProxy* Proxy);
 	void RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy);
 	
 	void OnProxyDestroyed(const ABuildableAutoSupportProxy* Proxy);
@@ -86,6 +89,12 @@ protected:
 	 */
 	UPROPERTY(Transient)
 	TMap<FAutoSupportBuildableHandle, TWeakObjectPtr<ABuildableAutoSupportProxy>> ProxyByBuildable;
+
+	/**
+	 * All the world proxies.
+	 */
+	UPROPERTY(Transient)
+	TSet<TWeakObjectPtr<ABuildableAutoSupportProxy>> AllProxies;
 	
 	virtual void Init() override;
 
