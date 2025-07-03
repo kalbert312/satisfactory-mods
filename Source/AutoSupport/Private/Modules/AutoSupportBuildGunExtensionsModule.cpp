@@ -6,6 +6,7 @@
 #include "AutoSupportModLocalPlayerSubsystem.h"
 #include "FGBuildGun.h"
 #include "FGBuildGunDismantle.h"
+#include "FGCharacterPlayer.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
 #include "NativeHookManager.h"
@@ -49,6 +50,14 @@ void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
 	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, GetSupportedBuildModes_Implementation, [&](const UFGBuildGunStateDismantle* Self, TArray<TSubclassOf<UFGBuildGunModeDescriptor>>& out_Modes)
 	{
 		AppendExtraDismantleModes(out_Modes);
+	});
+
+	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, TickState_Implementation, [&](UFGBuildGunStateDismantle* State, float DeltaTime)
+	{
+		if (ProxyDismantleMode && State->IsCurrentBuildGunMode(ProxyDismantleMode) && State->mCurrentlyAimedAtActor && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
+		{
+			State->SetAimedAtActor(nullptr);
+		}
 	});
 }
 

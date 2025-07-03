@@ -339,7 +339,7 @@ void ABuildableAutoSupportProxy::PreUpgrade_Implementation()
 
 bool ABuildableAutoSupportProxy::ShouldBlockDismantleSample_Implementation() const
 {
-	return true;
+	return false;
 }
 
 bool ABuildableAutoSupportProxy::SupportsDismantleDisqualifiers_Implementation() const
