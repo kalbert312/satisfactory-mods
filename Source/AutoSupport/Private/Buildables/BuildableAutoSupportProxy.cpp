@@ -242,6 +242,7 @@ bool ABuildableAutoSupportProxy::DestroyIfEmpty()
 
 bool ABuildableAutoSupportProxy::CanDismantle_Implementation() const
 {
+	MOD_LOG(Verbose, TEXT("Invoked"))
 	return true;
 }
 
@@ -252,12 +253,14 @@ FText ABuildableAutoSupportProxy::GetDismantleDisplayName_Implementation(AFGChar
 
 void ABuildableAutoSupportProxy::StartIsLookedAtForDismantle_Implementation(AFGCharacterPlayer* byCharacter)
 {
+	MOD_LOG(Verbose, TEXT("Invoked"))
 	bIsHoveredForDismantle = true;
 	EnsureBuildablesAvailable();
 }
 
 void ABuildableAutoSupportProxy::StopIsLookedAtForDismantle_Implementation(AFGCharacterPlayer* byCharacter)
 {
+	MOD_LOG(Verbose, TEXT("Invoked"))
 	bIsHoveredForDismantle = false;
 	RemoveTemporaries(byCharacter);
 }
@@ -336,7 +339,7 @@ void ABuildableAutoSupportProxy::PreUpgrade_Implementation()
 
 bool ABuildableAutoSupportProxy::ShouldBlockDismantleSample_Implementation() const
 {
-	return false;
+	return true;
 }
 
 bool ABuildableAutoSupportProxy::SupportsDismantleDisqualifiers_Implementation() const

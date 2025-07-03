@@ -7,7 +7,7 @@
 #include "AutoSupportMenuWorldModule.generated.h"
 
 UCLASS(Blueprintable)
-class AUTOSUPPORT_API UAAutoSupportMenuWorldModule : public UMenuWorldModule
+class AUTOSUPPORT_API UAutoSupportMenuWorldModule : public UMenuWorldModule
 {
 	GENERATED_BODY()
 };

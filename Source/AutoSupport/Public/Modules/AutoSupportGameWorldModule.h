@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BP_ModConfig_AutoSupportStruct.h"
 #include "SML/Public/Module/GameWorldModule.h"
 #include "AutoSupportGameWorldModule.generated.h"
 

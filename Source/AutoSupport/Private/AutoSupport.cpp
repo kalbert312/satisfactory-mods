@@ -2,9 +2,11 @@
 
 #include "AutoSupport.h"
 
+#include "AutoSupportGameInstanceModule.h"
 #include "AutoSupportModLocalPlayerSubsystem.h"
 #include "AutoSupportModSubsystem.h"
 #include "FGBuildGun.h"
+#include "FGBuildGunDismantle.h"
 #include "NativeHookManager.h"
 #include "Common/ModLogging.h"
 
@@ -36,48 +38,6 @@ void FAutoSupportModule::RegisterHooks()
 			// call our subsys delegate in this case b/c it isn't working. This is to solve not catching removals on individual buildables for support proxys.
 			auto* SupportSubsys = AAutoSupportModSubsystem::Get(Buildable->GetWorld());
 			SupportSubsys->OnWorldBuildableRemoved(Buildable);
-		}
-	});
-
-	SUBSCRIBE_UOBJECT_METHOD_AFTER(AFGBuildGun, BeginPlay, [](AFGBuildGun* BuildGun)
-	{
-		const auto* LocalPlayer = Cast<ULocalPlayer>(BuildGun->GetNetOwningPlayer());
-
-		if (!LocalPlayer)
-		{
-			MOD_LOG(Verbose, TEXT("No local player found."))
-			return;
-		}
-		
-		auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
-		check(LocalSubsys)
-
-		LocalSubsys->OnBuildGunBeginPlay(BuildGun);
-	});
-
-	SUBSCRIBE_UOBJECT_METHOD(AFGEquipment, EndPlay, [](auto& Scope, AFGEquipment* Equipment, EEndPlayReason::Type EndType)
-	{
-		auto* BuildGun = Cast<AFGBuildGun>(Equipment);
-
-		if (!BuildGun)
-		{
-			return;
-		}
-		
-		if (EndType == EEndPlayReason::Type::Destroyed)
-		{
-			const auto* LocalPlayer = Cast<ULocalPlayer>(BuildGun->GetNetOwningPlayer());
-
-			if (!LocalPlayer)
-			{
-				MOD_LOG(Verbose, TEXT("No local player found."))
-				return;
-			}
-					
-			auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
-			check(LocalSubsys)
-
-			LocalSubsys->OnBuildGunEndPlay(BuildGun, EndType);
 		}
 	});
 }

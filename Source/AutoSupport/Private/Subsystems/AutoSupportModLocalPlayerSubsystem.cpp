@@ -28,7 +28,7 @@ void UAutoSupportModLocalPlayerSubsystem::Deinitialize()
 
 void UAutoSupportModLocalPlayerSubsystem::OnBuildGunBeginPlay(AFGBuildGun* BuildGun)
 {
-	BuildGun->mOnBuildGunModeChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunModeChanged); //
+	BuildGun->mOnBuildGunModeChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunModeChanged);
 	BuildGun->mOnStateChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunStateChanged);
 	
 	auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
@@ -59,7 +59,7 @@ void UAutoSupportModLocalPlayerSubsystem::OnBuildGunStateChanged(EBuildGunState 
 	{
 		return;
 	}
-
+	
 	auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 
 	for (const auto& Proxy : AutoSupportSubsys->AllProxies)
@@ -73,7 +73,7 @@ void UAutoSupportModLocalPlayerSubsystem::OnBuildGunEndPlay(AFGBuildGun* BuildGu
 	if (EndType == EEndPlayReason::Type::Destroyed)
 	{
 		BuildGun->mOnBuildGunModeChanged.RemoveAll(this);
-		// TODO(k.a): update proxies again? need to check if build mode changed delegate fires a null descriptor
+		// TODO(k.a): Update proxies again? Change delete
 	}
 }
 
