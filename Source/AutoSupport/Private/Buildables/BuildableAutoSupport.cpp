@@ -27,7 +27,7 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) c
 	// IMPORTANT: This ticks while the interact dialog is open.
 	if (!AutoSupportData.MiddlePartDescriptor.IsValid() && !AutoSupportData.StartPartDescriptor.IsValid() && !AutoSupportData.EndPartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("Nothing to build!"));
+		MOD_TRACE_LOG(Verbose, TEXT("Nothing to build!"));
 		return false;
 	}
 	
@@ -36,7 +36,7 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) c
 
 	if (FMath::IsNearlyZero(TraceResult.BuildDistance))
 	{
-		MOD_LOG(Verbose, TEXT("No room to build!"));
+		MOD_TRACE_LOG(Verbose, TEXT("No room to build!"));
 		return false;
 	}
 
@@ -214,7 +214,7 @@ void ABuildableAutoSupport::SaveLastUsedData()
 
 FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
-	MOD_LOG(Verbose, TEXT("BEGIN TRACE ---------------------------"));
+	MOD_TRACE_LOG(Verbose, TEXT("BEGIN TRACE ---------------------------"));
 	// World +X = East, World +Y = South, +Z = Sky
 	FAutoSupportTraceResult Result;
 	Result.BuildDistance = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
@@ -227,7 +227,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 	const auto StartTransform = GetActorTransform();
 
-	MOD_LOG(
+	MOD_TRACE_LOG(
 		Verbose,
 		TEXT("Start Transform: [%s]"),
 		*StartTransform.ToHumanReadableString());
@@ -235,7 +235,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	const auto TraceRelDirection = UAutoSupportBlueprintLibrary::GetDirectionVector(AutoSupportData.BuildDirection);
 	const auto TraceAbsDirection = StartTransform.GetRotation().RotateVector(TraceRelDirection);
 	
-	MOD_LOG(
+	MOD_TRACE_LOG(
 		Verbose,
 		TEXT("Build Dir: [%i], Trace Rel Direction: [%s], Trace Abs Direction: [%s]"),
 		AutoSupportData.BuildDirection,
@@ -253,7 +253,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	Result.StartLocation = StartTransform.TransformPosition(FaceRelLocation);
 	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, TraceAbsDirection);
 
-	MOD_LOG(
+	MOD_TRACE_LOG(
 		Verbose,
 		TEXT("Face rel location: [%s], Trace start rel loc & rot: [%s][%s], Trace start abs loc [%s] with end delta: [%s]"),
 		*FaceRelLocation.ToCompactString(),
@@ -280,7 +280,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 	if (HitResults.Num() == 0)
 	{
-		MOD_LOG(Verbose, TEXT("No Hits!"));
+		MOD_TRACE_LOG(Verbose, TEXT("No Hits!"));
 		
 		return Result;
 	}
@@ -289,7 +289,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	for (const auto& HitResult : HitResults)
 	{
 		++HitIndex;
-		MOD_LOG(Verbose, TEXT("HitResult[%i] with distance %f"), HitIndex, HitResult.Distance);
+		MOD_TRACE_LOG(Verbose, TEXT("HitResult[%i] with distance %f"), HitIndex, HitResult.Distance);
 		
 		const auto* HitActor = HitResult.GetActor();
 		if (!HitActor)
@@ -299,7 +299,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 		if (HitActor->IsA<APawn>())
 		{
-			MOD_LOG(Verbose, TEXT("Hit Pawn!"));
+			MOD_TRACE_LOG(Verbose, TEXT("Hit Pawn!"));
 			// Never build if we intersect a pawn.
 			Result.BuildDistance = 0;
 			return Result;
@@ -307,7 +307,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 		if (HitResult.Distance <= 1)
 		{
-			MOD_LOG(Verbose, TEXT("Ignoring hit (too close)."));
+			MOD_TRACE_LOG(Verbose, TEXT("Ignoring hit (too close)."));
 			continue;
 		}
 
@@ -320,7 +320,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 			Result.BuildDistance = HitResult.Distance;
 			Result.IsLandscapeHit = IsLandscapeHit;
 
-			MOD_LOG(Verbose, TEXT("HitResult is a blocking hit. IsLandscape: %s"), TEXT_CONDITION(IsLandscapeHit))
+			MOD_TRACE_LOG(Verbose, TEXT("HitResult is a blocking hit. IsLandscape: %s"), TEXT_CONDITION(IsLandscapeHit))
 
 			if (IsLandscapeHit && AutoSupportData.EndPartDescriptor.IsValid())
 			{
@@ -332,7 +332,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 				// Bury the part if and extend the build distance.
 				Result.BuildDistance += BuryDistance;
 
-				MOD_LOG(Verbose, TEXT("Extended build distance by %f to bury end part."), BuryDistance);
+				MOD_TRACE_LOG(Verbose, TEXT("Extended build distance by %f to bury end part."), BuryDistance);
 			}
 			
 			return Result;

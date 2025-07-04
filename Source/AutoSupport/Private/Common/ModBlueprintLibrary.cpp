@@ -210,13 +210,13 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	// Start with the top because that's where the auto support is planted.
 	if (AutoSupportData.StartPartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("Planning Start Part Positioning"));
+		MOD_TRACE_LOG(Verbose, TEXT("Planning Start Part Positioning"));
 		if (PlanSinglePart(AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, AutoSupportData.StartPartCustomization, OutPlan.StartPart, RecipeManager))
 		{
 			RemainingBuildDistance -= OutPlan.StartPart.ConsumedBuildSpace;
 
 			OutPlan.StartPart.Count = 1;
-			MOD_LOG(Verbose, TEXT("Num Start: %d"), OutPlan.StartPart.Count);
+			MOD_TRACE_LOG(Verbose, TEXT("Num Start: %d"), OutPlan.StartPart.Count);
 		
 			if (RemainingBuildDistance < 0)
 			{
@@ -228,13 +228,13 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	// Do the end next. There may not be enough room for mid pieces.
 	if (AutoSupportData.EndPartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("Planning End Part Positioning"));
+		MOD_TRACE_LOG(Verbose, TEXT("Planning End Part Positioning"));
 		if (PlanSinglePart(AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, AutoSupportData.EndPartCustomization, OutPlan.EndPart, RecipeManager))
 		{
 			RemainingBuildDistance -= OutPlan.EndPart.ConsumedBuildSpace;
 			
 			OutPlan.EndPart.Count = 1;
-			MOD_LOG(Verbose, TEXT("Num End: %d"), OutPlan.EndPart.Count);
+			MOD_TRACE_LOG(Verbose, TEXT("Num End: %d"), OutPlan.EndPart.Count);
 		
 			if (RemainingBuildDistance < 0)
 			{
@@ -245,7 +245,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	
 	if (AutoSupportData.MiddlePartDescriptor.IsValid())
 	{
-		MOD_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
+		MOD_TRACE_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
 		if (PlanSinglePart(AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, AutoSupportData.MiddlePartCustomization, OutPlan.MidPart, RecipeManager))
 		{
 			const auto SinglePartConsumedBuildSpace = OutPlan.MidPart.ConsumedBuildSpace;
@@ -260,11 +260,11 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 				// Offset the end part to be flush with where the line trace hit or ended. We built an extra part so the direction is negative because we're moving backwards. We don't need to worry about the end part size because it was already subtracted from build distance.
 				OutPlan.EndPartPositionOffset = -1 * (SinglePartConsumedBuildSpace - RemainingBuildDistance);
 
-				MOD_LOG(Verbose, TEXT("Not a perfect fit. Added extra mid part and offsetting end part position by [%f]"), OutPlan.EndPartPositionOffset);
+				MOD_TRACE_LOG(Verbose, TEXT("Not a perfect fit. Added extra mid part and offsetting end part position by [%f]"), OutPlan.EndPartPositionOffset);
 			}
 			
 			OutPlan.MidPart.Count = NumMiddleParts;
-			MOD_LOG(Verbose, TEXT("Num Mid: %d, Perfect Fit: %s"), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
+			MOD_TRACE_LOG(Verbose, TEXT("Num Mid: %d, Perfect Fit: %s"), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
 		}
 	}
 }
@@ -668,10 +668,10 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	
 	Plan.LocalTranslation = LocalTranslation;
 	
-	MOD_LOG(Verbose, TEXT("Origin Offset: [%s], BBox Min [%s], BBox Max: [%s]"), *ActorOriginCenterOffset.ToCompactString(), *PartBBox.Min.ToCompactString(), *PartBBox.Max.ToCompactString());
-	MOD_LOG(Verbose, TEXT("Extent: [%s], DeltaRotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToString());
-	MOD_LOG(Verbose, TEXT("DeltaSize: [%s], ConsumedBuildSpace: [%f]"), *DeltaSize.ToCompactString(), Plan.ConsumedBuildSpace);
-	MOD_LOG(Verbose, TEXT("LocalTranslation: [%s], LocalTranslation: [%s]"), TEXT_STR(LocalTranslation.ToCompactString()), TEXT_STR(Plan.LocalTranslation.ToCompactString()))
+	MOD_TRACE_LOG(Verbose, TEXT("Origin Offset: [%s], BBox Min [%s], BBox Max: [%s]"), *ActorOriginCenterOffset.ToCompactString(), *PartBBox.Min.ToCompactString(), *PartBBox.Max.ToCompactString());
+	MOD_TRACE_LOG(Verbose, TEXT("Extent: [%s], DeltaRotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToString());
+	MOD_TRACE_LOG(Verbose, TEXT("DeltaSize: [%s], ConsumedBuildSpace: [%f]"), *DeltaSize.ToCompactString(), Plan.ConsumedBuildSpace);
+	MOD_TRACE_LOG(Verbose, TEXT("LocalTranslation: [%s], LocalTranslation: [%s]"), TEXT_STR(LocalTranslation.ToCompactString()), TEXT_STR(Plan.LocalTranslation.ToCompactString()))
 }
 
 #pragma endregion
