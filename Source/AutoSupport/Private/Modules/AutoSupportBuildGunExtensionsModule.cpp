@@ -105,7 +105,6 @@ void UAutoSupportBuildGunExtensionsModule::AppendExtraDismantleModes(TArray<TSub
 	if (ProxyDismantleMode)
 	{
 		OutExtraModes.Add(ProxyDismantleMode);
-		MOD_LOG(Verbose, TEXT("Registered extra dismantle mode [%s]"), TEXT_CLS_NAME(ProxyDismantleMode))
 	}
 	else
 	{
