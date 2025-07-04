@@ -36,7 +36,11 @@ void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
 	
 	SUBSCRIBE_UOBJECT_METHOD_AFTER(AFGBuildGun, BeginPlay, [&](AFGBuildGun* BuildGun)
 	{
-		OnBuildGunBeginPlay(BuildGun);
+		if (IsValid(BuildGun))
+		{
+			OnBuildGunBeginPlay(BuildGun);
+		}
+
 	});
 	
 	SUBSCRIBE_UOBJECT_METHOD(AFGEquipment, EndPlay, [&](auto& Scope, AFGEquipment* Equipment, EEndPlayReason::Type Reason)
@@ -49,12 +53,15 @@ void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
 
 	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, GetSupportedBuildModes_Implementation, [&](const UFGBuildGunStateDismantle* Self, TArray<TSubclassOf<UFGBuildGunModeDescriptor>>& out_Modes)
 	{
-		AppendExtraDismantleModes(out_Modes);
+		if (IsValid(Self))
+		{
+			AppendExtraDismantleModes(out_Modes);
+		}
 	});
 
 	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, TickState_Implementation, [&](UFGBuildGunStateDismantle* State, float DeltaTime)
 	{
-		if (ProxyDismantleMode && State->IsCurrentBuildGunMode(ProxyDismantleMode) && State->mCurrentlyAimedAtActor && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
+		if (ProxyDismantleMode && IsValid(State) && State->IsCurrentBuildGunMode(ProxyDismantleMode) && State->mCurrentlyAimedAtActor && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
 		{
 			// Prevents anything other than the proxies actors from being a candidate for dismantle
 			State->SetAimedAtActor(nullptr);
