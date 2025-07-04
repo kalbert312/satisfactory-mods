@@ -80,6 +80,12 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
 	void K2_AutoConfigure();
+
+	UFUNCTION(BlueprintCallable, Category = "Auto Support")
+	void SaveLastUsedData();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
+	void K2_SaveLastUsedData();
 	
 	/**
 	 * Traces and gather data for auto support build planning.

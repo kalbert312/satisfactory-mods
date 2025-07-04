@@ -205,6 +205,12 @@ void ABuildableAutoSupport::AutoConfigure()
 	K2_AutoConfigure();
 }
 
+void ABuildableAutoSupport::SaveLastUsedData()
+{
+	MOD_LOG(Verbose, TEXT("Saving last used data"));
+	K2_SaveLastUsedData();
+}
+
 FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
 	MOD_LOG(Verbose, TEXT("BEGIN TRACE ---------------------------"));

@@ -145,12 +145,10 @@ FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailab
 		// Lightweight, spawn in a temporary
 		MOD_LOG(Verbose, TEXT("Spawning buildable from lightweight. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
 		auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(BuildableHandle.BuildableClass, BuildableHandle.LightweightRuntimeIndex);
-		check(InstanceData);
-		MOD_LOG(Verbose, TEXT("Instance data, IsValid: [%s]"), TEXT_BOOL(InstanceData->IsValid()))
 
-		if (!InstanceData->IsValid())
+		if (!InstanceData || !InstanceData->IsValid())
 		{
-			MOD_LOG(Verbose, TEXT("The lightweight buildable instance data at [%i] is invalid, removing handle."), i)
+			MOD_LOG(Verbose, TEXT("The lightweight buildable instance data at [%i] is invalid, removing handle. IsNull: [%s]"), i, TEXT_BOOL(InstanceData == nullptr))
 			RegisteredHandles.RemoveAt(i);
 			continue;
 		}

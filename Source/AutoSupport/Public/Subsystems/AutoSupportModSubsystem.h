@@ -21,9 +21,6 @@ class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IF
 public:
 	static AAutoSupportModSubsystem* Get(const UWorld* World);
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	static bool IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError);
-
 	void RegisterProxy(ABuildableAutoSupportProxy* Proxy);
 	void RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy);
 	
@@ -44,9 +41,24 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	FBuildableAutoSupportData GetLastAutoSupportData() const;
+
+	UFUNCTION(BlueprintCallable)
+	FBuildableAutoSupportData GetLastAutoSupport1mData() const;
+
+	UFUNCTION(BlueprintCallable)
+	FBuildableAutoSupportData GetLastAutoSupport2mData() const;
+
+	UFUNCTION(BlueprintCallable)
+	FBuildableAutoSupportData GetLastAutoSupport4mData() const;
 	
 	UFUNCTION(BlueprintCallable)
-	void SetLastAutoSupportData(const FBuildableAutoSupportData& Data);
+	void SetLastAutoSupport1mData(const FBuildableAutoSupportData& Data);
+
+	UFUNCTION(BlueprintCallable)
+	void SetLastAutoSupport2mData(const FBuildableAutoSupportData& Data);
+
+	UFUNCTION(BlueprintCallable)
+	void SetLastAutoSupport4mData(const FBuildableAutoSupportData& Data);
 
 	UFUNCTION(BlueprintCallable)
 	void SetSelectedAutoSupportPresetName(FString PresetName);
@@ -72,6 +84,24 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, SaveGame)
 	FBuildableAutoSupportData LastAutoSupportData;
 
+	/**
+	 * The last configuration used for 1m pieces. Will preconfigure new placements.
+	 */
+	UPROPERTY(VisibleInstanceOnly, SaveGame)
+	FBuildableAutoSupportData LastAutoSupport1mData;
+
+	/**
+	 * The last configuration used for 2m pieces. Will preconfigure new placements.
+	 */
+	UPROPERTY(VisibleInstanceOnly, SaveGame)
+	FBuildableAutoSupportData LastAutoSupport2mData;
+	
+	/**
+	 * The last configuration used for 4m pieces. Will preconfigure new placements.
+	 */
+	UPROPERTY(VisibleInstanceOnly, SaveGame)
+	FBuildableAutoSupportData LastAutoSupport4mData;
+	
 	/**
 	 * The selected preset in the interactable UI. Persists between opens. Note that this is just the selection and does not affect support configuration.
 	 */

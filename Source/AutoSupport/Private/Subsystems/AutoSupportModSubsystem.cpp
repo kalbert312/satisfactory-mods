@@ -8,7 +8,6 @@
 #include "ModConstants.h"
 #include "ModLogging.h"
 #include "WorldModuleManager.h"
-#include "Kismet/GameplayStatics.h"
 #include "Subsystem/SubsystemActorManager.h"
 
 AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
@@ -124,8 +123,36 @@ FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupportData() con
 	return LastAutoSupportData;
 }
 
-void AAutoSupportModSubsystem::SetLastAutoSupportData(const FBuildableAutoSupportData& Data)
+FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupport1mData() const
 {
+	return LastAutoSupport1mData;
+}
+
+FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupport2mData() const
+{
+	return LastAutoSupport2mData;
+}
+
+FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupport4mData() const
+{
+	return LastAutoSupport4mData;
+}
+
+void AAutoSupportModSubsystem::SetLastAutoSupport1mData(const FBuildableAutoSupportData& Data)
+{
+	LastAutoSupport1mData = Data;
+	LastAutoSupportData = Data;
+}
+
+void AAutoSupportModSubsystem::SetLastAutoSupport2mData(const FBuildableAutoSupportData& Data)
+{
+	LastAutoSupport2mData = Data;
+	LastAutoSupportData = Data;
+}
+
+void AAutoSupportModSubsystem::SetLastAutoSupport4mData(const FBuildableAutoSupportData& Data)
+{
+	LastAutoSupport4mData = Data;
 	LastAutoSupportData = Data;
 }
 
@@ -168,26 +195,6 @@ void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 }
 
 #pragma endregion
-
-bool AAutoSupportModSubsystem::IsValidAutoSupportPresetName(FString PresetName, OUT FString& OutName, OUT FText& OutError)
-{
-	PresetName = PresetName.TrimStartAndEnd();
-	OutName = PresetName;
-	
-	if (PresetName.IsEmpty())
-	{
-		OutError = FText::FromString("Preset name cannot be empty");
-		return false;
-	}
-
-	if (PresetName.Len() > 32)
-	{
-		OutError = FText::FromString("Preset name cannot be longer than 32 characters");
-		return false;
-	}
-
-	return true;
-}
 
 void AAutoSupportModSubsystem::RegisterProxy(ABuildableAutoSupportProxy* Proxy)
 {

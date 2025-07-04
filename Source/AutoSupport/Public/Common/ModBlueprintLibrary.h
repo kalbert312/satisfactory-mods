@@ -77,7 +77,10 @@ public:
 #pragma endregion
 
 #pragma region UI Helpers
-
+	
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static bool IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError);
+	
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport", meta = (ArrayParam = "LeasedWidgetPool", DeterminesOutputType="WidgetClass", DynamicOutputParam="OutRemovedWidgets", ReturnDisplayName="New Start Index"))
 	static int32 LeaseWidgetsExact(
 		APlayerController* Controller,
@@ -88,6 +91,8 @@ public:
 
 #pragma endregion
 
+#pragma region Private
+	
 private:
 	
 	static void SpawnPartPlanHolograms(
@@ -110,4 +115,6 @@ private:
 		const FBox& PartBBox,
 		EAutoSupportBuildDirection PartOrientation,
 		FAutoSupportBuildPlanPartData& Plan);
+
+#pragma endregion
 };

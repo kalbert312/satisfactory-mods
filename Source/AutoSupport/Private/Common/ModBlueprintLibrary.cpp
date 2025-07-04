@@ -444,6 +444,10 @@ bool UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(
 	return true;
 }
 
+#pragma endregion
+
+#pragma region UI Helpers
+
 int32 UAutoSupportBlueprintLibrary::LeaseWidgetsExact(
 	APlayerController* Controller,
 	TSubclassOf<UUserWidget> WidgetClass,
@@ -484,6 +488,26 @@ int32 UAutoSupportBlueprintLibrary::LeaseWidgetsExact(
 	}
 
 	return NewStartIndex;
+}
+
+bool UAutoSupportBlueprintLibrary::IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError)
+{
+	PresetName = PresetName.TrimStartAndEnd();
+	OutName = PresetName;
+	
+	if (PresetName.IsEmpty())
+	{
+		OutError = FText::FromString("Preset name cannot be empty");
+		return false;
+	}
+
+	if (PresetName.Len() > 32)
+	{
+		OutError = FText::FromString("Preset name cannot be longer than 32 characters");
+		return false;
+	}
+
+	return true;
 }
 
 #pragma endregion
