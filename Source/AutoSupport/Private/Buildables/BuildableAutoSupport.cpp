@@ -92,7 +92,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		}
 		
 		Buildable->SetCustomizationData_Native(CustomizationData);
-		if (Buildable->ManagedByLightweightBuildableSubsystem())
+		if (Buildable->ManagedByLightweightBuildableSubsystem()) // TODO(k.a): check colorable?
 		{
 			LightBuildables->CopyCustomizationDataFromTemporaryToInstance(Buildable);
 		}

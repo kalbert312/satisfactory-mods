@@ -525,8 +525,8 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 {
 	auto PreSpawnFn = [&](AFGHologram* PreSpawnHolo)
 	{
-		PreSpawnHolo->AddActorLocalOffset(PartPlan.LocalTranslation);
-		PreSpawnHolo->AddActorLocalRotation(PartPlan.LocalRotation);
+		PreSpawnHolo->AddActorWorldRotation(PartPlan.LocalRotation);
+		PreSpawnHolo->AddActorWorldOffset(PartPlan.LocalTranslation);
 		PreSpawnHolo->DoMultiStepPlacement(false);
 		// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
 		// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
@@ -626,52 +626,32 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 	// - If the part's BBox center is 0,0,0, its origin = buildable actor pivot.
 	
 	const auto PartSize = PartBBox.GetSize();
-	const auto ActorOriginCenterOffset = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
+	const auto Center = PartBBox.GetCenter(); // Ex: (0,0,0) for mesh centered at buildable actor pivot. (0, 0, 200) for mesh bottom aligned with actor pivot.
 
-	// First, rotate the part.
-	const auto DeltaRot = GetDirectionRotator(PartOrientation).Quaternion();
-	Plan.LocalRotation = DeltaRot;
+	// First, we'll rotate the part.
+	const auto LocalRotation = GetDirectionRotator(PartOrientation).Quaternion();
+	Plan.LocalRotation = LocalRotation;
 
-	// Next, apply translations. We need to fit correctly in the space we're supposed to occupy in the build, while respecting the differing
-	// sizes of the part along X,Y,Z as well as the mesh's pivot relative to the buildable actor that will be placed.
-	const auto RotatedSize = DeltaRot.RotateVector(PartSize).GetAbs();
+	// Next, determine the translation we need to take to plop it back in the correct location. The goal is to center the new BBox on the
+	// local X and Y while aligning the min to Z = 0.
+	const auto RotatedBBoxMin = LocalRotation.RotateVector(PartBBox.Min);
+	const auto RotatedBBoxMax = LocalRotation.RotateVector(PartBBox.Max);
+	const auto RotatedBBox = FBox(FVector::Min(RotatedBBoxMin, RotatedBBoxMax), FVector::Max(RotatedBBoxMin, RotatedBBoxMax));
+	const auto RotatedCenter = RotatedBBox.GetCenter();
+	const auto RotatedSize = LocalRotation.RotateVector(PartSize).GetAbs();
 	const auto DeltaSize = RotatedSize - PartSize;
-	
-	Plan.ConsumedBuildSpace = RotatedSize.Z; // Z is rel trace direction
 
-	auto LocalParallelOffset = PartOrientation == EAutoSupportBuildDirection::Bottom || PartOrientation == EAutoSupportBuildDirection::Top
-		? -PartBBox.Min.Z // align the bottom of the part with transform we'll be working off of. 
-		: 0; 
-	LocalParallelOffset += FMath::IsNearlyZero(DeltaSize.Z) || DeltaSize.Z >= 0 ? DeltaSize.Z : (PartSize.Z + DeltaSize.Z) / 2.f;
-	FVector LocalTranslation = FVector(0, 0, LocalParallelOffset);
-
-	if (!ActorOriginCenterOffset.IsNearlyZero())
-	{
-		switch (PartOrientation)
-		{
-			case EAutoSupportBuildDirection::Front:
-				LocalTranslation.Y = PartSize.Y / 2.f;
-				break;
-			case EAutoSupportBuildDirection::Back:
-				LocalTranslation.Y = -1 * PartSize.Y / 2.f;
-				break;
-			case EAutoSupportBuildDirection::Left:
-				LocalTranslation.X = PartSize.Z / 2.f;
-				break;
-			case EAutoSupportBuildDirection::Right:
-				LocalTranslation.X = -1 * PartSize.Z / 2.f;
-				break;
-			default:
-				break;
-		}
-	}
+	// Center ourselves x and y, bottom align Z.
+	auto LocalTranslation = FVector(-RotatedCenter.X, -RotatedCenter.Y, -RotatedBBox.Min.Z);
 	
 	Plan.LocalTranslation = LocalTranslation;
+	Plan.ConsumedBuildSpace = RotatedSize.Z; // Z is rel trace direction
+	Plan.BBox = RotatedBBox;
 	
-	MOD_TRACE_LOG(Verbose, TEXT("Origin Offset: [%s], BBox Min [%s], BBox Max: [%s]"), *ActorOriginCenterOffset.ToCompactString(), *PartBBox.Min.ToCompactString(), *PartBBox.Max.ToCompactString());
-	MOD_TRACE_LOG(Verbose, TEXT("Extent: [%s], DeltaRotation: [%s]"), *PartBBox.GetExtent().ToCompactString(), *DeltaRot.ToString());
-	MOD_TRACE_LOG(Verbose, TEXT("DeltaSize: [%s], ConsumedBuildSpace: [%f]"), *DeltaSize.ToCompactString(), Plan.ConsumedBuildSpace);
-	MOD_TRACE_LOG(Verbose, TEXT("LocalTranslation: [%s], LocalTranslation: [%s]"), TEXT_STR(LocalTranslation.ToCompactString()), TEXT_STR(Plan.LocalTranslation.ToCompactString()))
+	MOD_TRACE_LOG(Verbose, TEXT("Center: [%s], BBoxMin [%s], BBoxMax: [%s], Extent: [%s]"), TEXT_STR(Center.ToCompactString()), TEXT_STR(PartBBox.Min.ToCompactString()), TEXT_STR(PartBBox.Max.ToCompactString()), TEXT_STR(PartBBox.GetExtent().ToCompactString()));
+	MOD_TRACE_LOG(Verbose, TEXT("RotatedCenter: [%s], RotatedBBoxMin [%s], RotatedBBoxMax: [%s], RotatedExtent: [%s]"), TEXT_STR(RotatedCenter.ToCompactString()), TEXT_STR(RotatedBBox.Min.ToCompactString()), TEXT_STR(RotatedBBox.Max.ToCompactString()), TEXT_STR(RotatedBBox.GetExtent().ToCompactString()));
+	MOD_TRACE_LOG(Verbose, TEXT("DeltaSize: [%s], ConsumedBuildSpace: [%f]"), TEXT_STR(DeltaSize.ToCompactString()), Plan.ConsumedBuildSpace);
+	MOD_TRACE_LOG(Verbose, TEXT("LocalTranslation: [%s], LocalRotation: [%s]"), TEXT_STR(Plan.LocalTranslation.ToCompactString()), TEXT_STR(Plan.LocalRotation.Rotator().ToCompactString()))
 }
 
 #pragma endregion
