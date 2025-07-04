@@ -50,9 +50,9 @@ FVector UAutoSupportBlueprintLibrary::GetDirectionVector(const EAutoSupportBuild
 		case EAutoSupportBuildDirection::Bottom:
 			return FVector(0, 0, -1);
 		case EAutoSupportBuildDirection::Front:
-			return FVector(0, -1, 0);
-		case EAutoSupportBuildDirection::Back:
 			return FVector(0, 1, 0);
+		case EAutoSupportBuildDirection::Back:
+			return FVector(0, -1, 0);
 		case EAutoSupportBuildDirection::Left:
 			return FVector(-1, 0, 0);
 		case EAutoSupportBuildDirection::Right:
@@ -76,10 +76,10 @@ FRotator UAutoSupportBlueprintLibrary::GetDirectionRotator(EAutoSupportBuildDire
 			DeltaRot.Roll = 180;
 			break;
 		case EAutoSupportBuildDirection::Front:
-			DeltaRot.Roll = 90;
+			DeltaRot.Roll = -90;
 			break;
 		case EAutoSupportBuildDirection::Back:
-			DeltaRot.Roll = -90;
+			DeltaRot.Roll = 90;
 			break;
 		case EAutoSupportBuildDirection::Left:
 			DeltaRot.Pitch = -90;
@@ -101,10 +101,10 @@ FRotator UAutoSupportBlueprintLibrary::GetForwardVectorRotator(const EAutoSuppor
 		default:
 		case EAutoSupportBuildDirection::Bottom:
 		case EAutoSupportBuildDirection::Top:
-		case EAutoSupportBuildDirection::Front:
+		case EAutoSupportBuildDirection::Back:
 			// No-op
 			break;
-		case EAutoSupportBuildDirection::Back:
+		case EAutoSupportBuildDirection::Front:
 			DeltaRot.Pitch = 180;
 			break;
 		case EAutoSupportBuildDirection::Left:
@@ -626,10 +626,10 @@ void UAutoSupportBlueprintLibrary::PlanPartPositioning(
 		switch (PartOrientation)
 		{
 			case EAutoSupportBuildDirection::Front:
-				LocalTranslation.Y = -1 * PartSize.Y / 2.f;
+				LocalTranslation.Y = PartSize.Y / 2.f;
 				break;
 			case EAutoSupportBuildDirection::Back:
-				LocalTranslation.Y = PartSize.Y / 2.f;
+				LocalTranslation.Y = -1 * PartSize.Y / 2.f;
 				break;
 			case EAutoSupportBuildDirection::Left:
 				LocalTranslation.X = PartSize.Z / 2.f;

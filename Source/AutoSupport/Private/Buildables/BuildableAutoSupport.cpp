@@ -2,8 +2,8 @@
 
 #include "BuildableAutoSupport.h"
 
-#include "AutoSupportGameWorldModule.h"
 #include "AutoSupportModSubsystem.h"
+#include "BP_ModConfig_AutoSupportStruct.h"
 #include "BuildableAutoSupportProxy.h"
 #include "DrawDebugHelpers.h"
 #include "FGBlueprintProxy.h"
@@ -153,12 +153,12 @@ void ABuildableAutoSupport::BeginPlay()
 		if (GetBlueprintDesigner()) // TODO(k.a): test blueprint designer
 		{
 			MOD_LOG(Verbose, TEXT("Has blueprint designer"));
-			bAutoConfigure = false;
+			bAutoConfigureAtBeginPlay = false;
 		}
 		else if (GetBlueprintProxy()) // Is it being built from a blueprint?
 		{
 			MOD_LOG(Verbose, TEXT("Built from blueprint"));
-			bAutoConfigure = false;
+			bAutoConfigureAtBeginPlay = false;
 
 			if (FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).GameplayDefaultsSection.AutomaticBlueprintBuild)
 			{
@@ -171,13 +171,13 @@ void ABuildableAutoSupport::BeginPlay()
 			}
 		}
 
-		if (bAutoConfigure)
+		if (bAutoConfigureAtBeginPlay)
 		{
 			AutoConfigure();
 		}
 	}
 
-	bAutoConfigure = false;
+	bAutoConfigureAtBeginPlay = false;
 }
 
 #pragma region Editor Only
@@ -353,9 +353,9 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 		case EAutoSupportBuildDirection::Top:
 			return FVector(0, 0, Extent.Z * 2);
 		case EAutoSupportBuildDirection::Front:
-			return FVector(0, -Extent.Y, Extent.Z);
-		case EAutoSupportBuildDirection::Back:
 			return FVector(0, Extent.Y, Extent.Z);
+		case EAutoSupportBuildDirection::Back:
+			return FVector(0, -Extent.Y, Extent.Z);
 		case EAutoSupportBuildDirection::Left:
 			return FVector(-Extent.X, 0, Extent.Z);
 		case EAutoSupportBuildDirection::Right:
