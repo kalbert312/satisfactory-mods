@@ -14,6 +14,7 @@
 #include "FGWaterVolume.h"
 #include "LandscapeProxy.h"
 #include "ModBlueprintLibrary.h"
+#include "ModConstants.h"
 #include "ModLogging.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -221,7 +222,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 	// Start building our trace params.
 	FCollisionQueryParams QueryParams;
-	QueryParams.TraceTag = FName("BuildableAutoSupport_Trace");
+	QueryParams.TraceTag = AutoSupportConstants::TraceTag_BuildableAutoSupport;
 	QueryParams.AddIgnoredActor(this);
 
 	const auto StartTransform = GetActorTransform();

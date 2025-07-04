@@ -7,8 +7,8 @@
 
 UAutoSupportGameInstanceModule* UAutoSupportGameInstanceModule::Get(const UWorld* World)
 {
-	auto* GameInstance = World->GetGameInstance();
-	auto* GameInstanceModuleManager = GameInstance->GetSubsystem<UGameInstanceModuleManager>();
+	const auto* GameInstance = World->GetGameInstance();
+	const auto* GameInstanceModuleManager = GameInstance->GetSubsystem<UGameInstanceModuleManager>();
 
 	return Cast<UAutoSupportGameInstanceModule>(GameInstanceModuleManager->FindModule(AutoSupportConstants::ModReference));
 }

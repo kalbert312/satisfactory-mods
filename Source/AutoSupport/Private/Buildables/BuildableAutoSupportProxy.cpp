@@ -86,6 +86,7 @@ void ABuildableAutoSupportProxy::BeginPlay()
 
 	if (DestroyIfEmpty())
 	{
+		MOD_LOG(Warning, TEXT("An empty proxy was destroyed at BeginPlay. Why was it empty?"))
 		return;
 	}
 
@@ -102,14 +103,14 @@ void ABuildableAutoSupportProxy::BeginPlay()
 	}
 }
 
-FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
+void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 {
 	MOD_LOG(Verbose, TEXT("Ensuring buildables are available for %i buildables."), RegisteredHandles.Num())
 	
 	if (RegisteredHandles.Num() == 0)
 	{
 		bBuildablesAvailable = true;
-		return nullptr;
+		return;
 	}
 	
 	auto* LightBuildables = AFGLightweightBuildableSubsystem::Get(GetWorld());
@@ -120,7 +121,7 @@ FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailab
 		
 		if (!BuildableHandle.IsDataValid())
 		{
-			MOD_LOG(Verbose, TEXT("Buildable data is invalid. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
+			MOD_LOG(Warning, TEXT("Buildable data is invalid. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
 			RegisteredHandles.RemoveAt(i);
 			continue;
 		}
@@ -129,7 +130,7 @@ FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailab
 		{
 			if (!BuildableHandle.Buildable.IsValid())
 			{
-				MOD_LOG(Verbose, TEXT("The buildable instance at [%i] is invalid, removing handle. Lightweight: [FALSE]"), i)
+				MOD_LOG(Warning, TEXT("The buildable instance at [%i] is invalid, removing handle. Lightweight: [FALSE]"), i)
 				RegisteredHandles.RemoveAt(i);
 			}
 
@@ -148,7 +149,7 @@ FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailab
 
 		if (!InstanceData || !InstanceData->IsValid())
 		{
-			MOD_LOG(Verbose, TEXT("The lightweight buildable instance data at [%i] is invalid, removing handle. IsNull: [%s]"), i, TEXT_BOOL(InstanceData == nullptr))
+			MOD_LOG(Warning, TEXT("The lightweight buildable instance data at [%i] is invalid, removing handle. IsNull: [%s]"), i, TEXT_BOOL(InstanceData == nullptr))
 			RegisteredHandles.RemoveAt(i);
 			continue;
 		}
@@ -164,25 +165,7 @@ FAutoSupportBuildableHandle* ABuildableAutoSupportProxy::EnsureBuildablesAvailab
 		BuildableHandle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
 	}
 
-	if (RegisteredHandles.Num() == 0)
-	{
-		bBuildablesAvailable = true;
-		return nullptr;
-	}
-	
-	auto* RootHandle = &RegisteredHandles[0];
-	MOD_LOG(Verbose, TEXT("Root buildable handle, Class: [%s]"), TEXT_CLS_NAME(RootHandle->BuildableClass))
-	RootHandle->Buildable->SetParentBuildableActor(nullptr);
-	
-	// Set up parent actor for dismantle
-	for (auto i = 1; i < RegisteredHandles.Num(); ++i)
-	{
-		MOD_LOG(Verbose, TEXT("Set parent buildable for handle at [%i]."), i)
-		RegisteredHandles[i].Buildable->SetParentBuildableActor(RootHandle->Buildable.Get());
-	}
-
 	bBuildablesAvailable = true;
-	return RootHandle;
 }
 
 void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
@@ -197,6 +180,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 
 		if (!BuildableHandle.Buildable.IsValid())
 		{
+			MOD_LOG(Warning, TEXT("Buildable is invalid. Class: [%s], LightweightIndex: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
 			continue;
 		}
 
@@ -207,8 +191,6 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 			Outline->HideOutline(Buildable);
 			Outline->ShowOutline(this, EOutlineColor::OC_NONE);
 		}
-		
-		Buildable->SetParentBuildableActor(nullptr);
 
 		if (!BuildableHandle.IsLightweightType())
 		{
@@ -218,7 +200,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		auto* Temporary = BuildableHandle.Buildable.Get();
 		Temporary->SetBlockCleanupOfTemporary(false);
 		
-		MOD_LOG(Verbose, TEXT("Temporary marked for cleanup. Handle index: [%i], Class: [%s], ManagedByLightweightSys: [%s], IsLightweightTemporary: [%s]"), i, TEXT_CLS_NAME(BuildableHandle.BuildableClass), TEXT_BOOL(Temporary->ManagedByLightweightBuildableSubsystem()), TEXT_BOOL(Temporary->GetIsLightweightTemporary()))
+		MOD_LOG(Verbose, TEXT("Temporary no longer blocked for cleanup. Handle index: [%i], Class: [%s], ManagedByLightweightSys: [%s], IsLightweightTemporary: [%s]"), i, TEXT_CLS_NAME(BuildableHandle.BuildableClass), TEXT_BOOL(Temporary->ManagedByLightweightBuildableSubsystem()), TEXT_BOOL(Temporary->GetIsLightweightTemporary()))
 		
 		BuildableHandle.Buildable = nullptr;
 	}
@@ -240,7 +222,6 @@ bool ABuildableAutoSupportProxy::DestroyIfEmpty()
 
 bool ABuildableAutoSupportProxy::CanDismantle_Implementation() const
 {
-	MOD_LOG(Verbose, TEXT("Invoked"))
 	return true;
 }
 
@@ -290,6 +271,7 @@ void ABuildableAutoSupportProxy::GetChildDismantleActors_Implementation(TArray<A
 	
 	if (!bBuildablesAvailable)
 	{
+		MOD_LOG(Warning, TEXT("Invoked but BuildablesAvailable is FALSE."))
 		return;
 	}
 
@@ -303,13 +285,6 @@ void ABuildableAutoSupportProxy::GetChildDismantleActors_Implementation(TArray<A
 
 void ABuildableAutoSupportProxy::GetDismantleDependencies_Implementation(TArray<AActor*>& out_dismantleDependencies) const
 {
-	check(bBuildablesAvailable)
-	
-	// for (auto& Handle : RegisteredHandles)
-	// {
-	// 	Execute_GetDismantleDependencies(Handle.Buildable.Get(), out_dismantleDependencies);
-	// }
-
 	MOD_LOG(Verbose, TEXT("Dismantle dependencies, Count: [%i]"), out_dismantleDependencies.Num())
 }
 

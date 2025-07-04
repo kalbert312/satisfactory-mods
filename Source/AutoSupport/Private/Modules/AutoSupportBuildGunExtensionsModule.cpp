@@ -56,6 +56,7 @@ void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
 	{
 		if (ProxyDismantleMode && State->IsCurrentBuildGunMode(ProxyDismantleMode) && State->mCurrentlyAimedAtActor && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
 		{
+			// Prevents anything other than the proxies actors from being a candidate for dismantle
 			State->SetAimedAtActor(nullptr);
 		}
 	});

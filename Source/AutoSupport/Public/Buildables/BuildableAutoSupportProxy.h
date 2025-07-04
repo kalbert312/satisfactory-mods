@@ -102,7 +102,7 @@ protected:
 		return RootHandle->Buildable.Get();
 	}
 
-	FAutoSupportBuildableHandle* EnsureBuildablesAvailable();
+	void EnsureBuildablesAvailable();
 	void RemoveTemporaries(AFGCharacterPlayer* Player);
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
