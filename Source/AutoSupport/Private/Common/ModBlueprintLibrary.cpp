@@ -132,7 +132,7 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 	AActor* Owner,
 	ABuildableAutoSupportProxy*& OutProxy)
 {
-	check(BuildInstigator)
+	fgcheck(BuildInstigator)
 
 	// TODO(k.a): understand the rotation calculation better. I trialed and errored for a bit. Need a visualization.
 	// Rotation: Calculate the world rot from the following rotations. Reminder: right most are applied first.
@@ -179,7 +179,7 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, SupportProxy, Owner, WorkingTransform, LocalBoundingBox);
 	}
 
-	check(RootHologram)
+	fgcheck(RootHologram)
 
 	MOD_LOG(Verbose, TEXT("Local Bounding Box: %s"), *LocalBoundingBox.ToString())
 
@@ -600,7 +600,7 @@ bool UAutoSupportBlueprintLibrary::PlanSinglePart(
 
 	// Should only be 1 recipe for a buildable...
 	auto PartRecipeClasses = RecipeManager->FindRecipesByProduct(Plan.PartDescriptorClass, true, true);
-	check(PartRecipeClasses.Num() <= 1);
+	fgcheck(PartRecipeClasses.Num() <= 1);
 
 	if (const auto PartRecipeClass = PartRecipeClasses.Num() > 0 ? PartRecipeClasses[0] : nullptr; PartRecipeClass && Plan.ConsumedBuildSpace > 0)
 	{

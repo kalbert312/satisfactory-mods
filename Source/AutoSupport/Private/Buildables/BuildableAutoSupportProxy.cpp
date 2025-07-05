@@ -18,7 +18,7 @@ ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 
 void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 {
-	check(Buildable);
+	fgcheck(Buildable);
 
 	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 	
@@ -31,7 +31,7 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 		Handle.LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
 	}
 	
-	check(Handle.IsDataValid());
+	fgcheck(Handle.IsDataValid());
 
 	RegisteredHandles.Add(Handle);
 	if (HasActorBegunPlay())

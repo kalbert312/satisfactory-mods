@@ -57,7 +57,7 @@ void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 	MOD_LOG(Verbose, TEXT("Invoked"))
 
 	const FAutoSupportBuildableHandle Handle(Buildable);
-	check(Handle.IsDataValid());
+	fgcheck(Handle.IsDataValid());
 	auto ProxyPtr = ProxyByBuildable.FindRef(Handle);
 
 	if (!ProxyPtr.IsValid())
@@ -75,7 +75,7 @@ void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 	
 	MOD_LOG(Verbose, TEXT("Found proxy. Removing handle and unregistering buildable."))
 	const auto Removed = ProxyByBuildable.Remove(Handle);
-	check(Removed == 1) // Check the equality contract is working as intended.
+	fgcheck(Removed == 1) // Check the equality contract is working as intended.
 	ProxyPtr->UnregisterBuildable(Buildable);
 }
 
@@ -220,7 +220,7 @@ void AAutoSupportModSubsystem::RegisterProxy(ABuildableAutoSupportProxy* Proxy)
 
 void AAutoSupportModSubsystem::RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy)
 {
-	check(Proxy);
+	fgcheck(Proxy);
 	MOD_LOG(Verbose, TEXT("Registering handle [%s] to proxy [%s]"), TEXT_STR(Handle.ToString()), TEXT_STR(Proxy->GetName()))
 	
 	if (ProxyByBuildable.Contains(Handle))

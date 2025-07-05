@@ -97,8 +97,8 @@ protected:
 	FORCEINLINE AFGBuildable* GetCheckedRootBuildable() const
 	{
 		auto* RootHandle = GetRootHandle();
-		check(RootHandle);
-		check(RootHandle->Buildable.IsValid());
+		fgcheck(RootHandle);
+		fgcheck(RootHandle->Buildable.IsValid());
 		return RootHandle->Buildable.Get();
 	}
 
