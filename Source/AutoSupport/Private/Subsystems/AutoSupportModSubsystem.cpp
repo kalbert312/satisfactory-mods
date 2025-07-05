@@ -47,6 +47,11 @@ void AAutoSupportModSubsystem::Init()
 	MOD_LOG(Verbose, TEXT("Added AFGBuildableSubsystem delegates"))
 }
 
+void AAutoSupportModSubsystem::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
 void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 {
 	MOD_LOG(Verbose, TEXT("Invoked"))
@@ -78,21 +83,21 @@ void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy
 {
 	MOD_LOG(Verbose, TEXT("Invoked"))
 	
-	TArray<FAutoSupportBuildableHandle> BuildablesToRemove;
+	TArray<FAutoSupportBuildableHandle> HandlesToRemove;
 	
 	for (const auto& Entry : ProxyByBuildable)
 	{
 		if (Entry.Value == Proxy)
 		{
-			BuildablesToRemove.Add(Entry.Key);
+			HandlesToRemove.Add(Entry.Key);
 		}
 	}
 
-	MOD_LOG(Verbose, TEXT("Found %i entries to remove"), BuildablesToRemove.Num())
+	MOD_LOG(Verbose, TEXT("Found %i entries to remove"), HandlesToRemove.Num())
 	
-	for (const auto& Buildable : BuildablesToRemove)
+	for (const auto& Handle : HandlesToRemove)
 	{
-		ProxyByBuildable.Remove(Buildable);
+		ProxyByBuildable.Remove(Handle);
 	}
 
 	AllProxies.Remove(Proxy);

@@ -62,4 +62,6 @@ protected:
 	
 	void OnAutoBuildSupportsKeyStarted();
 	void OnAutoBuildSupportsKeyCompleted();
+
+	void AsyncUpdateAllProxiesBuildMode(TSubclassOf<UFGBuildGunModeDescriptor> ModeDescriptor) const;
 };

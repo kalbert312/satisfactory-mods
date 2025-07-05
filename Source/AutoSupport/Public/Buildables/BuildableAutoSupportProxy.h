@@ -36,7 +36,7 @@ public:
 	UFUNCTION(BlueprintImplementableEvent)
 	void K2_OnBuildModeUpdate(TSubclassOf<UFGBuildGunModeDescriptor> BuildMode, ULocalPlayer* LocalPlayer);
 
-	bool DestroyIfEmpty();
+	bool DestroyIfEmpty(bool bRemoveInvalidHandles);
 
 #pragma region IFGSaveInterface
 	
@@ -104,6 +104,7 @@ protected:
 
 	void EnsureBuildablesAvailable();
 	void RemoveTemporaries(AFGCharacterPlayer* Player);
+	void RemoveInvalidHandles();
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

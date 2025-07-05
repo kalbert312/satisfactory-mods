@@ -71,38 +71,24 @@ void UAutoSupportModLocalPlayerSubsystem::OnBuildGunBeginPlay(AFGBuildGun* Build
 	BuildGun->mOnBuildGunModeChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunModeChanged);
 	BuildGun->mOnStateChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunStateChanged);
 	
-	auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 	const auto CurrentBuildModeClass = BuildGun ? BuildGun->GetCurrentBuildGunMode() : nullptr;
 
-	for (const auto& Proxy : AutoSupportSubsys->AllProxies)
-	{
-		Proxy->OnBuildModeUpdate(CurrentBuildModeClass, GetLocalPlayer());
-	}
+	AsyncUpdateAllProxiesBuildMode(CurrentBuildModeClass);
 }
 
 void UAutoSupportModLocalPlayerSubsystem::OnBuildGunModeChanged(TSubclassOf<UFGBuildGunModeDescriptor> Descriptor)
 {
 	// NOTE: This only fires equipping and changing modes, but not when unequipping
 	MOD_LOG(Verbose, TEXT("Build gun mode changed to [%s]"), TEXT_CLS_NAME(Descriptor))
-	
-	auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 
-	for (const auto& Proxy : AutoSupportSubsys->AllProxies)
-	{
-		Proxy->OnBuildModeUpdate(Descriptor, GetLocalPlayer());
-	}
+	AsyncUpdateAllProxiesBuildMode(Descriptor);
 }
 
 void UAutoSupportModLocalPlayerSubsystem::OnBuildGunStateChanged(EBuildGunState NewState)
 {
 	if (NewState != EBuildGunState::BGS_DISMANTLE) // clean up for non-dismantle
 	{
-		auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
-
-		for (const auto& Proxy : AutoSupportSubsys->AllProxies)
-		{
-			Proxy->OnBuildModeUpdate(nullptr, GetLocalPlayer());
-		}
+		AsyncUpdateAllProxiesBuildMode(nullptr);
 	}
 
 	if (NewState == EBuildGunState::BGS_BUILD)
@@ -119,8 +105,7 @@ void UAutoSupportModLocalPlayerSubsystem::OnBuildGunEndPlay(AFGBuildGun* BuildGu
 {
 	if (EndType == EEndPlayReason::Type::Destroyed)
 	{
-		BuildGun->mOnBuildGunModeChanged.RemoveAll(this);
-		// TODO(k.a): Update proxies again? Change delete
+		MOD_LOG(Verbose, TEXT("Build gun was explicitly destroyed"))
 	}
 }
 
@@ -214,6 +199,34 @@ void UAutoSupportModLocalPlayerSubsystem::OnAutoBuildSupportsKeyCompleted()
 {
 	MOD_LOG(Verbose, TEXT("Invoked"))
 	IsAutoBuildKeyHeld = false;
+}
+
+void UAutoSupportModLocalPlayerSubsystem::AsyncUpdateAllProxiesBuildMode(TSubclassOf<UFGBuildGunModeDescriptor> ModeDescriptor) const
+{
+	MOD_LOG(Verbose, TEXT("Invoked"))
+	AsyncTask(ENamedThreads::GameThread, [this, ModeDescriptor]
+	{
+		auto* LocalPlayer = GetLocalPlayer();
+		auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+
+		auto ProxyCount = AutoSupportSubsys->AllProxies.Num();
+		MOD_LOG(Verbose, TEXT("Updating all (%i) proxies with build mode [%s]"), ProxyCount, TEXT_CLS_NAME(ModeDescriptor))
+		
+		for (const auto& Proxy : AutoSupportSubsys->AllProxies)
+		{
+			if (Proxy.IsValid())
+			{
+				Proxy->OnBuildModeUpdate(ModeDescriptor, LocalPlayer);
+			}
+			else
+			{
+				MOD_LOG(Warning, TEXT("Proxy is invalid... skipping"))
+			}
+		}
+		
+		ProxyCount = AutoSupportSubsys->AllProxies.Num();
+		MOD_LOG(Verbose, TEXT("Finished updating all (%i) proxies with build mode [%s]"), ProxyCount, TEXT_CLS_NAME(ModeDescriptor))
+	});
 }
 
 bool UAutoSupportModLocalPlayerSubsystem::IsHoldingAutoBuildKey() const

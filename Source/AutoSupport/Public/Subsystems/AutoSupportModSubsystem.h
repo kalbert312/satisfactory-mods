@@ -127,5 +127,5 @@ protected:
 	TSet<TWeakObjectPtr<ABuildableAutoSupportProxy>> AllProxies;
 	
 	virtual void Init() override;
-
+	virtual void BeginPlay() override;
 };
