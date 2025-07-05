@@ -178,7 +178,7 @@ void ABuildableAutoSupport::BeginPlay()
 		if (GetBlueprintDesigner())
 		{
 			MOD_LOG(Verbose, TEXT("Has blueprint designer. Will not auto configure or auto build"));
-			bAutoConfigureAtBeginPlay = false;
+			//bAutoConfigureAtBeginPlay = false; // This should be ok to not need to set. If the BP was loaded, the saved flag should already be false. If we newly place in a designer, it should be true.
 			bIsPlainBuild = false;
 		}
 		else if (GetBlueprintProxy()) // Is it being built from a blueprint?
