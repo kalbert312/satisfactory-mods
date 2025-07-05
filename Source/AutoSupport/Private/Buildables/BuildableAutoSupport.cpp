@@ -76,6 +76,8 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	auto* StartBuildable = CastChecked<AFGBuildable>(RootHologram->Construct(HologramSpawnedActors, Buildables->GetNewNetConstructionID()));
 	HologramSpawnedActors.Insert(StartBuildable, 0);
 
+	auto* BlueprintProxy = GetBlueprintProxy();
+
 	int32 i = 0;
 	for (auto* HologramSpawnedActor : HologramSpawnedActors)
 	{
@@ -99,6 +101,19 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		}
 		
 		SupportProxy->RegisterBuildable(Buildable);
+
+		// TODO(k.a): crashing on dismantle
+		// if (BlueprintProxy)
+		// {
+		// 	if (Buildable->ShouldConvertToLightweight())
+		// 	{
+		// 		BlueprintProxy->RegisterLightweightInstance(Buildable->GetClass(), Buildable->GetRuntimeDataIndex());
+		// 	}
+		// 	else
+		// 	{
+		// 		BlueprintProxy->RegisterBuildable(Buildable);
+		// 	}
+		// }
 		
 		MOD_LOG(
 			Verbose,
@@ -116,7 +131,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	MOD_LOG(Verbose, TEXT("Completed, SupportProxy transform: [%s]"), *SupportProxy->GetActorTransform().ToHumanReadableString());
 	
 	// Dismantle self
-	Execute_Dismantle(this);
+	Destroy();
 }
 
 #pragma region IFGSaveInterface

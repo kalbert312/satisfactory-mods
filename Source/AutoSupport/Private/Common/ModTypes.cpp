@@ -6,21 +6,21 @@
 
 FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(AFGBuildable* Buildable)
 {
-	check(Buildable);
+	fgcheck(Buildable);
 	this->Buildable = Buildable;
 	this->BuildableClass = Buildable->GetClass();
 
 	if (Buildable->GetIsLightweightTemporary() || Buildable->ManagedByLightweightBuildableSubsystem())
 	{
 		this->LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
-		check(LightweightRuntimeIndex >= 0);
+		fgcheck(LightweightRuntimeIndex >= 0);
 	}
 }
 
 FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(const TSubclassOf<AFGBuildable> BuildableClass, const int32 LightweightRuntimeIndex)
 {
 	this->BuildableClass = BuildableClass;
-	check(LightweightRuntimeIndex >= 0);
+	fgcheck(LightweightRuntimeIndex >= 0);
 	this->LightweightRuntimeIndex = LightweightRuntimeIndex;
 }
 
