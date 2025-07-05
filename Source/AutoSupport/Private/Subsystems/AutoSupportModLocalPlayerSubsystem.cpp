@@ -2,10 +2,50 @@
 
 #include "AutoSupportModLocalPlayerSubsystem.h"
 
+#include "AutoSupportBuildGunExtensionsModule.h"
+#include "AutoSupportBuildGunInputMappingContext.h"
 #include "AutoSupportModSubsystem.h"
 #include "BuildableAutoSupportProxy.h"
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
 #include "FGPlayerController.h"
 #include "ModLogging.h"
+#include "Kismet/GameplayStatics.h"
+
+UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const UWorld* World)
+{
+	if (const auto* Controller = UGameplayStatics::GetPlayerController(World, 0))
+	{
+		return Get(Controller);
+	}
+	
+	return nullptr;
+}
+
+UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const APawn* Pawn)
+{
+	if (const auto* Controller = Cast<APlayerController>(Pawn->GetController()))
+	{
+		return Get(Controller);
+	}
+
+	return nullptr;
+}
+
+UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const APlayerController* Controller)
+{
+	if (const auto* LocalPlayer = Controller->GetLocalPlayer())
+	{
+		return LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
+	}
+
+	return nullptr;
+}
+
+UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const ULocalPlayer* Player)
+{
+	return Player->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
+}
 
 UAutoSupportModLocalPlayerSubsystem::UAutoSupportModLocalPlayerSubsystem()
 {
@@ -55,16 +95,23 @@ void UAutoSupportModLocalPlayerSubsystem::OnBuildGunModeChanged(TSubclassOf<UFGB
 
 void UAutoSupportModLocalPlayerSubsystem::OnBuildGunStateChanged(EBuildGunState NewState)
 {
-	if (NewState == EBuildGunState::BGS_DISMANTLE)
+	if (NewState != EBuildGunState::BGS_DISMANTLE) // clean up for non-dismantle
 	{
-		return;
-	}
-	
-	auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+		auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 
-	for (const auto& Proxy : AutoSupportSubsys->AllProxies)
+		for (const auto& Proxy : AutoSupportSubsys->AllProxies)
+		{
+			Proxy->OnBuildModeUpdate(nullptr, GetLocalPlayer());
+		}
+	}
+
+	if (NewState == EBuildGunState::BGS_BUILD)
 	{
-		Proxy->OnBuildModeUpdate(nullptr, GetLocalPlayer());
+		AddBuildModeInputBindings();
+	}
+	else
+	{
+		RemoveBuildModeInputBindings();
 	}
 }
 
@@ -98,6 +145,8 @@ void UAutoSupportModLocalPlayerSubsystem::PlayerControllerChanged(APlayerControl
 	}
 	
 	Super::PlayerControllerChanged(NewPlayerController);
+
+	CurrentPlayerController = Cast<AFGPlayerController>(NewPlayerController);
 }
 
 AFGBuildGun* UAutoSupportModLocalPlayerSubsystem::GetBuildGun() const
@@ -108,6 +157,68 @@ AFGBuildGun* UAutoSupportModLocalPlayerSubsystem::GetBuildGun() const
 	}
 
 	return nullptr;
+}
+
+void UAutoSupportModLocalPlayerSubsystem::AddBuildModeInputBindings()
+{
+	MOD_LOG(Verbose, TEXT("Invoked"))
+	
+	fgcheck(CurrentPlayerController.IsValid())
+	const auto* BuildGunExtensions = UAutoSupportBuildGunExtensionsModule::Get(GetWorld());
+	fgcheck(BuildGunExtensions)
+		
+	if (IsValid(BuildGunExtensions->BuildGunBuildInputMappingContext))
+	{
+		auto* EnhInput = Cast<UEnhancedInputComponent>(CurrentPlayerController->InputComponent);
+		InputActionBindingHandles.Add(EnhInput->BindAction(BuildGunExtensions->BuildGunBuildInputMappingContext->IA_AutoBuildSupports, ETriggerEvent::Started, this, &UAutoSupportModLocalPlayerSubsystem::OnAutoBuildSupportsKeyStarted).GetHandle());
+		InputActionBindingHandles.Add(EnhInput->BindAction(BuildGunExtensions->BuildGunBuildInputMappingContext->IA_AutoBuildSupports, ETriggerEvent::Completed, this, &UAutoSupportModLocalPlayerSubsystem::OnAutoBuildSupportsKeyCompleted).GetHandle());
+
+		auto* EnhInputSubsys = GetLocalPlayer()->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+		fgcheck(EnhInputSubsys)
+		EnhInputSubsys->AddMappingContext(BuildGunExtensions->BuildGunBuildInputMappingContext, 100);
+		
+		MOD_LOG(Verbose, TEXT("Bound build gun extension input actions"))
+	}
+	else
+	{
+		MOD_LOG(Warning, TEXT("No input mapping context"))
+	}
+}
+
+void UAutoSupportModLocalPlayerSubsystem::RemoveBuildModeInputBindings()
+{
+	MOD_LOG(Verbose, TEXT("Invoked"))
+	
+	fgcheck(CurrentPlayerController.IsValid())
+	const auto* BuildGunExtensions = UAutoSupportBuildGunExtensionsModule::Get(GetWorld());
+	fgcheck(BuildGunExtensions)
+
+	auto* EnhInputSubsys = GetLocalPlayer()->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+	fgcheck(EnhInputSubsys)
+	EnhInputSubsys->RemoveMappingContext(BuildGunExtensions->BuildGunBuildInputMappingContext);
+
+	auto* EnhInput = Cast<UEnhancedInputComponent>(CurrentPlayerController->InputComponent);
+	for (const auto& Handle : InputActionBindingHandles)
+	{
+		EnhInput->RemoveBindingByHandle(Handle);
+	}
+}
+
+void UAutoSupportModLocalPlayerSubsystem::OnAutoBuildSupportsKeyStarted()
+{
+	MOD_LOG(Verbose, TEXT("Invoked"))
+	IsAutoBuildKeyHeld = true;
+}
+
+void UAutoSupportModLocalPlayerSubsystem::OnAutoBuildSupportsKeyCompleted()
+{
+	MOD_LOG(Verbose, TEXT("Invoked"))
+	IsAutoBuildKeyHeld = false;
+}
+
+bool UAutoSupportModLocalPlayerSubsystem::IsHoldingAutoBuildKey() const
+{
+	return IsAutoBuildKeyHeld;
 }
 
 AFGCharacterPlayer* UAutoSupportModLocalPlayerSubsystem::GetPlayerCharacter() const

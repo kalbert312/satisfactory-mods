@@ -37,7 +37,7 @@ public class AutoSupport : ModuleRules
 			"Foliage",
 			"Landscape",
 			//"Niagara",
-			//"EnhancedInput",
+			"EnhancedInput",
 			//"GameplayCameras",
 			//"TemplateSequence",
 			"NetCore",

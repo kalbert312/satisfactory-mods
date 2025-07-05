@@ -13,7 +13,8 @@
 
 UAutoSupportBuildGunExtensionsModule* UAutoSupportBuildGunExtensionsModule::Get(const UWorld* World)
 {
-	auto* RootModule = UAutoSupportGameInstanceModule::Get(World);
+	auto* RootModule = UAutoSupportGameWorldModule::Get(World);
+	fgcheck(RootModule)
 	return Cast<UAutoSupportBuildGunExtensionsModule>(RootModule->GetChildModule(AutoSupportConstants::ModuleName_BuildGunExtensions, StaticClass()));
 }
 
@@ -40,7 +41,6 @@ void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
 		{
 			OnBuildGunBeginPlay(BuildGun);
 		}
-
 	});
 	
 	SUBSCRIBE_UOBJECT_METHOD(AFGEquipment, EndPlay, [&](auto& Scope, AFGEquipment* Equipment, EEndPlayReason::Type Reason)
@@ -71,8 +71,6 @@ void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
 
 void UAutoSupportBuildGunExtensionsModule::OnBuildGunBeginPlay(AFGBuildGun* BuildGun)
 {
-	MOD_LOG(Verbose, TEXT("Build gun begin play. Instance: [%s]"), TEXT_STR(BuildGun->GetName()))
-	
 	const auto* LocalPlayer = Cast<ULocalPlayer>(BuildGun->GetNetOwningPlayer());
 
 	if (!LocalPlayer)
@@ -80,16 +78,20 @@ void UAutoSupportBuildGunExtensionsModule::OnBuildGunBeginPlay(AFGBuildGun* Buil
 		MOD_LOG(Verbose, TEXT("No local player found."))
 		return;
 	}
+
+	MOD_LOG(Verbose, TEXT("Build gun begin play. Instance: [%s], Owning player: [%s], Has Inst Char: [%s], Has Inst Controller: [%s]"), TEXT_STR(BuildGun->GetName()), TEXT_STR(LocalPlayer->GetName()), TEXT_BOOL(!!BuildGun->GetInstigatorController()), TEXT_BOOL(!!BuildGun->GetInstigatorCharacter()))
 			
 	auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
-	check(LocalSubsys)
-
-	LocalSubsys->OnBuildGunBeginPlay(BuildGun);
+	if (LocalSubsys)
+	{
+		LocalSubsys->OnBuildGunBeginPlay(BuildGun);
+	}
 }
 
 void UAutoSupportBuildGunExtensionsModule::OnBuildGunEndPlay(AFGBuildGun* BuildGun, EEndPlayReason::Type Reason)
 {
 	MOD_LOG(Verbose, TEXT("Invoked. Instance: [%s], Reason: [%i]"), TEXT_STR(BuildGun->GetName()), static_cast<int32>(Reason))
+	
 	if (Reason == EEndPlayReason::Type::Destroyed)
 	{
 		const auto* LocalPlayer = Cast<ULocalPlayer>(BuildGun->GetNetOwningPlayer());
@@ -101,9 +103,10 @@ void UAutoSupportBuildGunExtensionsModule::OnBuildGunEndPlay(AFGBuildGun* BuildG
 		}
 					
 		auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
-		check(LocalSubsys)
-
-		LocalSubsys->OnBuildGunEndPlay(BuildGun, Reason);
+		if (LocalSubsys)
+		{
+			LocalSubsys->OnBuildGunEndPlay(BuildGun, Reason);
+		}
 	}
 }
 

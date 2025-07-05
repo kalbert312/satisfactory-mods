@@ -8,5 +8,5 @@ namespace AutoSupportConstants
 
 	static const FName ModuleName_BuildGunExtensions = FName(TEXT("AutoSupportBuildGunExtensions"));
 
-	static const FName TraceTag_BuildableAutoSupport = FName("BuildableAutoSupport_Trace");
+	static const FName TraceTag_BuildableAutoSupport = FName(TEXT("BuildableAutoSupport_Trace"));
 }

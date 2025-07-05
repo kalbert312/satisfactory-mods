@@ -2,6 +2,7 @@
 
 #include "BuildableAutoSupport.h"
 
+#include "AutoSupportModLocalPlayerSubsystem.h"
 #include "AutoSupportModSubsystem.h"
 #include "BP_ModConfig_AutoSupportStruct.h"
 #include "BuildableAutoSupportProxy.h"
@@ -151,30 +152,48 @@ void ABuildableAutoSupport::BeginPlay()
 
 	if (bIsNew)
 	{
-		if (GetBlueprintDesigner()) // TODO(k.a): test blueprint designer
+		APawn* Player = mBuildEffectInstignator && mBuildEffectInstignator->IsA<AFGCharacterPlayer>()
+			? Cast<APawn>(mBuildEffectInstignator)
+			: UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+
+		const auto* LocalPlayerSubsys = UAutoSupportModLocalPlayerSubsystem::Get(Player);
+		const auto IsAutoBuildHeld = LocalPlayerSubsys->IsHoldingAutoBuildKey();
+		auto bIsPlainBuild = true;
+
+		if (GetBlueprintDesigner())
 		{
-			MOD_LOG(Verbose, TEXT("Has blueprint designer"));
+			MOD_LOG(Verbose, TEXT("Has blueprint designer. Will not auto configure or auto build"));
 			bAutoConfigureAtBeginPlay = false;
+			bIsPlainBuild = false;
 		}
 		else if (GetBlueprintProxy()) // Is it being built from a blueprint?
 		{
 			MOD_LOG(Verbose, TEXT("Built from blueprint"));
 			bAutoConfigureAtBeginPlay = false;
+			bIsPlainBuild = false;
 
-			if (FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).GameplayDefaultsSection.AutomaticBlueprintBuild)
+			const auto IsAutoBuildEnabled = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).GameplayDefaultsSection.AutomaticBlueprintBuild;
+			
+			if ((IsAutoBuildEnabled && !IsAutoBuildHeld) || (!IsAutoBuildEnabled && IsAutoBuildHeld))
 			{
-				BuildSupports(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
-				MOD_LOG(Verbose, TEXT("Auto building!"));
+				MOD_LOG(Verbose, TEXT("Auto building. IsAutoBuildEnabled: [%s], IsAutoBuildHeld: [%s]"), TEXT_BOOL(IsAutoBuildEnabled), TEXT_BOOL(IsAutoBuildHeld));
+				BuildSupports(Player);
 			}
 			else
 			{
-				MOD_LOG(Verbose, TEXT("Not auto building, config = false"));
+				MOD_LOG(Verbose, TEXT("Not auto building. IsAutoBuildEnabled: [%s], IsAutoBuildHeld: [%s]"), TEXT_BOOL(IsAutoBuildEnabled), TEXT_BOOL(IsAutoBuildHeld));
 			}
 		}
 
 		if (bAutoConfigureAtBeginPlay)
 		{
 			AutoConfigure();
+		}
+
+		if (bIsPlainBuild && IsAutoBuildHeld)
+		{
+			MOD_LOG(Verbose, TEXT("Auto building plain build, key was held."));
+			BuildSupports(Player);
 		}
 	}
 
