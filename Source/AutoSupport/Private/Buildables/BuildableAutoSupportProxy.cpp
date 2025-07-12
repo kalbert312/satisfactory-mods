@@ -21,16 +21,9 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 	fgcheck(Buildable);
 
 	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
-	
-	FAutoSupportBuildableHandle Handle;
-	Handle.Buildable = Buildable;
-	Handle.BuildableClass = Buildable->GetClass();
-	
-	if (Buildable->ManagedByLightweightBuildableSubsystem())
-	{
-		Handle.LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
-	}
-	
+
+	const FAutoSupportBuildableHandle Handle(Buildable);
+
 	fgcheck(Handle.IsDataValid());
 
 	RegisteredHandles.Add(Handle);
@@ -52,17 +45,10 @@ void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
 	
 	MOD_LOG(Verbose, TEXT("Unregistering buildable. Class: [%s], Index: [%i]"), TEXT_OBJ_CLS_NAME(Buildable), Buildable->GetRuntimeDataIndex())
 
-	const FAutoSupportBuildableHandle FindHandle(Buildable);
-	
-	for (auto i = RegisteredHandles.Num() - 1; i >= 0; --i)
+	if (const FAutoSupportBuildableHandle FindHandle(Buildable); RegisteredHandles.RemoveSingle(FindHandle))
 	{
-		if (const auto& Handle = RegisteredHandles[i]; Handle == FindHandle)
-		{
-			RegisteredHandles.RemoveAt(i);
-			MOD_LOG(Verbose, TEXT("Removed buildable. Index: [%i]"), i)
-			DestroyIfEmpty(false);
-			break;
-		}
+		MOD_LOG(Verbose, TEXT("Removed buildable."))
+		DestroyIfEmpty(false);
 	}
 }
 

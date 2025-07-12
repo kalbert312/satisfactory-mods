@@ -61,7 +61,7 @@ void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
 
 	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, TickState_Implementation, [&](UFGBuildGunStateDismantle* State, float DeltaTime)
 	{
-		if (ProxyDismantleMode && IsValid(State) && State->IsCurrentBuildGunMode(ProxyDismantleMode) && State->mCurrentlyAimedAtActor && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
+		if (ProxyDismantleMode && IsValid(State) && State->mCurrentlyAimedAtActor && State->IsCurrentBuildGunMode(ProxyDismantleMode) && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
 		{
 			// Prevents anything other than the proxies actors from being a candidate for dismantle
 			State->SetAimedAtActor(nullptr);
@@ -80,9 +80,8 @@ void UAutoSupportBuildGunExtensionsModule::OnBuildGunBeginPlay(AFGBuildGun* Buil
 	}
 
 	MOD_LOG(Verbose, TEXT("Build gun begin play. Instance: [%s], Owning player: [%s], Has Inst Char: [%s], Has Inst Controller: [%s]"), TEXT_STR(BuildGun->GetName()), TEXT_STR(LocalPlayer->GetName()), TEXT_BOOL(!!BuildGun->GetInstigatorController()), TEXT_BOOL(!!BuildGun->GetInstigatorCharacter()))
-			
-	auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
-	if (LocalSubsys)
+
+	if (auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>())
 	{
 		LocalSubsys->OnBuildGunBeginPlay(BuildGun);
 	}
@@ -101,9 +100,8 @@ void UAutoSupportBuildGunExtensionsModule::OnBuildGunEndPlay(AFGBuildGun* BuildG
 			MOD_LOG(Verbose, TEXT("No local player found."))
 			return;
 		}
-					
-		auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
-		if (LocalSubsys)
+
+		if (auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>())
 		{
 			LocalSubsys->OnBuildGunEndPlay(BuildGun, Reason);
 		}
