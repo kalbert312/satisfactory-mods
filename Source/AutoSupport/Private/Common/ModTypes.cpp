@@ -31,23 +31,18 @@ bool FAutoSupportBuildableHandle::IsDataValid() const
 
 bool FAutoSupportBuildableHandle::Equals(const FAutoSupportBuildableHandle& Other) const
 {
-	if (!IsDataValid() || !Other.IsDataValid())
-	{
-		return false;
-	}
-		
 	if (Buildable != nullptr && Buildable == Other.Buildable)
 	{
 		return true;
 	}
-
-	if (const auto IsLightweight = IsLightweightType(); IsLightweight != Other.IsLightweightType() || !IsLightweight)
+	
+	if (const auto IsLightweight = IsLightweightType(); !IsLightweight || IsLightweight != Other.IsLightweightType())
 	{
 		return false;
 	}
 		
-	return BuildableClass == Other.BuildableClass
-		&& LightweightRuntimeIndex == Other.LightweightRuntimeIndex;
+	return LightweightRuntimeIndex == Other.LightweightRuntimeIndex
+		&& BuildableClass == Other.BuildableClass;
 }
 
 FString FAutoSupportBuildableHandle::ToString() const

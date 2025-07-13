@@ -55,7 +55,6 @@ void AAutoSupportModSubsystem::BeginPlay()
 void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 {
 	const FAutoSupportBuildableHandle Handle(Buildable);
-	fgcheck(Handle.IsDataValid());
 	const auto* ProxyEntry = ProxyByBuildable.Find(Handle);
 
 	if (!ProxyEntry || !ProxyEntry->IsValid())
