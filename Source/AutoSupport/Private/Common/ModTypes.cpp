@@ -9,10 +9,10 @@ FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(AFGBuildable* Buildable
 	fgcheck(Buildable);
 	this->Buildable = Buildable;
 	this->BuildableClass = Buildable->GetClass();
-
-	if (Buildable->GetIsLightweightTemporary() || Buildable->ManagedByLightweightBuildableSubsystem())
+	this->LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
+	
+	if (Buildable->GetIsLightweightTemporary())
 	{
-		this->LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
 		fgcheck(LightweightRuntimeIndex >= 0);
 	}
 }
