@@ -3,9 +3,9 @@
 
 #include "CoreMinimal.h"
 #include "AutoSupportGameWorldModule.h"
-#include "InputActionValue.h"
 #include "AutoSupportBuildGunExtensionsModule.generated.h"
 
+class UFGBuildGunStateDismantle;
 class UAutoSupportBuildGunInputMappingContext;
 class UInputAction;
 class UFGDismantleModeDescriptor;
@@ -19,6 +19,8 @@ UCLASS(Blueprintable)
 class AUTOSUPPORT_API UAutoSupportBuildGunExtensionsModule : public UAutoSupportGameWorldModule
 {
 	GENERATED_BODY()
+
+	friend class FAutoSupportModule;
 
 public:
 	static UAutoSupportBuildGunExtensionsModule* Get(const UWorld* World);
@@ -38,8 +40,9 @@ public:
 	TObjectPtr<UAutoSupportBuildGunInputMappingContext> BuildGunBuildInputMappingContext;
 
 protected:
-	void RegisterHooks();
 	void OnBuildGunBeginPlay(AFGBuildGun* BuildGun);
 	void OnBuildGunEndPlay(AFGBuildGun* BuildGun, EEndPlayReason::Type Reason);
 	void AppendExtraDismantleModes(TArray<TSubclassOf<UFGBuildGunModeDescriptor>>& OutExtraModes) const;
+	void OnBuildGunDismantleStateTick(UFGBuildGunStateDismantle* State) const;
+	
 };

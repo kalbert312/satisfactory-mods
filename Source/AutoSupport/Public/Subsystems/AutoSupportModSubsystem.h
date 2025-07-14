@@ -11,7 +11,7 @@
 
 class ABuildableAutoSupportProxy;
 
-UCLASS(Blueprintable)
+UCLASS(Abstract, Blueprintable)
 class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IFGSaveInterface
 {
 	GENERATED_BODY()
@@ -128,4 +128,7 @@ protected:
 	
 	virtual void Init() override;
 	virtual void BeginPlay() override;
+
+	static TMap<TWeakObjectPtr<const UWorld>, TWeakObjectPtr<AAutoSupportModSubsystem>> CachedSubsystemLookup;
+	static FCriticalSection CachedSubsystemLookupLock;
 };

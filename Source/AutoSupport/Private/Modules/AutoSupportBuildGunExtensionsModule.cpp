@@ -20,53 +20,8 @@ UAutoSupportBuildGunExtensionsModule* UAutoSupportBuildGunExtensionsModule::Get(
 
 void UAutoSupportBuildGunExtensionsModule::DispatchLifecycleEvent(ELifecyclePhase Phase)
 {
+	MOD_LOG(Verbose, TEXT("Invoked. Phase: [%i]"), static_cast<int32>(Phase))
 	Super::DispatchLifecycleEvent(Phase);
-
-	if (Phase == ELifecyclePhase::CONSTRUCTION)
-	{
-		if (!WITH_EDITOR)
-		{
-			RegisterHooks();
-		}
-	}
-}
-
-void UAutoSupportBuildGunExtensionsModule::RegisterHooks()
-{
-	MOD_LOG(Verbose, TEXT("Registering hooks"))
-	
-	SUBSCRIBE_UOBJECT_METHOD_AFTER(AFGBuildGun, BeginPlay, [&](AFGBuildGun* BuildGun)
-	{
-		if (IsValid(BuildGun))
-		{
-			OnBuildGunBeginPlay(BuildGun);
-		}
-	});
-	
-	SUBSCRIBE_UOBJECT_METHOD(AFGEquipment, EndPlay, [&](auto& Scope, AFGEquipment* Equipment, EEndPlayReason::Type Reason)
-	{
-		if (auto* BuildGun = Cast<AFGBuildGun>(Equipment); BuildGun)
-		{
-			OnBuildGunEndPlay(BuildGun, Reason);
-		}
-	});
-
-	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, GetSupportedBuildModes_Implementation, [&](const UFGBuildGunStateDismantle* Self, TArray<TSubclassOf<UFGBuildGunModeDescriptor>>& out_Modes)
-	{
-		if (IsValid(Self))
-		{
-			AppendExtraDismantleModes(out_Modes);
-		}
-	});
-
-	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, TickState_Implementation, [&](UFGBuildGunStateDismantle* State, float DeltaTime)
-	{
-		if (ProxyDismantleMode && IsValid(State) && State->mCurrentlyAimedAtActor && State->IsCurrentBuildGunMode(ProxyDismantleMode) && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
-		{
-			// Prevents anything other than the proxies actors from being a candidate for dismantle
-			State->SetAimedAtActor(nullptr);
-		}
-	});
 }
 
 void UAutoSupportBuildGunExtensionsModule::OnBuildGunBeginPlay(AFGBuildGun* BuildGun)
@@ -117,5 +72,14 @@ void UAutoSupportBuildGunExtensionsModule::AppendExtraDismantleModes(TArray<TSub
 	else
 	{
 		MOD_LOG(Warning, TEXT("No ProxyDismantleMode was set."))
+	}
+}
+
+void UAutoSupportBuildGunExtensionsModule::OnBuildGunDismantleStateTick(UFGBuildGunStateDismantle* State) const
+{
+	if (ProxyDismantleMode && IsValid(State) && State->mCurrentlyAimedAtActor && State->IsCurrentBuildGunMode(ProxyDismantleMode) && !State->mCurrentlyAimedAtActor->IsA<ABuildableAutoSupportProxy>())
+	{
+		// Prevents anything other than the proxies actors from being a candidate for dismantle
+		State->SetAimedAtActor(nullptr);
 	}
 }

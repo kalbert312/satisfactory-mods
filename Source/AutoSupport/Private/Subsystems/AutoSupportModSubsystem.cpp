@@ -10,8 +10,19 @@
 #include "WorldModuleManager.h"
 #include "Subsystem/SubsystemActorManager.h"
 
+TMap<TWeakObjectPtr<const UWorld>, TWeakObjectPtr<AAutoSupportModSubsystem>> AAutoSupportModSubsystem::CachedSubsystemLookup;
+FCriticalSection AAutoSupportModSubsystem::CachedSubsystemLookupLock;
+
 AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
 {
+	{
+		FScopeLock Lock(&CachedSubsystemLookupLock);
+		if (const auto* CachedEntry = CachedSubsystemLookup.Find(World); CachedEntry && CachedEntry->IsValid())
+		{
+			return CachedEntry->Get();
+		}
+	}
+	
 	const auto* WorldModuleManager = World->GetSubsystem<UWorldModuleManager>();
 	auto* WorldModule = CastChecked<UGameWorldModule>(WorldModuleManager->FindModule(AutoSupportConstants::ModReference));
 
@@ -32,7 +43,14 @@ AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
 	}
 	
 	auto* SubsystemActorManager = World->GetSubsystem<USubsystemActorManager>();
-	return CastChecked<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
+	auto* Result = CastChecked<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
+
+	{
+		FScopeLock Lock(&CachedSubsystemLookupLock);
+		CachedSubsystemLookup.Add(World, Result);
+	}
+	
+	return Result;
 }
 
 void AAutoSupportModSubsystem::Init()
@@ -40,6 +58,11 @@ void AAutoSupportModSubsystem::Init()
 	Super::Init();
 
 	auto* World = GetWorld();
+
+	{
+		FScopeLock Lock(&CachedSubsystemLookupLock);
+		CachedSubsystemLookup.Add(World, this);
+	}
 	
 	auto* Buildables = AFGBuildableSubsystem::Get(World);
 	Buildables->mBuildableRemovedDelegate.AddDynamic(this, &AAutoSupportModSubsystem::OnWorldBuildableRemoved);

@@ -6,6 +6,8 @@
 #include "Modules/ModuleManager.h"
 #include "Common/ModBlueprintLibrary.h"
 
+class AAutoSupportModSubsystem;
+
 class FAutoSupportModule : public IModuleInterface
 {
 	
@@ -15,5 +17,9 @@ public:
 	virtual void ShutdownModule() override;
 
 	void RegisterHooks();
+
+private:
+
+	TMap<TWeakObjectPtr<UWorld>, TWeakObjectPtr<AAutoSupportModSubsystem>> CachedSubsystemByWorld;
 	
 };

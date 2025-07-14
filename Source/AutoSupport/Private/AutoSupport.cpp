@@ -2,6 +2,7 @@
 
 #include "AutoSupport.h"
 
+#include "AutoSupportBuildGunExtensionsModule.h"
 #include "AutoSupportGameInstanceModule.h"
 #include "AutoSupportModLocalPlayerSubsystem.h"
 #include "AutoSupportModSubsystem.h"
@@ -38,6 +39,46 @@ void FAutoSupportModule::RegisterHooks()
 			// call our subsys delegate in this case b/c it isn't working. This is to solve not catching removals on individual buildables for support proxys.
 			auto* SupportSubsys = AAutoSupportModSubsystem::Get(Buildable->GetWorld());
 			SupportSubsys->OnWorldBuildableRemoved(Buildable);
+		}
+	});
+	
+	SUBSCRIBE_UOBJECT_METHOD_AFTER(AFGBuildGun, BeginPlay, [&](AFGBuildGun* BuildGun)
+	{
+		if (IsValid(BuildGun))
+		{
+			auto* Module = UAutoSupportBuildGunExtensionsModule::Get(BuildGun->GetWorld());
+			fgcheck(Module);
+			Module->OnBuildGunBeginPlay(BuildGun);
+		}
+	});
+	
+	SUBSCRIBE_UOBJECT_METHOD(AFGEquipment, EndPlay, [&](auto& Scope, AFGEquipment* Equipment, EEndPlayReason::Type Reason)
+	{
+		if (auto* BuildGun = Cast<AFGBuildGun>(Equipment); BuildGun)
+		{
+			auto* Module = UAutoSupportBuildGunExtensionsModule::Get(BuildGun->GetWorld());
+			fgcheck(IsValid(Module));
+			Module->OnBuildGunEndPlay(BuildGun, Reason);
+		}
+	});
+
+	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, GetSupportedBuildModes_Implementation, [&](const UFGBuildGunStateDismantle* Self, TArray<TSubclassOf<UFGBuildGunModeDescriptor>>& out_Modes)
+	{
+		if (IsValid(Self))
+		{
+			const auto* Module = UAutoSupportBuildGunExtensionsModule::Get(Self->GetWorld());
+			fgcheck(IsValid(Module));
+			Module->AppendExtraDismantleModes(out_Modes);
+		}
+	});
+
+	SUBSCRIBE_UOBJECT_METHOD_AFTER(UFGBuildGunStateDismantle, TickState_Implementation, [&](UFGBuildGunStateDismantle* State, float DeltaTime)
+	{
+		if (IsValid(State))
+		{
+			const auto* Module = UAutoSupportBuildGunExtensionsModule::Get(State->GetWorld());
+			fgcheck(IsValid(Module));
+			Module->OnBuildGunDismantleStateTick(State);
 		}
 	});
 }
