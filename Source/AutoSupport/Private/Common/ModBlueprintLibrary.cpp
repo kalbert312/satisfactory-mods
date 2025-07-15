@@ -528,8 +528,6 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 		PreSpawnHolo->AddActorWorldRotation(PartPlan.LocalRotation);
 		PreSpawnHolo->AddActorWorldOffset(PartPlan.LocalTranslation);
 		PreSpawnHolo->DoMultiStepPlacement(false);
-		// auto* AsBuildableHolo = CastChecked<AFGBuildableHologram>(PreSpawnHolo);
-		// AsBuildableHolo->SetCustomizationData(PartPlan.CustomizationData);
 	};
 
 	const auto PartExtent = PartPlan.BBox.GetExtent();
@@ -544,11 +542,10 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 	{
 		// Copy the transform, then apply the orientation below
 		MOD_LOG(Verbose, TEXT("World Part Spawn Transform: [%s]"), *WorkingTransform.ToHumanReadableString());
-		AFGHologram* Hologram = nullptr;
 		
 		if (ParentHologram)
 		{
-			Hologram = AFGHologram::SpawnChildHologramFromRecipe(
+			auto* Hologram = AFGHologram::SpawnChildHologramFromRecipe(
 				ParentHologram,
 				FName(FGuid::NewGuid().ToString()),
 				PartPlan.BuildRecipeClass,
@@ -566,8 +563,6 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 				WorkingTransform.GetLocation(),
 				BuildInstigator,
 				PreSpawnFn);
-
-			Hologram = ParentHologram;
 
 			ParentHologram->SetShouldSpawnChildHolograms(true);
 			ParentHologram->AttachToActor(Parent, FAttachmentTransformRules::KeepRelativeTransform);

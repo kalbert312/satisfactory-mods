@@ -76,6 +76,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	auto* StartBuildable = CastChecked<AFGBuildable>(RootHologram->Construct(HologramSpawnedActors, Buildables->GetNewNetConstructionID()));
 	HologramSpawnedActors.Insert(StartBuildable, 0);
 
+	// TODO(k.a): see if supports can be included in a blueprint proxy
 	auto* BlueprintProxy = GetBlueprintProxy();
 
 	int32 i = 0;

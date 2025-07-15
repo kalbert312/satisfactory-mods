@@ -362,8 +362,6 @@ bool ABuildableAutoSupportProxy::NeedTransform_Implementation()
 
 void ABuildableAutoSupportProxy::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
-	//DestroyIfEmpty(true); // TODO(k.a): this is probably too expensive and I don't want to slow saving. This should probably be done in the
-	// mod subsys async either periodically or after certain events like build gun state -> none.
 }
 
 void ABuildableAutoSupportProxy::PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
