@@ -19,16 +19,18 @@ ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 {
 	fgcheck(Buildable);
-
-	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
-
+	
 	const FAutoSupportBuildableHandle Handle(Buildable);
-
-	fgcheck(Handle.IsDataValid());
-
 	RegisteredHandles.Add(Handle);
+
+	if (Buildable->GetIsLightweightTemporary())
+	{
+		LightweightIndexByHandle.Add(Handle, Buildable->GetRuntimeDataIndex());
+	}
+	
 	if (HasActorBegunPlay())
 	{
+		auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
 	}
 	
@@ -75,16 +77,15 @@ void ABuildableAutoSupportProxy::BeginPlay()
 		MOD_LOG(Warning, TEXT("An empty proxy was destroyed at BeginPlay. Why was it empty?"))
 		return;
 	}
-
-	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
-
+	
 	OnBuildModeUpdate(nullptr, nullptr); // Init.
-
+	
+	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
 	SupportSubsys->RegisterProxy(this);
 
 	for (const auto& Handle : RegisteredHandles)
 	{
-		// It's transient to the subsys, so reregister.
+		// It's transient to the subsys
 		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
 	}
 }
@@ -105,28 +106,36 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 	
 	for (auto i = 0; i < RegisteredHandles.Num(); ++i)
 	{
-		auto& BuildableHandle = RegisteredHandles[i];
+		auto& Handle = RegisteredHandles[i];
 
-		if (!BuildableHandle.IsLightweightType()) // Skip non-lightweights
+		if (Handle.Buildable.IsValid()) // skip already available
 		{
+			if (Handle.Buildable->GetIsLightweightTemporary())
+			{
+				Handle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
+			}
+			
 			continue;
 		}
+
+		const auto RuntimeIndex = GetLightweightIndex(Handle);
+		fgcheck(RuntimeIndex != INDEX_NONE);
 		
-		MOD_LOG(Verbose, TEXT("Ensuring buildable spawned for lightweight handle. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
-		auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(BuildableHandle.BuildableClass, BuildableHandle.LightweightRuntimeIndex);
+		MOD_LOG(Verbose, TEXT("Ensuring buildable spawned for lightweight handle. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(Handle.BuildableClass), RuntimeIndex)
+		auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(Handle.BuildableClass, RuntimeIndex);
 		fgcheck(InstanceData);
 		fgcheck(InstanceData->IsValid());
 		
 		auto bWasSpawned = false;
-		const auto* NewTemporaryHandle = LightBuildables->FindOrSpawnBuildableForRuntimeData(BuildableHandle.BuildableClass, InstanceData, BuildableHandle.LightweightRuntimeIndex, bWasSpawned);
+		const auto* NewTemporaryHandle = LightBuildables->FindOrSpawnBuildableForRuntimeData(Handle.BuildableClass, InstanceData, RuntimeIndex, bWasSpawned);
 		
-		MOD_LOG(Verbose, TEXT("The lightweight buildable handle at [%i], TemporarySpawned: [%s]."), i, TEXT_BOOL(bWasSpawned))
+		MOD_LOG(Verbose, TEXT("  TemporarySpawned: [%s]."), i, TEXT_BOOL(bWasSpawned))
 		
 		fgcheck(NewTemporaryHandle)
 		fgcheck(NewTemporaryHandle->Buildable);
 		
-		BuildableHandle.Buildable = NewTemporaryHandle->Buildable;
-		BuildableHandle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
+		Handle.Buildable = NewTemporaryHandle->Buildable;
+		Handle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
 	}
 
 	bBuildablesAvailable = true;
@@ -142,15 +151,15 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 	
 	for (auto i = 0; i < RegisteredHandles.Num(); ++i)
 	{
-		auto& BuildableHandle = RegisteredHandles[i];
+		auto& Handle = RegisteredHandles[i];
 
-		if (!BuildableHandle.Buildable.IsValid())
+		if (!Handle.Buildable.IsValid())
 		{
-			MOD_LOG(Warning, TEXT("Buildable instance is invalid. Class: [%s], LightweightIndex: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
+			MOD_LOG(Warning, TEXT("Buildable instance is invalid. Class: [%s], LightweightIndex: [%i]"), TEXT_CLS_NAME(Handle.BuildableClass), GetLightweightIndex(Handle))
 			continue;
 		}
 
-		auto* Buildable = BuildableHandle.Buildable.Get();
+		auto* Buildable = Handle.Buildable.Get();
 	
 		if (Outline)
 		{
@@ -158,17 +167,17 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 			Outline->ShowOutline(this, EOutlineColor::OC_NONE);
 		}
 
-		if (!BuildableHandle.IsLightweightType())
+		if (!Buildable->GetIsLightweightTemporary())
 		{
 			continue;
 		}
 
-		auto* Temporary = BuildableHandle.Buildable.Get();
+		auto* Temporary = Handle.Buildable.Get();
 		Temporary->SetBlockCleanupOfTemporary(false);
 		
-		MOD_LOG(Verbose, TEXT("Temporary no longer blocked for cleanup. Handle index: [%i], Class: [%s], ManagedByLightweightSys: [%s], IsLightweightTemporary: [%s]"), i, TEXT_CLS_NAME(BuildableHandle.BuildableClass), TEXT_BOOL(Temporary->ManagedByLightweightBuildableSubsystem()), TEXT_BOOL(Temporary->GetIsLightweightTemporary()))
+		MOD_LOG(Verbose, TEXT("Temporary no longer blocked for cleanup. Handle index: [%i], Class: [%s], IsLightweightTemporary: [%s]"), i, TEXT_CLS_NAME(Handle.BuildableClass), TEXT_BOOL(Temporary->GetIsLightweightTemporary()))
 		
-		BuildableHandle.Buildable = nullptr;
+		Handle.Buildable = nullptr;
 	}
 }
 
@@ -185,39 +194,30 @@ void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 	
 	for (auto i = RegisteredHandles.Num() - 1; i >= 0; --i)
 	{
-		auto& BuildableHandle = RegisteredHandles[i];
-		
-		if (!BuildableHandle.IsDataValid())
+		auto& Handle = RegisteredHandles[i];
+
+		if (Handle.Buildable.IsValid())
 		{
-			MOD_LOG(Warning, TEXT("Buildable data is invalid. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(BuildableHandle.BuildableClass), BuildableHandle.LightweightRuntimeIndex)
+			continue;
+		}
+
+		const auto* IndexEntry = LightweightIndexByHandle.Find(Handle);
+
+		if (!IndexEntry)
+		{
+			MOD_LOG(Warning, TEXT("The handle at [%i] is invalid. Buildable is not valid and no registered index. Removing handle."), i)
 			RegisteredHandles.RemoveAt(i);
 			continue;
 		}
 
-		if (!BuildableHandle.IsLightweightType()) // Check non-lightweight validity
-		{
-			if (!BuildableHandle.Buildable.IsValid())
-			{
-				MOD_LOG(Warning, TEXT("The buildable instance at [%i] is invalid, removing handle. Lightweight: [FALSE]"), i)
-				RegisteredHandles.RemoveAt(i);
-			}
+		// if (const auto* Temporary = LightBuildables->FindTemporaryByBuildableClassAndIndex(Handle.BuildableClass, *IndexEntry); IsValid(Temporary))
+		// {
+		// 	continue;
+		// }
 
-			continue;
-		}
-
-		if (BuildableHandle.Buildable.IsValid())
+		if (const auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(Handle.BuildableClass, *IndexEntry); !InstanceData || !InstanceData->IsValid())
 		{
-			continue;
-		}
-
-		if (const auto* Temporary = LightBuildables->FindTemporaryByBuildableClassAndIndex(BuildableHandle.BuildableClass, BuildableHandle.LightweightRuntimeIndex); Temporary && IsValid(Temporary))
-		{
-			continue;
-		}
-
-		if (const auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(BuildableHandle.BuildableClass, BuildableHandle.LightweightRuntimeIndex); !InstanceData || !InstanceData->IsValid())
-		{
-			MOD_LOG(Warning, TEXT("The lightweight buildable instance data at [%i] is invalid, removing handle. IsNull: [%s]"), i, TEXT_BOOL(InstanceData == nullptr))
+			MOD_LOG(Warning, TEXT("The lightweight buildable instance data for handle at [%i] is invalid. Removing handle. IsNull: [%s], IsValidCall: [%s]"), i, TEXT_BOOL(InstanceData == nullptr), InstanceData != nullptr ? TEXT_BOOL(InstanceData->IsValid()) : TEXT_NULL)
 			RegisteredHandles.RemoveAt(i);
 		}
 	}

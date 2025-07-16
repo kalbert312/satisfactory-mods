@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "FGBuildable.h"
 #include "ModTypes.generated.h"
 
 class AFGBuildable;
@@ -30,24 +31,29 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandle
 
 	explicit FAutoSupportBuildableHandle(AFGBuildable* Buildable);
 
-	explicit FAutoSupportBuildableHandle(const TSubclassOf<AFGBuildable> BuildableClass, const int32 LightweightRuntimeIndex);
-	
+	/**
+	 * The buildable reference. This can be a non lightweight or lightweight temporary that will get cleaned up.
+	 */
 	UPROPERTY(SaveGame)
 	TWeakObjectPtr<AFGBuildable> Buildable;
 
+	/**
+	 * The buildable class.
+	 */
 	UPROPERTY(SaveGame)
 	TSubclassOf<AFGBuildable> BuildableClass;
 
+	/**
+	 * The transform of the buildable. For lightweights, this is required to link back to runtime data indexes after loading a save.
+	 */
 	UPROPERTY(SaveGame)
-	int32 LightweightRuntimeIndex = -1;
+	FTransform Transform;
 
-	FORCEINLINE bool IsLightweightType() const
+	FORCEINLINE bool IsConsideredLightweight() const
 	{
-		return LightweightRuntimeIndex >= 0;
+		return Buildable == nullptr || Buildable->GetIsLightweightTemporary();
 	}
 	
-	bool IsDataValid() const;
-
 	bool Equals(const FAutoSupportBuildableHandle& Other) const;
 
 	bool operator==(const FAutoSupportBuildableHandle& Other) const
@@ -64,7 +70,7 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandle
 	{
 		return HashCombine(
 			GetTypeHash(Handle.BuildableClass),
-			GetTypeHash(Handle.LightweightRuntimeIndex));
+			GetTypeHash(Handle.Transform));
 	}
 	
 	FString ToString() const;

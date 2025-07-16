@@ -1,5 +1,5 @@
 ﻿
-#include "Common\ModTypes.h"
+#include "Common/ModTypes.h"
 
 #include "FGBuildable.h"
 #include "ModLogging.h"
@@ -9,47 +9,54 @@ FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(AFGBuildable* Buildable
 	fgcheck(Buildable);
 	this->Buildable = Buildable;
 	this->BuildableClass = Buildable->GetClass();
-	this->LightweightRuntimeIndex = Buildable->GetRuntimeDataIndex();
-	
-	if (Buildable->GetIsLightweightTemporary())
-	{
-		fgcheck(LightweightRuntimeIndex >= 0);
-	}
-}
-
-FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(const TSubclassOf<AFGBuildable> BuildableClass, const int32 LightweightRuntimeIndex)
-{
-	this->BuildableClass = BuildableClass;
-	fgcheck(LightweightRuntimeIndex >= 0);
-	this->LightweightRuntimeIndex = LightweightRuntimeIndex;
-}
-
-bool FAutoSupportBuildableHandle::IsDataValid() const
-{
-	return IsValid(BuildableClass);
+	this->Transform = Buildable->GetTransform();
 }
 
 bool FAutoSupportBuildableHandle::Equals(const FAutoSupportBuildableHandle& Other) const
 {
-	if (Buildable != nullptr && Buildable == Other.Buildable)
+	if (BuildableClass != Other.BuildableClass)
 	{
-		return true;
+		return false; // different class
 	}
 	
-	if (const auto IsLightweight = IsLightweightType(); !IsLightweight || IsLightweight != Other.IsLightweightType())
+	if (Buildable != nullptr)
 	{
-		return false;
-	}
+		if (Buildable == Other.Buildable)
+		{
+			return true; // point to the same buildable
+		}
 		
-	return LightweightRuntimeIndex == Other.LightweightRuntimeIndex
-		&& BuildableClass == Other.BuildableClass;
+		if (Other.Buildable != nullptr)
+		{
+			return false; // point to different buildables
+		}
+
+		if (!Buildable->GetIsLightweightTemporary())
+		{
+			return false; // This is not a lightweight, so to be equal, the other's buildable reference must be equal, and it was not.
+		}
+	}
+	else if (Other.Buildable != nullptr && !Other.Buildable->GetIsLightweightTemporary())
+	{
+		return false; // This is a lightweight but the other isn't.
+	}
+
+	// Either "This" and/or "Other" is null at this point.
+	// "This" is considered a lightweight, either because its buildable is null or is a lightweight temporary.
+	// "Other" is considered a lightweight, either because its buildable is null or is a lightweight temporary.
+	// We don't short circuit a result on differing null status of buildable because the temporary may not be spawned, or if it is, one of
+	// the handles may just not have a reference to it.
+	// Instead, check if the transforms are equal. The edge case is there are one or more duplicate lightweights at the exact same transform.
+	// While we could disambiguate that with the lightweight runtime data index, that is not available when saved to disk.
+	
+	return Transform.Equals(Other.Transform);
 }
 
 FString FAutoSupportBuildableHandle::ToString() const
 {
 	return FString::Printf(
-		TEXT("Class: %s, LightweightRuntimeIndex: %d, BuildableInstValid: %s"),
+		TEXT("Class: %s, BuildableInstValid: %s, Transform: %s"),
 		TEXT_CLS_NAME(BuildableClass),
-		LightweightRuntimeIndex,
-		TEXT_BOOL(Buildable.IsValid()));
+		TEXT_BOOL(Buildable.IsValid()),
+		TEXT_STR(Transform.ToString()));
 }

@@ -78,12 +78,18 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, Category = "Auto Support", SaveGame)
 	TArray<FAutoSupportBuildableHandle> RegisteredHandles;
 
-	UPROPERTY(VisibleInstanceOnly, Category = "Auto Support", SaveGame)
-	bool bIsDismantled = false;
+	/**
+	 * Handles of lightweights to their runtime index.
+	 */
+	UPROPERTY(Transient, Category = "Auto Support")
+	TMap<FAutoSupportBuildableHandle, int32> LightweightIndexByHandle;
 
 	UPROPERTY(Transient, VisibleInstanceOnly, Category = "Auto Support")
 	bool bIsHoveredForDismantle = false;
 
+	/**
+	 * Transient flag that tracks when all buildables & temporaries are available.
+	 */
 	UPROPERTY(Transient, VisibleInstanceOnly, Category = "Auto Support")
 	bool bBuildablesAvailable = false;
 
@@ -105,6 +111,16 @@ protected:
 	void EnsureBuildablesAvailable();
 	void RemoveTemporaries(AFGCharacterPlayer* Player);
 	void RemoveInvalidHandles();
+
+	FORCEINLINE int32 GetLightweightIndex(const FAutoSupportBuildableHandle& Handle) const
+	{
+		if (const auto* IndexEntry = LightweightIndexByHandle.Find(Handle); IndexEntry)
+		{
+			return *IndexEntry;
+		}
+
+		return INDEX_NONE;
+	}
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };
