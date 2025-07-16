@@ -2,6 +2,7 @@
 #include "Common/ModTypes.h"
 
 #include "FGBuildable.h"
+#include "FGLightweightBuildableSubsystem.h"
 #include "ModLogging.h"
 
 FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(AFGBuildable* Buildable)
@@ -10,6 +11,12 @@ FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(AFGBuildable* Buildable
 	this->Buildable = Buildable;
 	this->BuildableClass = Buildable->GetClass();
 	this->Transform = Buildable->GetTransform();
+}
+
+FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(const FLightweightBuildableInstanceRef& LightweightRef)
+{
+	this->BuildableClass = LightweightRef.GetBuildableClass();
+	this->Transform = LightweightRef.GetBuildableTransform();
 }
 
 bool FAutoSupportBuildableHandle::Equals(const FAutoSupportBuildableHandle& Other) const
@@ -55,8 +62,9 @@ bool FAutoSupportBuildableHandle::Equals(const FAutoSupportBuildableHandle& Othe
 FString FAutoSupportBuildableHandle::ToString() const
 {
 	return FString::Printf(
-		TEXT("Class: %s, BuildableInstValid: %s, Transform: %s"),
+		TEXT("Class: %s, BuildableInstValid: %s, BuildableInstIsLightweight: %s, Transform: %s"),
 		TEXT_CLS_NAME(BuildableClass),
 		TEXT_BOOL(Buildable.IsValid()),
+		TEXT_BOOL(Buildable.IsValid() && Buildable->GetIsLightweightTemporary()),
 		TEXT_STR(Transform.ToString()));
 }

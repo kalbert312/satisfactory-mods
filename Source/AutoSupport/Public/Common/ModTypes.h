@@ -4,6 +4,7 @@
 #include "FGBuildable.h"
 #include "ModTypes.generated.h"
 
+struct FLightweightBuildableInstanceRef;
 class AFGBuildable;
 class ABuildableAutoSupportProxy;
 
@@ -30,6 +31,7 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandle
 	FAutoSupportBuildableHandle(const FAutoSupportBuildableHandle& Other) = default;
 
 	explicit FAutoSupportBuildableHandle(AFGBuildable* Buildable);
+	explicit FAutoSupportBuildableHandle(const FLightweightBuildableInstanceRef& LightweightRef);
 
 	/**
 	 * The buildable reference. This can be a non lightweight or lightweight temporary that will get cleaned up.

@@ -150,6 +150,7 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 		ProxyTransform, // place it at the origin of the trace
 		nullptr,
 		BuildInstigator);
+	SupportProxy->bIsNewlySpawned = true;
 
 	FBox LocalBoundingBox(ForceInit);
 

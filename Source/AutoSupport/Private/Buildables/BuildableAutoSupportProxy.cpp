@@ -25,7 +25,10 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 
 	if (Buildable->GetIsLightweightTemporary())
 	{
-		LightweightIndexByHandle.Add(Handle, Buildable->GetRuntimeDataIndex());
+		FLightweightBuildableInstanceRef InstanceRef;
+		InstanceRef.InitializeFromTemporary(Buildable);
+		
+		LightweightRefsByHandle.Add(Handle, InstanceRef);
 	}
 	
 	if (HasActorBegunPlay())
@@ -56,6 +59,7 @@ void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
 
 void ABuildableAutoSupportProxy::UpdateBoundingBox(const FBox& NewBounds)
 {
+	BoundingBox = NewBounds;
 	K2_UpdateBoundingBox(NewBounds);
 }
 
@@ -70,28 +74,47 @@ void ABuildableAutoSupportProxy::BeginPlay()
 {
 	Super::BeginPlay();
 
-	MOD_LOG(Verbose, TEXT("%i buildables registered."), RegisteredHandles.Num())
-	
-	if (DestroyIfEmpty(false))
+	if (bIsNewlySpawned)
 	{
-		MOD_LOG(Warning, TEXT("An empty proxy was destroyed at BeginPlay. Why was it empty?"))
-		return;
+		if (!DestroyIfEmpty(false))
+		{
+			RegisterSelfAndHandlesWithSubsystem();
+		}
 	}
-	
-	OnBuildModeUpdate(nullptr, nullptr); // Init.
-	
-	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
-	SupportSubsys->RegisterProxy(this);
-
-	for (const auto& Handle : RegisteredHandles)
+	else
 	{
-		// It's transient to the subsys
-		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
+		// Need to reestablish lightweight runtime indices, so trace and match by buildable class and transform.
+		// TODO(k.a): verify trace reuslts
+		FCollisionQueryParams TraceParams;
+		TraceParams.AddIgnoredActor(this);
+		
+		const FCollisionShape CollisionShape = FCollisionShape::MakeBox(BoundingBox.GetExtent());
+		
+		// Overlap all so we can detect all collisions in our path.
+		FCollisionResponseParams ResponseParams(ECR_Overlap);
+
+		LoadTraceDelegate.BindUObject(this, &ABuildableAutoSupportProxy::OnLoadTraceComplete);
+		bIsLoadTraceInProgress = true;
+		
+		GetWorld()->AsyncOverlapByChannel(
+			GetActorLocation(),
+			GetActorQuat(),
+			ECollisionChannel::ECC_Visibility,
+			CollisionShape,
+			TraceParams,
+			ResponseParams,
+			&LoadTraceDelegate);
 	}
 }
 
 void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 {
+	if (bIsLoadTraceInProgress)
+	{
+		MOD_LOG(Warning, TEXT("Invoked while load trace in progress. No-op."))
+		return;
+	}
+	
 	MOD_LOG(Verbose, TEXT("Ensuring buildables are available for %i buildables."), RegisteredHandles.Num())
 	
 	if (RegisteredHandles.Num() == 0)
@@ -102,11 +125,11 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 
 	RemoveInvalidHandles();
 	
-	auto* LightBuildables = AFGLightweightBuildableSubsystem::Get(GetWorld());
-	
 	for (auto i = 0; i < RegisteredHandles.Num(); ++i)
 	{
 		auto& Handle = RegisteredHandles[i];
+
+		MOD_LOG(Verbose, TEXT("Processing handle at index %i. Handle: [%s]"), i, TEXT_STR(Handle.ToString()))
 
 		if (Handle.Buildable.IsValid()) // skip already available
 		{
@@ -114,28 +137,22 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 			{
 				Handle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
 			}
-			
+
+			MOD_LOG(Verbose, TEXT("  Buildable already available for handle."))
 			continue;
 		}
 
-		const auto RuntimeIndex = GetLightweightIndex(Handle);
-		fgcheck(RuntimeIndex != INDEX_NONE);
+		const auto* InstanceRef = LightweightRefsByHandle.Find(Handle);
+		fgcheck(InstanceRef);
+		fgcheck(InstanceRef->IsValid());
+
+		MOD_LOG(Verbose, TEXT("  Ensuring temporary buildable spawned for lightweight handle"))
 		
-		MOD_LOG(Verbose, TEXT("Ensuring buildable spawned for lightweight handle. Class: [%s], Index: [%i]"), TEXT_CLS_NAME(Handle.BuildableClass), RuntimeIndex)
-		auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(Handle.BuildableClass, RuntimeIndex);
-		fgcheck(InstanceData);
-		fgcheck(InstanceData->IsValid());
+		auto* Temporary = InstanceRef->SpawnTemporaryBuildable();
+		fgcheck(Temporary);
+		Temporary->SetBlockCleanupOfTemporary(true);  // Block temporaries clean up during dismantle
 		
-		auto bWasSpawned = false;
-		const auto* NewTemporaryHandle = LightBuildables->FindOrSpawnBuildableForRuntimeData(Handle.BuildableClass, InstanceData, RuntimeIndex, bWasSpawned);
-		
-		MOD_LOG(Verbose, TEXT("  TemporarySpawned: [%s]."), i, TEXT_BOOL(bWasSpawned))
-		
-		fgcheck(NewTemporaryHandle)
-		fgcheck(NewTemporaryHandle->Buildable);
-		
-		Handle.Buildable = NewTemporaryHandle->Buildable;
-		Handle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
+		Handle.Buildable = Temporary;
 	}
 
 	bBuildablesAvailable = true;
@@ -143,6 +160,12 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 
 void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 {
+	if (bIsLoadTraceInProgress)
+	{
+		MOD_LOG(Warning, TEXT("Invoked while load trace is in progress. No-op."))
+		return;
+	}
+	
 	MOD_LOG(Verbose, TEXT("Removing temporaries for up to %i buildables."), RegisteredHandles.Num())
 	bBuildablesAvailable = false;
 	auto* Outline = Player ? Player->GetOutline() : nullptr;
@@ -153,9 +176,11 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 	{
 		auto& Handle = RegisteredHandles[i];
 
+		MOD_LOG(Verbose, TEXT("Processing handle at index %i. Handle: [%s]"), i, TEXT_STR(Handle.ToString()))
+
 		if (!Handle.Buildable.IsValid())
 		{
-			MOD_LOG(Warning, TEXT("Buildable instance is invalid. Class: [%s], LightweightIndex: [%i]"), TEXT_CLS_NAME(Handle.BuildableClass), GetLightweightIndex(Handle))
+			MOD_LOG(Warning, TEXT("  Handle has invalid buildable. Skipping."))
 			continue;
 		}
 
@@ -165,6 +190,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		{
 			Outline->HideOutline(Buildable);
 			Outline->ShowOutline(this, EOutlineColor::OC_NONE);
+			MOD_LOG(Warning, TEXT("  Handle had its outline hidden."))
 		}
 
 		if (!Buildable->GetIsLightweightTemporary())
@@ -175,7 +201,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		auto* Temporary = Handle.Buildable.Get();
 		Temporary->SetBlockCleanupOfTemporary(false);
 		
-		MOD_LOG(Verbose, TEXT("Temporary no longer blocked for cleanup. Handle index: [%i], Class: [%s], IsLightweightTemporary: [%s]"), i, TEXT_CLS_NAME(Handle.BuildableClass), TEXT_BOOL(Temporary->GetIsLightweightTemporary()))
+		MOD_LOG(Verbose, TEXT("  Handle had its temporary unblocked for cleanup."))
 		
 		Handle.Buildable = nullptr;
 	}
@@ -183,14 +209,18 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 
 void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 {
+	if (bIsLoadTraceInProgress)
+	{
+		MOD_LOG(Warning, TEXT("RemoveInvalidHandles called while trace in progress. Skipping."))
+		return;
+	}
+
 	MOD_LOG(Verbose, TEXT("Checking %i handles for validity and removing any invalid handles."), RegisteredHandles.Num())
 	
 	if (RegisteredHandles.Num() == 0)
 	{
 		return;
 	}
-		
-	auto* LightBuildables = AFGLightweightBuildableSubsystem::Get(GetWorld());
 	
 	for (auto i = RegisteredHandles.Num() - 1; i >= 0; --i)
 	{
@@ -201,23 +231,18 @@ void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 			continue;
 		}
 
-		const auto* IndexEntry = LightweightIndexByHandle.Find(Handle);
+		const auto* LightweightRef = LightweightRefsByHandle.Find(Handle);
 
-		if (!IndexEntry)
+		if (!LightweightRef)
 		{
-			MOD_LOG(Warning, TEXT("The handle at [%i] is invalid. Buildable is not valid and no registered index. Removing handle."), i)
+			MOD_LOG(Warning, TEXT("The handle at index %i is invalid. Buildable is not valid and no lightweight ref. Removing handle."), i)
 			RegisteredHandles.RemoveAt(i);
 			continue;
 		}
 
-		// if (const auto* Temporary = LightBuildables->FindTemporaryByBuildableClassAndIndex(Handle.BuildableClass, *IndexEntry); IsValid(Temporary))
-		// {
-		// 	continue;
-		// }
-
-		if (const auto* InstanceData = LightBuildables->GetRuntimeDataForBuildableClassAndIndex(Handle.BuildableClass, *IndexEntry); !InstanceData || !InstanceData->IsValid())
+		if (!LightweightRef->IsValid())
 		{
-			MOD_LOG(Warning, TEXT("The lightweight buildable instance data for handle at [%i] is invalid. Removing handle. IsNull: [%s], IsValidCall: [%s]"), i, TEXT_BOOL(InstanceData == nullptr), InstanceData != nullptr ? TEXT_BOOL(InstanceData->IsValid()) : TEXT_NULL)
+			MOD_LOG(Warning, TEXT("The handle at index [%i] is invalid. Lightweight ref was found but it's not valid. Removing handle."), i)
 			RegisteredHandles.RemoveAt(i);
 		}
 	}
@@ -238,6 +263,74 @@ bool ABuildableAutoSupportProxy::DestroyIfEmpty(bool bRemoveInvalidHandles)
 	MOD_LOG(Verbose, TEXT("Destroying empty proxy"));
 	Destroy();
 	return true;
+}
+
+void ABuildableAutoSupportProxy::RegisterSelfAndHandlesWithSubsystem()
+{
+	MOD_LOG(Verbose, TEXT("Registering self and %i handles with subsystem."), RegisteredHandles.Num())
+	
+	auto* SupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+	SupportSubsys->RegisterProxy(this);
+
+	for (const auto& Handle : RegisteredHandles)
+	{
+		// It's transient to the subsys
+		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
+	}
+}
+
+void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle, FOverlapDatum& Datum)
+{
+	MOD_TRACE_LOG(Verbose, TEXT("Invoked. Num Overlaps: [%i]"), Datum.OutOverlaps.Num())
+	bIsLoadTraceInProgress = false;
+
+	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> OverlapRefsByHandle;
+
+	// Collect refs of overlaps and assign a handle key to them.
+	for (const auto& OverlapResult : Datum.OutOverlaps)
+	{
+		auto* HitActor = OverlapResult.GetActor();
+
+		MOD_TRACE_LOG(Verbose, TEXT("Overlapped Actor: [%s]"), HitActor ? TEXT_STR(HitActor->GetName()) : TEXT_NULL)
+
+		if (auto* AbstractInstManager = Cast<AAbstractInstanceManager>(HitActor))
+		{
+			if (FInstanceHandle InstanceHandle; AbstractInstManager->ResolveOverlap(OverlapResult, InstanceHandle))
+			{
+				if (FLightweightBuildableInstanceRef LightweightInstRef; AFGLightweightBuildableSubsystem::ResolveLightweightInstance(InstanceHandle, LightweightInstRef))
+				{
+					OverlapRefsByHandle.Add(FAutoSupportBuildableHandle(LightweightInstRef), LightweightInstRef);
+				}
+				else
+				{
+					MOD_TRACE_LOG(Warning, TEXT("Failed to resolve overlap to lightweight instance ref."))
+				}
+			}
+			else
+			{
+				MOD_TRACE_LOG(Warning, TEXT("Failed to resolve overlap to instance handle."))
+			}
+		}
+	}
+
+	// Store the transient ref for the handle
+	for (const auto& RegisteredHandle : RegisteredHandles)
+	{
+		if (auto* InstanceRef = OverlapRefsByHandle.Find(RegisteredHandle); InstanceRef)
+		{
+			LightweightRefsByHandle.Add(RegisteredHandle, *InstanceRef);
+			MOD_TRACE_LOG(Verbose, TEXT("Registered transient ref for handle: [%s]"), TEXT_STR(RegisteredHandle.ToString()))
+		}
+		else
+		{
+			MOD_TRACE_LOG(Error, TEXT("Failed to find transient ref for handle: [%s]"), TEXT_STR(RegisteredHandle.ToString()))
+		}
+	}
+
+	if (!DestroyIfEmpty(true))
+	{
+		RegisterSelfAndHandlesWithSubsystem();
+	}
 }
 
 #pragma region IFGDismantleInterface

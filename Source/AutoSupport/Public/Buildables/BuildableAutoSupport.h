@@ -39,6 +39,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void BuildSupports(APawn* BuildInstigator);
 
+	virtual void BeginPlay() override;
+
 #pragma region IFGSaveInterface
 	
 	virtual void PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
@@ -46,8 +48,6 @@ public:
 	virtual bool ShouldSave_Implementation() const override;
 
 #pragma endregion
-
-	virtual void BeginPlay() override;
 
 #pragma region Editor Only
 #if WITH_EDITOR

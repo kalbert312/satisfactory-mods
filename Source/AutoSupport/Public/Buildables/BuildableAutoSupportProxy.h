@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "FGBuildable.h"
 #include "FGDismantleInterface.h"
+#include "FGLightweightBuildableSubsystem.h"
 #include "ModTypes.h"
 #include "GameFramework/Actor.h"
 #include "BuildableAutoSupportProxy.generated.h"
@@ -24,6 +25,12 @@ class AUTOSUPPORT_API ABuildableAutoSupportProxy : public AActor, public IFGDism
 
 public:
 	ABuildableAutoSupportProxy();
+
+	/**
+	 * Transient flag that must be set to true when newly spawning.
+	 */
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
+	bool bIsNewlySpawned = false;
 
 	void RegisterBuildable(AFGBuildable* Buildable);
 	void UnregisterBuildable(AFGBuildable* Buildable);
@@ -79,19 +86,27 @@ protected:
 	TArray<FAutoSupportBuildableHandle> RegisteredHandles;
 
 	/**
-	 * Handles of lightweights to their runtime index.
+	 * The bounding box of the buildable.
 	 */
-	UPROPERTY(Transient, Category = "Auto Support")
-	TMap<FAutoSupportBuildableHandle, int32> LightweightIndexByHandle;
-
-	UPROPERTY(Transient, VisibleInstanceOnly, Category = "Auto Support")
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, SaveGame, Category = "Auto Support")
+	FBox BoundingBox;
+	
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
 	bool bIsHoveredForDismantle = false;
 
 	/**
 	 * Transient flag that tracks when all buildables & temporaries are available.
 	 */
-	UPROPERTY(Transient, VisibleInstanceOnly, Category = "Auto Support")
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
 	bool bBuildablesAvailable = false;
+	
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Auto Support")
+	bool bIsLoadTraceInProgress = false;
+
+	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
+	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> LightweightRefsByHandle;
+	
+	FOverlapDelegate LoadTraceDelegate;
 
 	virtual void BeginPlay() override;
 
@@ -111,16 +126,9 @@ protected:
 	void EnsureBuildablesAvailable();
 	void RemoveTemporaries(AFGCharacterPlayer* Player);
 	void RemoveInvalidHandles();
-
-	FORCEINLINE int32 GetLightweightIndex(const FAutoSupportBuildableHandle& Handle) const
-	{
-		if (const auto* IndexEntry = LightweightIndexByHandle.Find(Handle); IndexEntry)
-		{
-			return *IndexEntry;
-		}
-
-		return INDEX_NONE;
-	}
-
+	void RegisterSelfAndHandlesWithSubsystem();
+	
+	void OnLoadTraceComplete(const FTraceHandle& Handle, FOverlapDatum& Datum);
+	
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };
