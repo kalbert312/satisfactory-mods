@@ -24,7 +24,16 @@ AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
 	}
 	
 	const auto* WorldModuleManager = World->GetSubsystem<UWorldModuleManager>();
-	auto* WorldModule = CastChecked<UGameWorldModule>(WorldModuleManager->FindModule(AutoSupportConstants::ModReference));
+	if (!WorldModuleManager)
+	{
+		return nullptr;
+	}
+	
+	auto* WorldModule = Cast<UGameWorldModule>(WorldModuleManager->FindModule(AutoSupportConstants::ModReference));
+	if (!WorldModule)
+	{
+		return nullptr;
+	}
 
 	// Make sure we retrieve the blueprint version
 	UClass* ImplClass = nullptr;
@@ -43,7 +52,7 @@ AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
 	}
 	
 	auto* SubsystemActorManager = World->GetSubsystem<USubsystemActorManager>();
-	auto* Result = CastChecked<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
+	auto* Result = Cast<AAutoSupportModSubsystem>(SubsystemActorManager->K2_GetSubsystemActor(ImplClass));
 
 	{
 		FScopeLock Lock(&CachedSubsystemLookupLock);

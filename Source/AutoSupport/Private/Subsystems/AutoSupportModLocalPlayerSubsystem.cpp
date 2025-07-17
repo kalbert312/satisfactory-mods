@@ -206,9 +206,22 @@ void UAutoSupportModLocalPlayerSubsystem::AsyncUpdateAllProxiesBuildMode(TSubcla
 	MOD_LOG(Verbose, TEXT("Invoked"))
 	AsyncTask(ENamedThreads::GameThread, [this, ModeDescriptor]
 	{
-		auto* LocalPlayer = GetLocalPlayer();
-		auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+		auto* World = GetWorld();
+		if (!IsValid(World))
+		{
+			MOD_LOG(Warning, TEXT("World not valid. Skipping."))
+			return;
+		}
+		auto* LocalPlayer = GetLocalPlayer();	
+		if (!IsValid(LocalPlayer))
+		{
+			MOD_LOG(Warning, TEXT("Local player not valid. Skipping..."))
+			return;
+		}
 
+		auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+		fgcheck(AutoSupportSubsys)
+		
 		auto ProxyCount = AutoSupportSubsys->AllProxies.Num();
 		MOD_LOG(Verbose, TEXT("Updating all (%i) proxies with build mode [%s]"), ProxyCount, TEXT_CLS_NAME(ModeDescriptor))
 		

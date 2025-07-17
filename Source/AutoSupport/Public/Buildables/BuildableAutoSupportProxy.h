@@ -42,7 +42,7 @@ public:
 	void OnBuildModeUpdate(TSubclassOf<UFGBuildGunModeDescriptor> BuildMode, ULocalPlayer* LocalPlayer);
 	UFUNCTION(BlueprintImplementableEvent)
 	void K2_OnBuildModeUpdate(TSubclassOf<UFGBuildGunModeDescriptor> BuildMode, ULocalPlayer* LocalPlayer);
-
+	
 	bool DestroyIfEmpty(bool bRemoveInvalidHandles);
 
 #pragma region IFGSaveInterface
@@ -79,6 +79,9 @@ public:
 #pragma endregion
 
 protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Auto Support")
+	TObjectPtr<UBoxComponent> BoundingBoxComponent;
+	
 	/**
 	 * The registered buildable handles.
 	 */

@@ -7,6 +7,7 @@
 #include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "ModLogging.h"
+#include "Components/BoxComponent.h"
 
 // TODO(k.a): Check that non-lightweight handles save and load correctly.
 
@@ -14,6 +15,10 @@ ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 {
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 	RootComponent->SetMobility(EComponentMobility::Type::Movable);
+
+	BoundingBoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoundingBoxComponent"));
+	BoundingBoxComponent->SetMobility(EComponentMobility::Type::Movable);
+	BoundingBoxComponent->SetupAttachment(RootComponent);
 }
 
 void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
@@ -47,12 +52,16 @@ void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
 	{
 		return;
 	}
-	
-	MOD_LOG(Verbose, TEXT("Unregistering buildable. Class: [%s], Index: [%i]"), TEXT_OBJ_CLS_NAME(Buildable), Buildable->GetRuntimeDataIndex())
 
-	if (const FAutoSupportBuildableHandle FindHandle(Buildable); RegisteredHandles.RemoveSingle(FindHandle))
+	const FAutoSupportBuildableHandle Handle(Buildable);
+	
+	MOD_LOG(Verbose, TEXT("Unregistering buildable. Handle: [%s]"), TEXT_STR(Handle.ToString()))
+
+	const auto NumRemoved = RegisteredHandles.Remove(Handle);
+	fgcheck(NumRemoved <= 1); // if we're removing more than 1, we've got problems.
+	
+	if (NumRemoved > 0)
 	{
-		MOD_LOG(Verbose, TEXT("Removed buildable."))
 		DestroyIfEmpty(false);
 	}
 }
@@ -60,6 +69,9 @@ void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
 void ABuildableAutoSupportProxy::UpdateBoundingBox(const FBox& NewBounds)
 {
 	BoundingBox = NewBounds;
+	BoundingBoxComponent->SetRelativeLocation(NewBounds.GetCenter());
+	BoundingBoxComponent->SetBoxExtent(NewBounds.GetExtent());
+
 	K2_UpdateBoundingBox(NewBounds);
 }
 
@@ -87,8 +99,12 @@ void ABuildableAutoSupportProxy::BeginPlay()
 		// TODO(k.a): verify trace reuslts
 		FCollisionQueryParams TraceParams;
 		TraceParams.AddIgnoredActor(this);
-		
-		const FCollisionShape CollisionShape = FCollisionShape::MakeBox(BoundingBox.GetExtent());
+
+		const auto TraceLocation = BoundingBoxComponent->GetComponentLocation();
+		const FCollisionShape CollisionShape = BoundingBoxComponent->GetCollisionShape();
+		const auto BoxExtent = BoundingBoxComponent->GetUnscaledBoxExtent();
+
+		MOD_TRACE_LOG(Verbose, TEXT("LOADTRACE Loc: [%s], Up: [%s], TraceLoc: [%s], Box Extent: [%s]"), TEXT_STR(GetActorLocation().ToString()), TEXT_STR(GetActorUpVector().ToString()), TEXT_STR(TraceLocation.ToString()), TEXT_STR(BoxExtent.ToCompactString()))
 		
 		// Overlap all so we can detect all collisions in our path.
 		FCollisionResponseParams ResponseParams(ECR_Overlap);
@@ -97,7 +113,7 @@ void ABuildableAutoSupportProxy::BeginPlay()
 		bIsLoadTraceInProgress = true;
 		
 		GetWorld()->AsyncOverlapByChannel(
-			GetActorLocation(),
+			TraceLocation,
 			GetActorQuat(),
 			ECollisionChannel::ECC_Visibility,
 			CollisionShape,
@@ -144,12 +160,12 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 
 		const auto* InstanceRef = LightweightRefsByHandle.Find(Handle);
 		fgcheck(InstanceRef);
-		fgcheck(InstanceRef->IsValid());
+		fgcheck(InstanceRef->IsValid()); // we already removed invalid handles
 
 		MOD_LOG(Verbose, TEXT("  Ensuring temporary buildable spawned for lightweight handle"))
 		
 		auto* Temporary = InstanceRef->SpawnTemporaryBuildable();
-		fgcheck(Temporary);
+		fgcheck(Temporary); // this should never be null.
 		Temporary->SetBlockCleanupOfTemporary(true);  // Block temporaries clean up during dismantle
 		
 		Handle.Buildable = Temporary;
@@ -467,6 +483,8 @@ void ABuildableAutoSupportProxy::PreLoadGame_Implementation(int32 saveVersion, i
 
 void ABuildableAutoSupportProxy::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
+	BoundingBoxComponent->SetRelativeLocation(BoundingBox.GetCenter());
+	BoundingBoxComponent->SetBoxExtent(BoundingBox.GetExtent());
 }
 
 void ABuildableAutoSupportProxy::GatherDependencies_Implementation(TArray<UObject*>& out_dependentObjects)

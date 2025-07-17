@@ -39,6 +39,7 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandle
 	UPROPERTY(SaveGame)
 	TWeakObjectPtr<AFGBuildable> Buildable;
 
+protected:
 	/**
 	 * The buildable class.
 	 */
@@ -51,6 +52,15 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandle
 	UPROPERTY(SaveGame)
 	FTransform Transform;
 
+	/**
+	 * The cached hash for the rounded transform.
+	 */
+	UPROPERTY(SaveGame)
+	uint32 TransformHash = 0;
+
+	void SetTransform(const FTransform& Transform);
+
+public:
 	FORCEINLINE bool IsConsideredLightweight() const
 	{
 		return Buildable == nullptr || Buildable->GetIsLightweightTemporary();
@@ -72,7 +82,7 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandle
 	{
 		return HashCombine(
 			GetTypeHash(Handle.BuildableClass),
-			GetTypeHash(Handle.Transform));
+			Handle.TransformHash);
 	}
 	
 	FString ToString() const;
