@@ -21,11 +21,12 @@ public:
 
 	/**
 	 * Traces and creates a build plan.
-	 * @param OutPlan The plan
-	 * @return True if a plan was initialized.
+	 * @param BuildInstigator Who is initiating the build.
+	 * @param OutPlan The plan.
+	 * @return True if the plan is actionable.
 	 */
 	UFUNCTION(BlueprintCallable)
-	bool TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) const;
+	bool TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupportBuildPlan& OutPlan) const;
 
 	/**
 	 * The current auto support configuration for this actor.

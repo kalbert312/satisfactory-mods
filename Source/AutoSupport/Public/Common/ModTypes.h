@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "FGBuildable.h"
+#include "FGConstructDisqualifier.h"
 #include "ModTypes.generated.h"
 
 struct FLightweightBuildableInstanceRef;
@@ -58,7 +59,7 @@ protected:
 	UPROPERTY(SaveGame)
 	uint32 TransformHash = 0;
 
-	void SetTransform(const FTransform& Transform);
+	void SetTransform(const FTransform& NewTransform);
 
 public:
 	FORCEINLINE bool IsConsideredLightweight() const
@@ -86,5 +87,16 @@ public:
 	}
 	
 	FString ToString() const;
+};
+
+UCLASS()
+class AUTOSUPPORT_API UAutoSupportConstructDisqualifier_NotEnoughRoom : public UFGConstructDisqualifier
+{
+	GENERATED_BODY()
+
+	UAutoSupportConstructDisqualifier_NotEnoughRoom()
+	{
+		mDisqfualifyingText = NSLOCTEXT("FAutoSupportModule", "NotEnoughRoom", "Not enough room to build");
+	}
 };
 

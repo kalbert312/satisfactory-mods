@@ -19,14 +19,14 @@ FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(const FLightweightBuild
 	SetTransform(LightweightRef.GetBuildableTransform());
 }
 
-void FAutoSupportBuildableHandle::SetTransform(const FTransform& Transform)
+void FAutoSupportBuildableHandle::SetTransform(const FTransform& NewTransform)
 {
-	this->Transform = Transform;
+	this->Transform = NewTransform;
 
-	const auto Location = Transform.GetLocation();
+	const auto Location = NewTransform.GetLocation();
 
-	const auto Int64Min = static_cast<float>(TNumericLimits<int64>::Min());
-	const auto Int64Max = static_cast<float>(TNumericLimits<int64>::Max());
+	constexpr auto Int64Min = static_cast<float>(TNumericLimits<int64>::Min());
+	constexpr auto Int64Max = static_cast<float>(TNumericLimits<int64>::Max());
 
 	const auto Xish = static_cast<int64>(FMath::Clamp(Location.X, Int64Min, Int64Max));
 	const auto Yish = static_cast<int64>(FMath::Clamp(Location.Y, Int64Min, Int64Max));

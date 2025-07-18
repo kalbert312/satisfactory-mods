@@ -199,74 +199,109 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	OutPlan.StartWorldLocation = TraceResult.StartLocation;
 	OutPlan.RelativeLocation = TraceResult.StartRelativeLocation;
 	OutPlan.RelativeRotation = TraceResult.StartRelativeRotation;
-	
 	OutPlan.BuildDirection = TraceResult.BuildDirection;
 	OutPlan.BuildWorldDirection = TraceResult.Direction;
 	
 	// Plan the parts.
 	auto RemainingBuildDistance = TraceResult.BuildDistance;
 
+	if (TraceResult.Disqualifier)
+	{
+		OutPlan.BuildDisqualifiers.Add(TraceResult.Disqualifier);
+		return;
+	}
+	else if (FMath::IsNearlyZero(RemainingBuildDistance))
+	{
+		OutPlan.BuildDisqualifiers.Add(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
+		return;
+	}
+
+	auto bAtLeastOneInitialized = false;
 	const auto* RecipeManager = AFGRecipeManager::Get(World);
 	
 	// Start with the top because that's where the auto support is planted.
-	if (AutoSupportData.StartPartDescriptor.IsValid())
+	if (InitializePartPlan(AutoSupportData.StartPartDescriptor, AutoSupportData.StartPartOrientation, AutoSupportData.StartPartCustomization, OutPlan.StartPart, RecipeManager))
 	{
-		MOD_TRACE_LOG(Verbose, TEXT("Planning Start Part Positioning"));
-		if (PlanSinglePart(AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, AutoSupportData.StartPartCustomization, OutPlan.StartPart, RecipeManager))
+		bAtLeastOneInitialized = true;
+		
+		if (RemainingBuildDistance > OutPlan.StartPart.ConsumedBuildSpace || FMath::IsNearlyEqual(RemainingBuildDistance, OutPlan.StartPart.ConsumedBuildSpace))
 		{
 			RemainingBuildDistance -= OutPlan.StartPart.ConsumedBuildSpace;
-
 			OutPlan.StartPart.Count = 1;
 			MOD_TRACE_LOG(Verbose, TEXT("Num Start: %d"), OutPlan.StartPart.Count);
-		
-			if (RemainingBuildDistance < 0)
-			{
-				return;
-			}
 		}
+		else
+		{
+			OutPlan.BuildDisqualifiers.Add(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
+			return;
+		}
+	}
+	else
+	{
+		MOD_TRACE_LOG(Verbose, TEXT("Start part is not specified or is not valid."))
 	}
 	
 	// Do the end next. There may not be enough room for mid pieces.
-	if (AutoSupportData.EndPartDescriptor.IsValid())
+	if (InitializePartPlan(AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, AutoSupportData.EndPartCustomization, OutPlan.EndPart, RecipeManager))
 	{
-		MOD_TRACE_LOG(Verbose, TEXT("Planning End Part Positioning"));
-		if (PlanSinglePart(AutoSupportData.EndPartDescriptor.Get(), AutoSupportData.EndPartOrientation, AutoSupportData.EndPartCustomization, OutPlan.EndPart, RecipeManager))
+		bAtLeastOneInitialized = true;
+		
+		if (RemainingBuildDistance > OutPlan.EndPart.ConsumedBuildSpace || FMath::IsNearlyEqual(RemainingBuildDistance, OutPlan.EndPart.ConsumedBuildSpace))
 		{
 			RemainingBuildDistance -= OutPlan.EndPart.ConsumedBuildSpace;
-			
 			OutPlan.EndPart.Count = 1;
 			MOD_TRACE_LOG(Verbose, TEXT("Num End: %d"), OutPlan.EndPart.Count);
-		
-			if (RemainingBuildDistance < 0)
-			{
-				return;
-			}
+		}
+		else
+		{
+			MOD_TRACE_LOG(Verbose, TEXT("Not enough room for end part. Not building."))
 		}
 	}
-	
-	if (AutoSupportData.MiddlePartDescriptor.IsValid())
+	else
 	{
-		MOD_TRACE_LOG(Verbose, TEXT("Planning Mid Part Positioning"));
-		if (PlanSinglePart(AutoSupportData.MiddlePartDescriptor.Get(), AutoSupportData.MiddlePartOrientation, AutoSupportData.MiddlePartCustomization, OutPlan.MidPart, RecipeManager))
+		MOD_TRACE_LOG(Verbose, TEXT("End part is not specified or is not valid."))
+	}
+	
+	if (InitializePartPlan(AutoSupportData.MiddlePartDescriptor, AutoSupportData.MiddlePartOrientation, AutoSupportData.MiddlePartCustomization, OutPlan.MidPart, RecipeManager))
+	{
+		bAtLeastOneInitialized = true;
+		
+		const auto SinglePartConsumedBuildSpace = OutPlan.MidPart.ConsumedBuildSpace;
+		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
+		
+		if (NumMiddleParts > 0)
 		{
-			const auto SinglePartConsumedBuildSpace = OutPlan.MidPart.ConsumedBuildSpace;
-			auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
 			RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
 
 			auto IsNearlyPerfectFit = RemainingBuildDistance <= 1.f;
 			if (!IsNearlyPerfectFit)
 			{
 				NumMiddleParts++; // build an extra to fill the gap.
-				
+			
 				// Offset the end part to be flush with where the line trace hit or ended. We built an extra part so the direction is negative because we're moving backwards. We don't need to worry about the end part size because it was already subtracted from build distance.
 				OutPlan.EndPartPositionOffset = -1 * (SinglePartConsumedBuildSpace - RemainingBuildDistance);
 
 				MOD_TRACE_LOG(Verbose, TEXT("Not a perfect fit. Added extra mid part and offsetting end part position by [%f]"), OutPlan.EndPartPositionOffset);
 			}
-			
+		
 			OutPlan.MidPart.Count = NumMiddleParts;
 			MOD_TRACE_LOG(Verbose, TEXT("Num Mid: %d, Perfect Fit: %s"), NumMiddleParts, TEXT_CONDITION(IsNearlyPerfectFit));
 		}
+		else
+		{
+			MOD_TRACE_LOG(Verbose, TEXT("Not enough room for middle part. Not building."))
+		}
+	}
+	else
+	{
+		MOD_TRACE_LOG(Verbose, TEXT("Middle part is not specified or is not valid."))
+	}
+
+	CalculateTotalCost(OutPlan);
+
+	if (bAtLeastOneInitialized && OutPlan.StartPart.Count == 0 && OutPlan.MidPart.Count == 0 && OutPlan.EndPart.Count == 0)
+	{
+		OutPlan.BuildDisqualifiers.Add(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
 	}
 }
 
@@ -285,9 +320,9 @@ bool UAutoSupportBlueprintLibrary::IsPartPlanActionable(const FAutoSupportBuildP
 	return PartPlan.IsActionable();
 }
 
-void UAutoSupportBlueprintLibrary::GetTotalCost(const FAutoSupportBuildPlan& Plan, TArray<FItemAmount>& OutCost)
+void UAutoSupportBlueprintLibrary::CalculateTotalCost(FAutoSupportBuildPlan& Plan)
 {
-	OutCost.Empty();
+	Plan.ItemBill.Empty();
 
 	TMap<TSubclassOf<UFGItemDescriptor>, int32> ItemCounts;
 	
@@ -321,7 +356,7 @@ void UAutoSupportBlueprintLibrary::GetTotalCost(const FAutoSupportBuildPlan& Pla
 	for (const auto& ItemCountEnt : ItemCounts)
 	{
 		MOD_LOG(Verbose, TEXT("Item [%s] Count: %d"), *ItemCountEnt.Key->GetName(), ItemCountEnt.Value);
-		OutCost.Add(FItemAmount(ItemCountEnt.Key, ItemCountEnt.Value));
+		Plan.ItemBill.Add(FItemAmount(ItemCountEnt.Key, ItemCountEnt.Value));
 	}
 }
 
@@ -369,7 +404,7 @@ float UAutoSupportBlueprintLibrary::GetBuryDistance(
 bool UAutoSupportBlueprintLibrary::CanAffordItemBill(
 	AFGCharacterPlayer* Player,
 	const TArray<FItemAmount>& BillOfParts,
-	bool bTakeFromDepot)
+	const bool bTakeFromDepot)
 {
 	auto* World = Player->GetWorld();
 	const auto* Inventory = Player->GetInventory();
@@ -390,14 +425,16 @@ bool UAutoSupportBlueprintLibrary::CanAffordItemBill(
 			? InvAvailableNum + CentralStorageSys->GetNumItemsFromCentralStorage(BillOfPart.ItemClass)
 			: InvAvailableNum;
 
-		MOD_LOG(Verbose, TEXT("Item [%s] Cost: %i, Available %i"), *BillOfPart.ItemClass->GetName(), BillOfPart.Amount, AvailableNum)
+		MOD_LOG(Verbose, TEXT("Item [%s] Cost: %i, Available: %i"), *BillOfPart.ItemClass->GetName(), BillOfPart.Amount, AvailableNum)
 
 		if (AvailableNum < BillOfPart.Amount)
 		{
+			MOD_LOG(Verbose, TEXT("Cannot afford."))
 			return false;
 		}
 	}
 
+	MOD_LOG(Verbose, TEXT("Can afford."))
 	return true;
 }
 
@@ -579,34 +616,36 @@ void UAutoSupportBlueprintLibrary::SpawnPartPlanHolograms(
 	}
 }
 
-bool UAutoSupportBlueprintLibrary::PlanSinglePart(
-	TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
+bool UAutoSupportBlueprintLibrary::InitializePartPlan(
+	const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptorClass,
 	const EAutoSupportBuildDirection PartOrientation,
 	const FFactoryCustomizationData& PartCustomization,
-	FAutoSupportBuildPlanPartData& Plan,
+	FAutoSupportBuildPlanPartData& PartPlan,
 	const AFGRecipeManager* RecipeManager)
 {
-	Plan.PartDescriptorClass = PartDescriptorClass;
-	Plan.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(PartDescriptorClass);
-	Plan.Orientation = PartOrientation;
-	Plan.CustomizationData = PartCustomization;
-	GetBuildableClearance(Plan.BuildableClass, Plan.BBox);
+	PartPlan = FAutoSupportBuildPlanPartData();
+	PartPlan.Orientation = PartOrientation;
+	PartPlan.CustomizationData = PartCustomization;
+
+	if (!PartDescriptorClass.IsValid())
+	{
+		return false;
+	}
 	
-	PlanPartPositioning(Plan.BBox, PartOrientation, Plan);
+	PartPlan.PartDescriptorClass = PartDescriptorClass.Get();
+	PartPlan.BuildableClass = UFGBuildingDescriptor::GetBuildableClass(PartPlan.PartDescriptorClass);
+
+	GetBuildableClearance(PartPlan.BuildableClass, PartPlan.BBox);
+	
+	PlanPartPositioning(PartPlan.BBox, PartOrientation, PartPlan);
 
 	// Should only be 1 recipe for a buildable...
-	auto PartRecipeClasses = RecipeManager->FindRecipesByProduct(Plan.PartDescriptorClass, true, true);
+	auto PartRecipeClasses = RecipeManager->FindRecipesByProduct(PartPlan.PartDescriptorClass, true, true);
 	fgcheck(PartRecipeClasses.Num() <= 1);
 
-	if (const auto PartRecipeClass = PartRecipeClasses.Num() > 0 ? PartRecipeClasses[0] : nullptr; PartRecipeClass && Plan.ConsumedBuildSpace > 0)
-	{
-		Plan.BuildRecipeClass = PartRecipeClass;
-		Plan.Count = 1;
-		return true;
-	}
+	PartPlan.BuildRecipeClass = PartRecipeClasses.Num() > 0 ? PartRecipeClasses[0] : nullptr;
 
-	Plan.Count = 0;
-	return false;
+	return PartPlan.BuildRecipeClass && PartPlan.ConsumedBuildSpace > 0.f;
 }
 
 void UAutoSupportBlueprintLibrary::PlanPartPositioning(

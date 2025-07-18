@@ -9,12 +9,16 @@
 #include "FGCharacterPlayer.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
-#include "NativeHookManager.h"
 
 UAutoSupportBuildGunExtensionsModule* UAutoSupportBuildGunExtensionsModule::Get(const UWorld* World)
 {
 	auto* RootModule = UAutoSupportGameWorldModule::Get(World);
-	fgcheck(RootModule)
+
+	if (!RootModule)
+	{
+		return nullptr;
+	}
+	
 	return Cast<UAutoSupportBuildGunExtensionsModule>(RootModule->GetChildModule(AutoSupportConstants::ModuleName_BuildGunExtensions, StaticClass()));
 }
 

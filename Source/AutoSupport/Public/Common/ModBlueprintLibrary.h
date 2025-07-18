@@ -33,7 +33,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static void GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox);
-
+	
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static void PlanBuild(UWorld* World, const FAutoSupportTraceResult& TraceResult, const FBuildableAutoSupportData& AutoSupportData, FAutoSupportBuildPlan& OutPlan);
 
@@ -56,7 +56,7 @@ public:
 	static bool IsPartPlanActionable(const FAutoSupportBuildPlanPartData& PartPlan);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
-	static void GetTotalCost(const FAutoSupportBuildPlan& Plan, TArray<FItemAmount>& OutCost);
+	static void CalculateTotalCost(FAutoSupportBuildPlan& Plan);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static float GetBuryDistance(TSubclassOf<AFGBuildable> BuildableClass, float BuryPercentage, EAutoSupportBuildDirection PartOrientation);
@@ -104,13 +104,13 @@ private:
 		FTransform& WorkingTransform,
 		FBox& WorkingBBox);
 	
-	static bool PlanSinglePart(
-		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
+	static bool InitializePartPlan(
+		const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptorClass,
 		EAutoSupportBuildDirection PartOrientation,
 		const FFactoryCustomizationData& PartCustomization,
-		FAutoSupportBuildPlanPartData& Plan,
+		FAutoSupportBuildPlanPartData& PartPlan,
 		const AFGRecipeManager* RecipeManager);
-	
+
 	static void PlanPartPositioning(
 		const FBox& PartBBox,
 		EAutoSupportBuildDirection PartOrientation,

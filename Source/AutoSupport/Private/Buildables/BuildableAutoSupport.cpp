@@ -23,8 +23,16 @@ ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectIni
 {
 }
 
-bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) const
+bool ABuildableAutoSupport::TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupportBuildPlan& OutPlan) const
 {
+	OutPlan = FAutoSupportBuildPlan();
+
+	if (mBlueprintDesigner)
+	{
+		OutPlan.BuildDisqualifiers.Add(UFGCDIntersectingBlueprintDesigner::StaticClass());
+		return false;
+	}
+	
 	// IMPORTANT: This ticks while the interact dialog is open.
 	if (!AutoSupportData.MiddlePartDescriptor.IsValid() && !AutoSupportData.StartPartDescriptor.IsValid() && !AutoSupportData.EndPartDescriptor.IsValid())
 	{
@@ -34,37 +42,33 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(FAutoSupportBuildPlan& OutPlan) c
 	
 	// Trace to know how much we're going to build.
 	const auto TraceResult = Trace();
+	
+	UAutoSupportBlueprintLibrary::PlanBuild(GetWorld(), TraceResult, AutoSupportData, OutPlan);
 
-	if (FMath::IsNearlyZero(TraceResult.BuildDistance))
+	auto* Player = CastChecked<AFGCharacterPlayer>(BuildInstigator);
+
+	if (!UAutoSupportBlueprintLibrary::CanAffordItemBill(Player, OutPlan.ItemBill, true))
 	{
-		MOD_TRACE_LOG(Verbose, TEXT("No room to build!"));
-		return false;
+		MOD_LOG(Verbose, TEXT("Cannot afford item bill."));
+		OutPlan.BuildDisqualifiers.Add(UFGCDUnaffordable::StaticClass());
 	}
 
-	UAutoSupportBlueprintLibrary::PlanBuild(GetWorld(), TraceResult, AutoSupportData, OutPlan);
-	
-	return true;
+	return OutPlan.IsActionable();
 }
 
 void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 {
 	FAutoSupportBuildPlan Plan;
-	if (!TraceAndCreatePlan(Plan))
+
+	if (!TraceAndCreatePlan(BuildInstigator, Plan))
 	{
 		MOD_LOG(Verbose, TEXT("The plan cannot be built."));
 		return;
 	}
 
-	AFGCharacterPlayer* Player = CastChecked<AFGCharacterPlayer>(BuildInstigator);
-
-	ABuildableAutoSupportProxy* SupportProxy = nullptr;
-	auto* RootHologram = UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(Plan, AutoSupportProxyClass, BuildInstigator, this, this, SupportProxy);
-	const auto BillOfParts = RootHologram->GetCost(true);
-	
-	if (!UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(Player, BillOfParts, true))
+	if (!UAutoSupportBlueprintLibrary::PayItemBillIfAffordable(CastChecked<AFGCharacterPlayer>(BuildInstigator), Plan.ItemBill, true))
 	{
-		RootHologram->Destroy();
-		SupportProxy->Destroy();
+		MOD_LOG(Verbose, TEXT("Cannot afford."));
 		return;
 	}
 	
@@ -72,12 +76,15 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 	auto* Buildables = AFGBuildableSubsystem::Get(GetWorld());
 	auto* LightBuildables = AFGLightweightBuildableSubsystem::Get(GetWorld());
 	
+	ABuildableAutoSupportProxy* SupportProxy = nullptr;
+	auto* RootHologram = UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(Plan, AutoSupportProxyClass, BuildInstigator, this, this, SupportProxy);
+	
 	TArray<AActor*> HologramSpawnedActors;
 	auto* StartBuildable = CastChecked<AFGBuildable>(RootHologram->Construct(HologramSpawnedActors, Buildables->GetNewNetConstructionID()));
 	HologramSpawnedActors.Insert(StartBuildable, 0);
 
 	// TODO(k.a): see if supports can be included in a blueprint proxy
-	auto* BlueprintProxy = GetBlueprintProxy();
+	// auto* BlueprintProxy = GetBlueprintProxy();
 
 	int32 i = 0;
 	for (auto* HologramSpawnedActor : HologramSpawnedActors)
@@ -335,10 +342,19 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		if (HitActor->IsA<APawn>())
 		{
 			MOD_TRACE_LOG(Verbose, TEXT("Hit Pawn!"));
+			
 			// Never build if we intersect a pawn.
 			Result.BuildDistance = 0;
+			Result.Disqualifier = HitActor->IsA<AFGCharacterPlayer>()
+				? UFGCDEncroachingPlayer::StaticClass()
+				: HitActor->IsA<AFGDriveablePawn>()
+					? UFGCDEncroachingVehicle::StaticClass()
+					: UFGCDEncroachingCreature::StaticClass();
+			
 			return Result;
 		}
+
+		// TODO(k.a): detect blueprint designer intersects.
 
 		if (HitResult.Distance <= 1)
 		{

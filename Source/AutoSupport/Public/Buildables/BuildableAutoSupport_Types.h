@@ -147,6 +147,9 @@ struct AUTOSUPPORT_API FAutoSupportTraceResult
 
 	UPROPERTY()
 	FHitResult EndHitResult = FHitResult(ForceInit);
+
+	UPROPERTY()
+	TSubclassOf<UFGConstructDisqualifier> Disqualifier = nullptr;
 };
 
 USTRUCT(BlueprintType)
@@ -283,6 +286,18 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	 */
 	UPROPERTY(BlueprintReadWrite)
 	float EndPartPositionOffset = 0.f;
+
+	/**
+	 * Reasons the plan cannot be built.
+	 */
+	UPROPERTY(BlueprintReadWrite)
+	TArray<TSubclassOf<UFGConstructDisqualifier>> BuildDisqualifiers;
+
+	/**
+	 * The item bill for this plan.
+	 */
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FItemAmount> ItemBill;
 	
 	FORCEINLINE bool IsActionable() const
 	{
@@ -291,6 +306,11 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 			return false;
 		}
 		
-		return (MidPart.IsUnspecified() || MidPart.IsActionable()) && (StartPart.IsUnspecified() || StartPart.IsActionable()) && (EndPart.IsUnspecified() || EndPart.IsActionable());
+		if ((MidPart.IsUnspecified() || MidPart.IsActionable()) && (StartPart.IsUnspecified() || StartPart.IsActionable()) && (EndPart.IsUnspecified() || EndPart.IsActionable()))
+		{
+			return BuildDisqualifiers.Num() == 0;
+		}
+
+		return false;
 	}
 };
