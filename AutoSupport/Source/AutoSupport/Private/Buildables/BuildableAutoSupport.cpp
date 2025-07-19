@@ -9,6 +9,7 @@
 #include "DrawDebugHelpers.h"
 #include "FGBlueprintProxy.h"
 #include "FGBuildingDescriptor.h"
+#include "FGDriveablePawn.h"
 #include "FGHologram.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "FGPlayerController.h"
