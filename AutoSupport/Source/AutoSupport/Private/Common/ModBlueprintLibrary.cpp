@@ -266,10 +266,10 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	{
 		bAtLeastOneInitialized = true;
 		
-		const auto SinglePartConsumedBuildSpace = OutPlan.MidPart.ConsumedBuildSpace;
+		const auto SinglePartConsumedBuildSpace = FMath::Max(1.f, OutPlan.MidPart.ConsumedBuildSpace);
 		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
-		
-		if (NumMiddleParts > 0)
+
+		if (!FMath::IsNearlyZero(RemainingBuildDistance))
 		{
 			RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
 
