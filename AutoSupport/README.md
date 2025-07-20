@@ -97,3 +97,8 @@ This helped considerably when I started.
 
 Thanks to the friendly people on the [Satisfactory Modding Discord](https://discord.ficsit.app/) for answering my 
 random questions. Robb (extra busy), Archengius, Rex, D4rk, SirDigby, and possibly a few others.
+
+## Tip Jar
+
+Like the mod? Buy me a coffee. Totally optional.
+[Tip me](https://www.paypal.com/donate/?business=WHAJCKD4ADHYJ&no_recurring=1&item_name=This+is+my+tip+jar.&currency_code=USD)
