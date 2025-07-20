@@ -1,5 +1,7 @@
 ﻿# Auto Supports
 
+## ! This mod is currently NOT multiplayer compatible !
+
 ## Overview
 
 This mod adds a new unlockable AWESOME shop schematic that includes 1m, 2m, and 4m variants of buildable AutoSupport 
@@ -11,15 +13,15 @@ dismantle mode. It helps make your factory look better and not float as much!
 ## Demo
 
 Click below to watch a demo:
-[![Click to watch demo](./Images/Demo.png "Click to watch demo")](https://youtu.be/FlEAij2_L3M)
+[![Click to watch demo](https://github.com/kalbert312/satisfactory-mods/raw/main/AutoSupport/Images/Demo.png "Click to watch demo")](https://youtu.be/FlEAij2_L3M)
 
 ## Screenshots
 
-![Auto Support cube](./Images/Cube_1.png "Auto Support cube")
-![Configure the Auto Support cube](./Images/Configure_1.png "Configure the Auto Support cube")
-![Railway blueprint with Auto Support cubes](./Images/RailBlueprint_1.png "Railway blueprint with Auto Support cubes") 
-![Railway supports built with Auto Supports](./Images/Rails_1.png "Railway built with Auto Supports")
-![Railway supports built with Auto Supports 2](./Images/Rails_2.png "More railway built with Auto Supports")
+![Auto Support cube](https://github.com/kalbert312/satisfactory-mods/raw/main/AutoSupport/Images/Cube_1.png "Auto Support cube")
+![Configure the Auto Support cube](https://github.com/kalbert312/satisfactory-mods/raw/main/AutoSupport/Images/Configure_1.png "Configure the Auto Support cube")
+![Railway blueprint with Auto Support cubes](https://github.com/kalbert312/satisfactory-mods/raw/main/AutoSupport/Images/RailBlueprint_1.png "Railway blueprint with Auto Support cubes") 
+![Railway supports built with Auto Supports](https://github.com/kalbert312/satisfactory-mods/raw/main/AutoSupport/Images/Rails_1.png "Railway built with Auto Supports")
+![Railway supports built with Auto Supports 2](https://github.com/kalbert312/satisfactory-mods/raw/main/AutoSupport/Images/Rails_2.png "More railway built with Auto Supports")
 
 ## Features
 - Adds a new schematic that unlocks an Auto Support cube buildable with 3 size variants of 1m, 2m, and 4m.
