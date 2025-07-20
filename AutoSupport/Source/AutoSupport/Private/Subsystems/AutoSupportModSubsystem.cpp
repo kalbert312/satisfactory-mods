@@ -79,11 +79,6 @@ void AAutoSupportModSubsystem::Init()
 	MOD_LOG(Verbose, TEXT("Added AFGBuildableSubsystem delegates"))
 }
 
-void AAutoSupportModSubsystem::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
 void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 {
 	const FAutoSupportBuildableHandle Handle(Buildable);

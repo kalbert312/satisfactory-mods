@@ -127,7 +127,6 @@ protected:
 	TSet<TWeakObjectPtr<ABuildableAutoSupportProxy>> AllProxies;
 	
 	virtual void Init() override;
-	virtual void BeginPlay() override;
 
 	static TMap<TWeakObjectPtr<const UWorld>, TWeakObjectPtr<AAutoSupportModSubsystem>> CachedSubsystemLookup;
 	static FCriticalSection CachedSubsystemLookupLock;

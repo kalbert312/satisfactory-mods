@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "BuildableAutoSupportProxy.h"
-#include "EnhancedInputComponent.h"
 #include "FGBuildGun.h"
 #include "FGBuildGunModeDescriptor.h"
 #include "GameFramework/Actor.h"
@@ -25,11 +24,6 @@ public:
 	static UAutoSupportModLocalPlayerSubsystem* Get(const ULocalPlayer* Player);
 	
 	UAutoSupportModLocalPlayerSubsystem();
-
-	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
-
-	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
-	virtual void Deinitialize() override;
 	
 	void SyncProxyWithBuildGunState(ABuildableAutoSupportProxy* Proxy) const;
 

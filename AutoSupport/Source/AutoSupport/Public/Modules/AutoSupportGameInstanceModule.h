@@ -14,7 +14,6 @@ class AUTOSUPPORT_API UAutoSupportGameInstanceModule : public UGameInstanceModul
 	GENERATED_BODY()
 
 public:
-
 	static UAutoSupportGameInstanceModule* Get(const UWorld* World);
 	
 };

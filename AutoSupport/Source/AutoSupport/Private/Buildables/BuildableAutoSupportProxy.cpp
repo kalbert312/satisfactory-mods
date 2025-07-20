@@ -9,8 +9,6 @@
 #include "ModLogging.h"
 #include "Components/BoxComponent.h"
 
-// TODO(k.a): Check that non-lightweight handles save and load correctly.
-
 ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 {
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
@@ -96,15 +94,11 @@ void ABuildableAutoSupportProxy::BeginPlay()
 	else
 	{
 		// Need to reestablish lightweight runtime indices, so trace and match by buildable class and transform.
-		// TODO(k.a): verify trace reuslts
 		FCollisionQueryParams TraceParams;
 		TraceParams.AddIgnoredActor(this);
 
 		const auto TraceLocation = BoundingBoxComponent->GetComponentLocation();
 		const FCollisionShape CollisionShape = BoundingBoxComponent->GetCollisionShape();
-		const auto BoxExtent = BoundingBoxComponent->GetUnscaledBoxExtent();
-
-		MOD_TRACE_LOG(Verbose, TEXT("LOADTRACE Loc: [%s], Up: [%s], TraceLoc: [%s], Box Extent: [%s]"), TEXT_STR(GetActorLocation().ToString()), TEXT_STR(GetActorUpVector().ToString()), TEXT_STR(TraceLocation.ToString()), TEXT_STR(BoxExtent.ToCompactString()))
 		
 		// Overlap all so we can detect all collisions in our path.
 		FCollisionResponseParams ResponseParams(ECR_Overlap);
@@ -206,7 +200,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		{
 			Outline->HideOutline(Buildable);
 			Outline->ShowOutline(this, EOutlineColor::OC_NONE);
-			MOD_LOG(Warning, TEXT("  Handle had its outline hidden."))
+			MOD_LOG(Verbose, TEXT("  Handle had its outline hidden."))
 		}
 
 		if (!Buildable->GetIsLightweightTemporary())
@@ -297,6 +291,7 @@ void ABuildableAutoSupportProxy::RegisterSelfAndHandlesWithSubsystem()
 
 void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle, FOverlapDatum& Datum)
 {
+	// TODO(k.a): should this block also be done async? If so, need to register with subsystem in synchronized matter.
 	MOD_TRACE_LOG(Verbose, TEXT("Invoked. Num Overlaps: [%i]"), Datum.OutOverlaps.Num())
 	bIsLoadTraceInProgress = false;
 

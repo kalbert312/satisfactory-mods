@@ -28,16 +28,17 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupp
 {
 	OutPlan = FAutoSupportBuildPlan();
 
-	if (mBlueprintDesigner)
-	{
-		OutPlan.BuildDisqualifiers.Add(UFGCDIntersectingBlueprintDesigner::StaticClass());
-		return false;
-	}
-	
 	// IMPORTANT: This ticks while the interact dialog is open.
 	if (!AutoSupportData.MiddlePartDescriptor.IsValid() && !AutoSupportData.StartPartDescriptor.IsValid() && !AutoSupportData.EndPartDescriptor.IsValid())
 	{
 		MOD_TRACE_LOG(Verbose, TEXT("Nothing to build!"));
+		return false;
+	}
+
+	if (mBlueprintDesigner)
+	{
+		MOD_TRACE_LOG(Verbose, TEXT("Can't build, in BP designer."));
+		OutPlan.BuildDisqualifiers.Add(UFGCDIntersectingBlueprintDesigner::StaticClass());
 		return false;
 	}
 	
@@ -424,7 +425,7 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 	}
 }
 
-FORCEINLINE FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const
+FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const
 {
 	return StartLocation + Direction * FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
 }

@@ -17,9 +17,5 @@ public:
 	virtual void ShutdownModule() override;
 
 	void RegisterHooks();
-
-private:
-
-	TMap<TWeakObjectPtr<UWorld>, TWeakObjectPtr<AAutoSupportModSubsystem>> CachedSubsystemByWorld;
 	
 };

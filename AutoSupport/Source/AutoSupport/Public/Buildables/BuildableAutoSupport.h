@@ -95,7 +95,7 @@ protected:
 	FAutoSupportTraceResult Trace() const;
 
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
-	FORCEINLINE FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;
+	FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const;
 };
 
 UCLASS(Blueprintable)

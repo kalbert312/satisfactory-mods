@@ -51,21 +51,6 @@ UAutoSupportModLocalPlayerSubsystem::UAutoSupportModLocalPlayerSubsystem()
 {
 }
 
-bool UAutoSupportModLocalPlayerSubsystem::ShouldCreateSubsystem(UObject* Outer) const
-{
-	return Super::ShouldCreateSubsystem(Outer);
-}
-
-void UAutoSupportModLocalPlayerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
-{
-	Super::Initialize(Collection);
-}
-
-void UAutoSupportModLocalPlayerSubsystem::Deinitialize()
-{
-	Super::Deinitialize();
-}
-
 void UAutoSupportModLocalPlayerSubsystem::OnBuildGunBeginPlay(AFGBuildGun* BuildGun)
 {
 	BuildGun->mOnBuildGunModeChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunModeChanged);
@@ -206,12 +191,13 @@ void UAutoSupportModLocalPlayerSubsystem::AsyncUpdateAllProxiesBuildMode(TSubcla
 	MOD_LOG(Verbose, TEXT("Invoked"))
 	AsyncTask(ENamedThreads::GameThread, [this, ModeDescriptor]
 	{
-		auto* World = GetWorld();
+		const auto* World = GetWorld();
 		if (!IsValid(World))
 		{
 			MOD_LOG(Warning, TEXT("World not valid. Skipping."))
 			return;
 		}
+		
 		auto* LocalPlayer = GetLocalPlayer();	
 		if (!IsValid(LocalPlayer))
 		{
@@ -219,7 +205,7 @@ void UAutoSupportModLocalPlayerSubsystem::AsyncUpdateAllProxiesBuildMode(TSubcla
 			return;
 		}
 
-		auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+		auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(World);
 		fgcheck(AutoSupportSubsys)
 		
 		auto ProxyCount = AutoSupportSubsys->AllProxies.Num();

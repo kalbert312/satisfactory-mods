@@ -11,4 +11,8 @@ UCLASS(BlueprintType)
 class AUTOSUPPORT_API ABuildableAutoSupport_Hologram : public AFGGenericBuildableHologram
 {
 	GENERATED_BODY()
+
+public:
+	virtual bool TrySnapToActor(const FHitResult& hitResult) override;
+	
 };
