@@ -8,8 +8,18 @@ a build direction relative to the cube, parts for start, middle, and end positio
 There are several convenience features, including saving presets and a new dismantle mode that works similar to blueprint
 dismantle mode. It helps make your factory look better and not float as much!
 
+## Demo
+
+Click below to watch a demo:
+[![Click to watch demo](./Images/Demo.png "Click to watch demo")](https://youtu.be/FlEAij2_L3M)
+
 ## Screenshots
-TBD
+
+![Auto Support cube](./Images/Cube_1.png "Auto Support cube")
+![Configure the Auto Support cube](./Images/Configure_1.png "Configure the Auto Support cube")
+![Railway blueprint with Auto Support cubes](./Images/RailBlueprint_1.png "Railway blueprint with Auto Support cubes") 
+![Railway supports built with Auto Supports](./Images/Rails_1.png "Railway built with Auto Supports")
+![Railway supports built with Auto Supports 2](./Images/Rails_2.png "More railway built with Auto Supports")
 
 ## Features
 - Adds a new schematic that unlocks an Auto Support cube buildable with 3 size variants of 1m, 2m, and 4m.
@@ -73,3 +83,15 @@ TBD
 - Using blueprints as part selections.
 - Use mod content tag registry for filtering selectable parts.
 
+## Credits
+
+Thanks to Coffee Stain Studios for the awesome game.
+
+Thank you to the maintainers of [Satisfactory Mod Loader](https://ficsit.app/) for making this mod possible.
+
+Thank you to the documentation maintainers at the 
+[Satisifactory Modding Wiki](https://docs.ficsit.app/satisfactory-modding/latest/index.html)
+This helped considerably when I started.
+
+Thanks to the friendly people on the [Satisfactory Modding Discord](https://discord.ficsit.app/) for answering my 
+random questions. Robb (extra busy), Archengius, Rex, D4rk, SirDigby, and possibly a few others.
