@@ -216,6 +216,11 @@ void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 	}
 }
 
+bool AAutoSupportModSubsystem::IsExistingAutoSupportPreset(FString PresetName) const
+{
+	return AutoSupportPresets.Contains(PresetName);
+}
+
 #pragma endregion
 
 void AAutoSupportModSubsystem::RegisterProxy(ABuildableAutoSupportProxy* Proxy)

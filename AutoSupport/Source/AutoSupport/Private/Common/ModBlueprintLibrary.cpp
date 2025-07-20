@@ -528,20 +528,25 @@ int32 UAutoSupportBlueprintLibrary::LeaseWidgetsExact(
 	return NewStartIndex;
 }
 
-bool UAutoSupportBlueprintLibrary::IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError)
+bool UAutoSupportBlueprintLibrary::IsValidAutoSupportPresetName(FString PresetName, FText& OutError)
 {
-	PresetName = PresetName.TrimStartAndEnd();
-	OutName = PresetName;
+	OutError = FText::GetEmpty();
 	
 	if (PresetName.IsEmpty())
 	{
-		OutError = FText::FromString("Preset name cannot be empty");
+		OutError = FText::FromString("Preset name cannot be empty.");
 		return false;
 	}
 
-	if (PresetName.Len() > 32)
+	if (PresetName.Len() > 50)
 	{
-		OutError = FText::FromString("Preset name cannot be longer than 32 characters");
+		OutError = FText::FromString("Preset name cannot be longer than 50 characters.");
+		return false;
+	}
+
+	if (PresetName.StartsWith(TEXT("[")))
+	{
+		OutError = FText::FromString("Preset name cannot start with '['.");
 		return false;
 	}
 

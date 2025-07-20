@@ -75,6 +75,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void DeleteAutoSupportPreset(FString PresetName);
 
+	UFUNCTION(BlueprintCallable)
+	bool IsExistingAutoSupportPreset(FString PresetName) const;
+
 #pragma endregion
 
 protected:

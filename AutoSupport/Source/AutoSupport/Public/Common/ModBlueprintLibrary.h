@@ -79,7 +79,7 @@ public:
 #pragma region UI Helpers
 	
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
-	static bool IsValidAutoSupportPresetName(FString PresetName, FString& OutName, FText& OutError);
+	static bool IsValidAutoSupportPresetName(FString PresetName, FText& OutError);
 	
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport", meta = (ArrayParam = "LeasedWidgetPool", DeterminesOutputType="WidgetClass", DynamicOutputParam="OutRemovedWidgets", ReturnDisplayName="New Start Index"))
 	static int32 LeaseWidgetsExact(
