@@ -31,8 +31,9 @@ TBD
   you're placing the part with the build gun. An orientation of "Bottom" is the same as if you're building the part on
   a floor below you. An orientation of "Front"/"Left" is the same as if you're building the part on a wall in front/left
   of you.
-  - Warning: Some parts are not the most intuitive to configure. For example, H-Beams should be set to "Left"/"Right"
-    to be oriented correctly. Some trial and error may be needed.
+  - Some parts are not the most intuitive to configure. For example, H-Beams should be set to "Left"/"Right"
+    to be oriented correctly. Some parts also have custom placement behavior depending on the surface they are being built
+    on, making it harder to determine the correct orientation to select. Some trial and error may be needed.
 - In each support position, a part's color customization can be configured.
 - For the end support position, the part's terrain bury distance can be configured. If the end piece ends up resting
   against terrain, this will bury the part 0–50% of its height into the terrain to avoid awkward looking placements.
