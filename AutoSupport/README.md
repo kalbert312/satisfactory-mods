@@ -1,7 +1,4 @@
-﻿# AutoSupport
-
-A mod to automatically build supporting structures. Automatically build pillars, beams, and more. Helps make your factory
-look better and float as much.
+﻿# Auto Supports
 
 ## Overview
 
@@ -9,7 +6,7 @@ This mod adds a new unlockable AWESOME shop schematic that includes 1m, 2m, and 
 cubes. These cubes can be placed in the world and interacted with to configure them. Configuring involves selecting
 a build direction relative to the cube, parts for start, middle, and end positions, and other customization details.
 There are several convenience features, including saving presets and a new dismantle mode that works similar to blueprint
-dismantle mode.
+dismantle mode. It helps make your factory look better and not float as much!
 
 ## Screenshots
 TBD
@@ -65,8 +62,13 @@ TBD
   mode does for blueprints.
 
 ## Possible future enhancements
+
+- Zooping and snap placement.
+- Preview holograms to make selecting directions easier.
+- Build direction arrow on hologram for easier Top/Front recognition.
+- An auto configure part orientation button for well-known parts.
 - Inject supports built via cubes in blueprints into the blueprint proxy, allowing dismantling the supports via Blueprint
   dismantle. I experimented with this but was encountering problems.
-- An auto configure part orientation button for well-known parts.
-- End position could be configured to use a blueprint.
+- Using blueprints as part selections.
+- Use mod content tag registry for filtering selectable parts.
 
