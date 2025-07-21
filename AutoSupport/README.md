@@ -1,4 +1,4 @@
-﻿# Auto Supports
+﻿# [Auto Supports](https://ficsit.app/mod/AutoSupport)
 
 ## ! This mod is currently NOT multiplayer compatible !
 
