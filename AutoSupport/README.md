@@ -50,7 +50,7 @@ Click below to watch a demo:
 - For the end support position, the part's terrain bury distance can be configured. If the end piece ends up resting
   against terrain, this will bury the part 0–50% of its height into the terrain to avoid awkward looking placements.
 - A toggle to only intersect terrains is available, ignoring any obstacles except terrain when the tracing is done. This
-  can be useful when building blueprints with Auto Supports from scaffolding.
+  can be useful when building blueprints with Auto Supports from scaffolding or to ignore certain obstacles like trees.
 - When the support is built, the build logic will offset the end part to be flush with the blocking surface 
   (while also respecting bury distance). If needed, an extra middle part will be built to avoid gaps.
 - Auto Support configurations can be copied and pasted.
