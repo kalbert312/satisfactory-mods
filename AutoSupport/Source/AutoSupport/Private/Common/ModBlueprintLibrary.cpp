@@ -501,8 +501,8 @@ int32 UAutoSupportBlueprintLibrary::LeaseWidgetsExact(
 		return NewStartIndex;
 	}
 
-	const auto* FController = CastChecked<AFGPlayerController>(Controller);
-	auto* GameUI = FController->GetGameUI();
+	const auto* PlayerController = CastChecked<AFGPlayerController>(Controller);
+	auto* GameUI = PlayerController->GetGameUI();
 	
 	if (LeasedWidgetPool.Num() < Count)
 	{

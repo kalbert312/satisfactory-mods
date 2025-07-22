@@ -247,7 +247,7 @@ void AAutoSupportModSubsystem::RegisterHandleToProxyLink(const FAutoSupportBuild
 	
 	if (ProxyByBuildable.Contains(Handle))
 	{
-		checkf(false, TEXT("Handle already exists! [%s]"), TEXT_STR(Handle.ToString()))
+		fgcheckf(false, TEXT("Handle already exists! [%s]"), TEXT_STR(Handle.ToString()))
 	}
 	
 	ProxyByBuildable.Add(Handle, Proxy);

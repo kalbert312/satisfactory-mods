@@ -172,6 +172,8 @@ void UAutoSupportModLocalPlayerSubsystem::RemoveBuildModeInputBindings()
 	{
 		EnhInput->RemoveBindingByHandle(Handle);
 	}
+
+	InputActionBindingHandles.Empty();
 }
 
 void UAutoSupportModLocalPlayerSubsystem::OnAutoBuildSupportsKeyStarted()
