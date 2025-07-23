@@ -71,12 +71,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Auto Support")
 	TSubclassOf<ABuildableAutoSupportProxy> AutoSupportProxyClass;
 	
-	/**
-	 * The auto support proxy this buildable is registered to.
-	 */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
-	TWeakObjectPtr<ABuildableAutoSupportProxy> AutoSupportProxy;
-	
 	void AutoConfigure();
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
