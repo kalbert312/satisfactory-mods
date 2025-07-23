@@ -1,6 +1,8 @@
-﻿# [Auto Supports](https://ficsit.app/mod/AutoSupport)
+﻿# Auto Supports
 
 ## ! This mod is currently NOT multiplayer compatible !
+
+Mod page: [Auto Supports](https://ficsit.app/mod/AutoSupport)
 
 ## Overview
 
@@ -77,6 +79,7 @@ Click below to watch a demo:
 ## Possible future enhancements
 
 - Zooping and snap placement.
+- Improve landscape detection.
 - Preview holograms to make selecting directions easier.
 - Build direction arrow on hologram for easier Top/Front recognition.
 - An auto configure part orientation button for well-known parts.
@@ -100,5 +103,4 @@ random questions. Robb (extra busy), Archengius, Rex, D4rk, SirDigby, and possib
 
 ## Tip Jar
 
-Like the mod? Buy me a coffee. Totally optional.
-[Tip me](https://www.paypal.com/donate/?business=WHAJCKD4ADHYJ&no_recurring=1&item_name=This+is+my+tip+jar.&currency_code=USD)
+Like the mod? Buy me a coffee! [Tip me](https://ko-fi.com/R6R615ZO0)
