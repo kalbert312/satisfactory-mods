@@ -89,6 +89,18 @@ public:
 	FString ToString() const;
 };
 
+UENUM(BlueprintType)
+enum class EAutoSupportTraceHitClassification : uint8
+{
+	Block,
+	Ignore,
+	Landscape,
+	Pawn,
+	Count UMETA(Hidden)
+};
+
+ENUM_RANGE_BY_COUNT(EAutoSupportTraceHitClassification, EAutoSupportTraceHitClassification::Count)
+
 UCLASS()
 class AUTOSUPPORT_API UAutoSupportConstructDisqualifier_NotEnoughRoom : public UFGConstructDisqualifier
 {

@@ -347,56 +347,45 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 			HitResult.Distance,
 			HitActor ? TEXT_STR(HitActor->GetName()) : TEXT_NULL,
 			HitComponent ? TEXT_STR(HitComponent->GetName()) : TEXT_NULL);
-		
-		if (!HitActor)
+
+		TSubclassOf<UFGConstructDisqualifier> Disqualifier = nullptr;
+
+		switch (const auto HitClassification = BuildConfig->CalculateHitClassification(HitResult, AutoSupportData.OnlyIntersectTerrain, Disqualifier))
 		{
-			continue;
-		}
-
-		if (HitActor->IsA<APawn>())
-		{
-			MOD_TRACE_LOG(Verbose, TEXT("  Hit Pawn!"));
-			
-			// Never build if we intersect a pawn.
-			Result.BuildDistance = 0;
-			Result.Disqualifier = HitActor->IsA<AFGCharacterPlayer>()
-				? UFGCDEncroachingPlayer::StaticClass()
-				: HitActor->IsA<AFGDriveablePawn>()
-					? UFGCDEncroachingVehicle::StaticClass()
-					: UFGCDEncroachingCreature::StaticClass();
-			
-			return Result;
-		}
-
-		// TODO(k.a): detect blueprint designer intersects.
-		if (BuildConfig->IsIgnoredHit(HitResult))
-		{
-			MOD_TRACE_LOG(Verbose, TEXT("  Ignoring hit as the build config determined it should be ignored."));
-			continue;
-		}
-
-		// Check for a blocking hit.
-		if (const auto IsLandscapeHit = BuildConfig->IsLandscapeTypeHit(HitResult); IsLandscapeHit || !AutoSupportData.OnlyIntersectTerrain)
-		{
-			Result.BuildDistance = HitResult.Distance;
-			Result.IsLandscapeHit = IsLandscapeHit;
-
-			MOD_TRACE_LOG(Verbose, TEXT("  Is blocking hit. IsLandscape: %s"), TEXT_BOOL(IsLandscapeHit))
-
-			if (IsLandscapeHit && AutoSupportData.EndPartDescriptor.IsValid())
+			default:
+			case EAutoSupportTraceHitClassification::Block:
+			case EAutoSupportTraceHitClassification::Landscape:
 			{
-				const auto BuryDistance = UAutoSupportBlueprintLibrary::GetBuryDistance(
-					UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.EndPartDescriptor.Get()),
-					AutoSupportData.EndPartTerrainBuryPercentage,
-					AutoSupportData.EndPartOrientation);
-				
-				// Bury the part if and extend the build distance.
-				Result.BuildDistance += BuryDistance;
+				Result.BuildDistance = HitResult.Distance;
+				Result.IsLandscapeHit = HitClassification == EAutoSupportTraceHitClassification::Landscape;
 
-				MOD_TRACE_LOG(Verbose, TEXT("  Extended build distance by %f to bury end part."), BuryDistance);
-			}
+				MOD_TRACE_LOG(Verbose, TEXT("  Is blocking hit. IsLandscape: %s"), TEXT_BOOL(Result.IsLandscapeHit))
+
+				if (Result.IsLandscapeHit && AutoSupportData.EndPartDescriptor.IsValid())
+				{
+					const auto BuryDistance = UAutoSupportBlueprintLibrary::GetBuryDistance(
+						UFGBuildingDescriptor::GetBuildableClass(AutoSupportData.EndPartDescriptor.Get()),
+						AutoSupportData.EndPartTerrainBuryPercentage,
+						AutoSupportData.EndPartOrientation);
+				
+					// Bury the part if and extend the build distance.
+					Result.BuildDistance += BuryDistance;
+
+					MOD_TRACE_LOG(Verbose, TEXT("  Extended build distance by %f to bury end part."), BuryDistance);
+				}
 			
-			return Result;
+				return Result;
+			}
+			case EAutoSupportTraceHitClassification::Ignore:
+				MOD_TRACE_LOG(Verbose, TEXT("  Ignored hit."));
+				continue;
+			case EAutoSupportTraceHitClassification::Pawn:
+				MOD_TRACE_LOG(Verbose, TEXT("  Pawn hit."));
+				// Never build if we intersect a pawn.
+				Result.BuildDistance = 0;
+				Result.Disqualifier = Disqualifier;
+
+				return Result;
 		}
 	}
 

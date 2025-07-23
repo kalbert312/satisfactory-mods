@@ -12,9 +12,6 @@ struct FBP_ModConfig_AutoSupportStruct_GameplayDefaultsSection {
     GENERATED_BODY()
 public:
     UPROPERTY(BlueprintReadWrite)
-    bool AutomaticWellKnownPartOrientation{};
-
-    UPROPERTY(BlueprintReadWrite)
     bool AutomaticBlueprintBuild{};
 };
 
@@ -24,12 +21,6 @@ struct FBP_ModConfig_AutoSupportStruct_ConstraintsSection {
 public:
     UPROPERTY(BlueprintReadWrite)
     int32 MaxBuildDistance{};
-
-    UPROPERTY(BlueprintReadWrite)
-    float MinPartSize{};
-
-    UPROPERTY(BlueprintReadWrite)
-    float MaxPartSize{};
 };
 
 /* Struct generated from Mod Configuration Asset '/AutoSupport/Config/BP_ModConfig_AutoSupport' */

@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "AutoSupportGameWorldModule.h"
+#include "GameplayTagContainer.h"
+#include "ModTypes.h"
 #include "AutoSupportBuildConfigModule.generated.h"
 
 /**
@@ -17,21 +19,26 @@ class AUTOSUPPORT_API UAutoSupportBuildConfigModule : public UAutoSupportGameWor
 public:
 
 	static UAutoSupportBuildConfigModule* Get(const UWorld* World);
-	
+
+	virtual void DispatchLifecycleEvent(ELifecyclePhase Phase) override;
+
 	/**
 	 * @return The maximum build distance (trace distance) of an Auto Support cube. 
 	 */
 	float GetMaxBuildDistance() const;
-	
-	/**
-	 * @param HitResult The hit result.
-	 * @return True if the hit result is classified as a landscape hit. 
-	 */
-	bool IsLandscapeTypeHit(const FHitResult& HitResult) const;
 
 	/**
 	 * @param HitResult The hit result.
-	 * @return True if the hit result is to be ignored.
+	 * @param bOnlyLandscapeBlocks
+	 * @param OutDisqualifier
+	 * @return The hit classification.
 	 */
-	bool IsIgnoredHit(const FHitResult& HitResult) const;
+	EAutoSupportTraceHitClassification CalculateHitClassification(const FHitResult& HitResult, bool bOnlyLandscapeBlocks, TSubclassOf<UFGConstructDisqualifier>& OutDisqualifier) const;
+
+protected:
+
+	FGameplayTag TraceLandscapeTag;
+
+	FGameplayTag TraceIgnoreTag;
+	
 };
