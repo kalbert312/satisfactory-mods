@@ -2,6 +2,7 @@
 
 #include "BuildableAutoSupport.h"
 
+#include "AutoSupportBuildConfig.h"
 #include "AutoSupportModLocalPlayerSubsystem.h"
 #include "AutoSupportModSubsystem.h"
 #include "BP_ModConfig_AutoSupportStruct.h"
@@ -259,9 +260,15 @@ void ABuildableAutoSupport::SaveLastUsedData()
 FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
 	MOD_TRACE_LOG(Verbose, TEXT("BEGIN TRACE ---------------------------"));
+	
+	const auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
+	fgcheck(AutoSupportSubsys);
+	const auto* BuildConfig = AutoSupportSubsys->GetBuildConfig();
+	
 	// World +X = East, World +Y = South, +Z = Sky
 	FAutoSupportTraceResult Result;
-	Result.BuildDistance = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
+	const auto MaxBuildDistance = BuildConfig->GetMaxBuildDistance();
+	Result.BuildDistance = MaxBuildDistance;
 	Result.BuildDirection = AutoSupportData.BuildDirection;
 
 	// Start building our trace params.
@@ -295,7 +302,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection)).Quaternion();
 	Result.StartRelativeLocation = FaceRelLocation;
 	Result.StartLocation = StartTransform.TransformPosition(FaceRelLocation);
-	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, TraceAbsDirection);
+	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, TraceAbsDirection, MaxBuildDistance);
 
 	MOD_TRACE_LOG(
 		Verbose,
@@ -333,9 +340,17 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	for (const auto& HitResult : HitResults)
 	{
 		++HitIndex;
-		MOD_TRACE_LOG(Verbose, TEXT("HitResult[%i] with distance %f"), HitIndex, HitResult.Distance);
 		
 		const auto* HitActor = HitResult.GetActor();
+		const auto* HitComponent = HitResult.GetComponent();
+		MOD_TRACE_LOG(
+			Verbose,
+			TEXT("HitResult[%i] with distance %f. Actor: [%s], Component: [%s]"),
+			HitIndex,
+			HitResult.Distance,
+			HitActor ? TEXT_STR(HitActor->GetName()) : TEXT_NULL,
+			HitComponent ? TEXT_STR(HitComponent->GetName()) : TEXT_NULL);
+		
 		if (!HitActor)
 		{
 			continue;
@@ -343,7 +358,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 		if (HitActor->IsA<APawn>())
 		{
-			MOD_TRACE_LOG(Verbose, TEXT("Hit Pawn!"));
+			MOD_TRACE_LOG(Verbose, TEXT("  Hit Pawn!"));
 			
 			// Never build if we intersect a pawn.
 			Result.BuildDistance = 0;
@@ -357,23 +372,19 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		}
 
 		// TODO(k.a): detect blueprint designer intersects.
-
-		if (HitResult.Distance <= 1)
+		if (BuildConfig->IsIgnoredHit(HitResult))
 		{
-			MOD_TRACE_LOG(Verbose, TEXT("Ignoring hit (too close)."));
+			MOD_TRACE_LOG(Verbose, TEXT("  Ignoring hit as the build config determined it should be ignored."));
 			continue;
 		}
 
-		const auto IsLandscapeHit = HitActor->IsA<ALandscapeProxy>();
-		const auto IsWaterHit = HitActor->IsA<AFGWaterVolume>();
-
 		// Check for a blocking hit.
-		if (IsLandscapeHit || (!AutoSupportData.OnlyIntersectTerrain && !IsWaterHit))
+		if (const auto IsLandscapeHit = BuildConfig->IsLandscapeTypeHit(HitResult); IsLandscapeHit || !AutoSupportData.OnlyIntersectTerrain)
 		{
 			Result.BuildDistance = HitResult.Distance;
 			Result.IsLandscapeHit = IsLandscapeHit;
 
-			MOD_TRACE_LOG(Verbose, TEXT("HitResult is a blocking hit. IsLandscape: %s"), TEXT_CONDITION(IsLandscapeHit))
+			MOD_TRACE_LOG(Verbose, TEXT("  Is blocking hit. IsLandscape: %s"), TEXT_BOOL(IsLandscapeHit))
 
 			if (IsLandscapeHit && AutoSupportData.EndPartDescriptor.IsValid())
 			{
@@ -385,7 +396,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 				// Bury the part if and extend the build distance.
 				Result.BuildDistance += BuryDistance;
 
-				MOD_TRACE_LOG(Verbose, TEXT("Extended build distance by %f to bury end part."), BuryDistance);
+				MOD_TRACE_LOG(Verbose, TEXT("  Extended build distance by %f to bury end part."), BuryDistance);
 			}
 			
 			return Result;
@@ -425,8 +436,8 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 	}
 }
 
-FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction) const
+FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction, const float MaxBuildDistance)
 {
-	return StartLocation + Direction * FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
+	return StartLocation + Direction * MaxBuildDistance;
 }
 
