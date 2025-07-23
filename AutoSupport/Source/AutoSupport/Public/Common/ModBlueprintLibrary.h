@@ -7,6 +7,8 @@
 #include "ModTypes.h"
 #include "ModBlueprintLibrary.generated.h"
 
+class UAutoSupportPartPickerConfigModule;
+class UAutoSupportBuildConfigModule;
 class UFGBuildingDescriptor;
 class UPanelSlot;
 
@@ -16,6 +18,16 @@ class AUTOSUPPORT_API UAutoSupportBlueprintLibrary : public UBlueprintFunctionLi
 	GENERATED_BODY()
 
 public:
+
+#pragma region Modules and Subsystems
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport", meta = (DefaultToSelf = "WorldContext"))
+	static UAutoSupportBuildConfigModule* GetBuildConfigModule(const UObject* WorldContext);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport", meta = (DefaultToSelf = "WorldContext"))
+	static UAutoSupportPartPickerConfigModule* GetPartPickerConfigModule(const UObject* WorldContext);
+	
+#pragma endregion
 
 #pragma region Building Helpers
 	

@@ -1,6 +1,8 @@
 ﻿
 #include "ModBlueprintLibrary.h"
 
+#include "AutoSupportBuildConfigModule.h"
+#include "AutoSupportPartPickerConfigModule.h"
 #include "BuildableAutoSupportProxy.h"
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
@@ -15,6 +17,18 @@
 #include "ModLogging.h"
 
 #pragma region Building Helpers
+
+UAutoSupportBuildConfigModule* UAutoSupportBlueprintLibrary::GetBuildConfigModule(const UObject* WorldContext)
+{
+	const auto* WorldObject = GEngine->GetWorldFromContextObjectChecked(WorldContext);
+	return UAutoSupportBuildConfigModule::Get(WorldObject);
+}
+
+UAutoSupportPartPickerConfigModule* UAutoSupportBlueprintLibrary::GetPartPickerConfigModule(const UObject* WorldContext)
+{
+	const auto* WorldObject = GEngine->GetWorldFromContextObjectChecked(WorldContext);
+	return UAutoSupportPartPickerConfigModule::Get(WorldObject);
+}
 
 EAutoSupportBuildDirection UAutoSupportBlueprintLibrary::GetOppositeDirection(const EAutoSupportBuildDirection Direction)
 {
