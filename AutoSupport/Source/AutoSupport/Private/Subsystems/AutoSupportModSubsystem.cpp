@@ -178,11 +178,6 @@ void AAutoSupportModSubsystem::SetLastAutoSupport4mData(const FBuildableAutoSupp
 	LastAutoSupportData = Data;
 }
 
-void AAutoSupportModSubsystem::SetSelectedAutoSupportPresetName(FString PresetName)
-{
-	SelectedAutoSupportPresetName = PresetName;
-}
-
 void AAutoSupportModSubsystem::GetAutoSupportPresetNames(TArray<FString>& OutNames) const
 {
 	AutoSupportPresets.GenerateKeyArray(OutNames);

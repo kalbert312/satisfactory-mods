@@ -105,12 +105,6 @@ protected:
 	 */
 	UPROPERTY(VisibleInstanceOnly, SaveGame)
 	FBuildableAutoSupportData LastAutoSupport4mData;
-	
-	/**
-	 * The selected preset in the interactable UI. Persists between opens. Note that this is just the selection and does not affect support configuration.
-	 */
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, SaveGame)
-	FString SelectedAutoSupportPresetName;
 
 	/**
 	 * The player saved presets.
