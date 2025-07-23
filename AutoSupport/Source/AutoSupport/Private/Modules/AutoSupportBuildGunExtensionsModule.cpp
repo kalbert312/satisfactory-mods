@@ -12,14 +12,7 @@
 
 UAutoSupportBuildGunExtensionsModule* UAutoSupportBuildGunExtensionsModule::Get(const UWorld* World)
 {
-	auto* RootModule = UAutoSupportGameWorldModule::Get(World);
-
-	if (!RootModule)
-	{
-		return nullptr;
-	}
-	
-	return Cast<UAutoSupportBuildGunExtensionsModule>(RootModule->GetChildModule(AutoSupportConstants::ModuleName_BuildGunExtensions, StaticClass()));
+	return GetChild<UAutoSupportBuildGunExtensionsModule>(World, AutoSupportConstants::ModuleName_BuildGunExtensions);
 }
 
 void UAutoSupportBuildGunExtensionsModule::DispatchLifecycleEvent(ELifecyclePhase Phase)

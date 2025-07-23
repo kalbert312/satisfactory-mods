@@ -1,17 +1,30 @@
-﻿//
+﻿// 
 
-#include "AutoSupportBuildConfig.h"
+#include "AutoSupportBuildConfigModule.h"
 
 #include "BP_ModConfig_AutoSupportStruct.h"
 #include "FGWaterVolume.h"
 #include "LandscapeProxy.h"
+#include "ModConstants.h"
 
-float UAutoSupportBuildConfig::GetMaxBuildDistance() const
+UAutoSupportBuildConfigModule* UAutoSupportBuildConfigModule::Get(const UWorld* World)
+{
+	auto* RootModule = GetRoot(World);
+
+	if (!RootModule)
+	{
+		return nullptr;
+	}
+	
+	return Cast<UAutoSupportBuildConfigModule>(RootModule->GetChildModule(AutoSupportConstants::ModuleName_BuildConfig, StaticClass()));
+}
+
+float UAutoSupportBuildConfigModule::GetMaxBuildDistance() const
 {
 	return FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.MaxBuildDistance;
 }
 
-bool UAutoSupportBuildConfig::IsLandscapeTypeHit(const FHitResult& HitResult) const
+bool UAutoSupportBuildConfigModule::IsLandscapeTypeHit(const FHitResult& HitResult) const
 {
 	const auto* HitActor = HitResult.GetActor();
 
@@ -43,7 +56,7 @@ bool UAutoSupportBuildConfig::IsLandscapeTypeHit(const FHitResult& HitResult) co
 	return false;
 }
 
-bool UAutoSupportBuildConfig::IsIgnoredHit(const FHitResult& HitResult) const
+bool UAutoSupportBuildConfigModule::IsIgnoredHit(const FHitResult& HitResult) const
 {
 	return HitResult.Distance <= 1.f || !HitResult.GetActor() || HitResult.GetActor()->IsA<AFGWaterVolume>();
 }

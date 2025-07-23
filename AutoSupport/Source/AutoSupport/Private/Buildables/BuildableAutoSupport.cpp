@@ -2,7 +2,7 @@
 
 #include "BuildableAutoSupport.h"
 
-#include "AutoSupportBuildConfig.h"
+#include "AutoSupportBuildConfigModule.h"
 #include "AutoSupportModLocalPlayerSubsystem.h"
 #include "AutoSupportModSubsystem.h"
 #include "BP_ModConfig_AutoSupportStruct.h"
@@ -14,8 +14,6 @@
 #include "FGHologram.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "FGPlayerController.h"
-#include "FGWaterVolume.h"
-#include "LandscapeProxy.h"
 #include "ModBlueprintLibrary.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
@@ -260,10 +258,9 @@ void ABuildableAutoSupport::SaveLastUsedData()
 FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 {
 	MOD_TRACE_LOG(Verbose, TEXT("BEGIN TRACE ---------------------------"));
-	
-	const auto* AutoSupportSubsys = AAutoSupportModSubsystem::Get(GetWorld());
-	fgcheck(AutoSupportSubsys);
-	const auto* BuildConfig = AutoSupportSubsys->GetBuildConfig();
+
+	const auto* BuildConfig = UAutoSupportBuildConfigModule::Get(GetWorld());
+	fgcheck(BuildConfig);
 	
 	// World +X = East, World +Y = South, +Z = Sky
 	FAutoSupportTraceResult Result;

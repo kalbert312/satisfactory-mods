@@ -22,11 +22,6 @@ class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IF
 public:
 	static AAutoSupportModSubsystem* Get(const UWorld* World);
 	
-	FORCEINLINE const UAutoSupportBuildConfig* GetBuildConfig() const
-	{
-		return BuildConfig;
-	};
-	
 	void RegisterProxy(ABuildableAutoSupportProxy* Proxy);
 	void RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy);
 	
@@ -87,12 +82,6 @@ public:
 #pragma endregion
 
 protected:
-	/**
-	 * Configuration for auto support building.
-	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Auto Support")
-	TObjectPtr<UAutoSupportBuildConfig> BuildConfig;
-	
 	/**
 	 * The last configuration used. Will preconfigure new placements.
 	 */

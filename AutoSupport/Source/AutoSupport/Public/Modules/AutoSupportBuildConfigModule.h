@@ -1,18 +1,23 @@
-﻿#pragma once
+﻿// 
+
+#pragma once
 
 #include "CoreMinimal.h"
-#include "AutoSupportBuildConfig.generated.h"
+#include "AutoSupportGameWorldModule.h"
+#include "AutoSupportBuildConfigModule.generated.h"
 
 /**
- * Configuration related to building and tracing for auto supports.
+ * Child game module that supplies configuration for Auto Support builds. This is spawned via the Blueprint class of AutoSupportGameWorldModule.
  */
-UCLASS(BlueprintType)
-class AUTOSUPPORT_API UAutoSupportBuildConfig : public UDataAsset
+UCLASS(Blueprintable)
+class AUTOSUPPORT_API UAutoSupportBuildConfigModule : public UAutoSupportGameWorldModule
 {
 	GENERATED_BODY()
 
 public:
 
+	static UAutoSupportBuildConfigModule* Get(const UWorld* World);
+	
 	/**
 	 * @return The maximum build distance (trace distance) of an Auto Support cube. 
 	 */
@@ -29,5 +34,4 @@ public:
 	 * @return True if the hit result is to be ignored.
 	 */
 	bool IsIgnoredHit(const FHitResult& HitResult) const;
-	
 };
