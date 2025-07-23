@@ -4,8 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "AutoSupportGameWorldModule.h"
+#include "ContentTagRegistry.h"
+#include "GameplayTagContainer.h"
 #include "AutoSupportPartPickerConfigModule.generated.h"
 
+class UContentTagRegistry;
 class UFGBuildDescriptor;
 class UFGCategory;
 
@@ -20,7 +23,9 @@ class AUTOSUPPORT_API UAutoSupportPartPickerConfigModule : public UAutoSupportGa
 public:
 
 	static UAutoSupportPartPickerConfigModule* Get(const UWorld* World);
-	
+
+	virtual void DispatchLifecycleEvent(ELifecyclePhase Phase) override;
+
 	UFUNCTION(BlueprintCallable)
 	bool IsCategoryExcluded(TSubclassOf<UFGCategory> Category) const;
 	
@@ -32,5 +37,12 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool IsPartForceIncluded(TSubclassOf<UFGBuildDescriptor> Descriptor) const;
+
+protected:
+
+	FGameplayTag ExcludeTag;
+	FGameplayTag IncludeTag;
+
+	TSet<FString> AdditionalExcludedCategoryNames;
 	
 };
