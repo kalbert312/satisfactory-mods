@@ -21,6 +21,9 @@ struct FBP_ModConfig_AutoSupportStruct_ConstraintsSection {
 public:
     UPROPERTY(BlueprintReadWrite)
     int32 MaxBuildDistance{};
+
+    UPROPERTY(BlueprintReadWrite)
+    TArray<FString> PartPickerExcludedCategoryNames{};
 };
 
 /* Struct generated from Mod Configuration Asset '/AutoSupport/Config/BP_ModConfig_AutoSupport' */
