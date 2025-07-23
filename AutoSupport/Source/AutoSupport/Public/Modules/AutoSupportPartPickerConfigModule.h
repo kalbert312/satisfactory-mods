@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "AutoSupportGameWorldModule.h"
-#include "ContentTagRegistry.h"
 #include "GameplayTagContainer.h"
 #include "AutoSupportPartPickerConfigModule.generated.h"
 

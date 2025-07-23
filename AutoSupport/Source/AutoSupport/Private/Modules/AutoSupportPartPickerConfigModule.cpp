@@ -7,6 +7,7 @@
 #include "FGBuildDescriptor.h"
 #include "FGCategory.h"
 #include "ModConstants.h"
+#include "ModLogging.h"
 
 UAutoSupportPartPickerConfigModule* UAutoSupportPartPickerConfigModule::Get(const UWorld* World)
 {
@@ -24,6 +25,7 @@ void UAutoSupportPartPickerConfigModule::DispatchLifecycleEvent(const ELifecycle
 		
 		for (const auto& ExcludedCategoryName : FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.PartPickerExcludedCategoryNames)
 		{
+			MOD_LOG(Verbose, TEXT("Adding excluded category name: [%s]"), TEXT_STR(ExcludedCategoryName))
 			AdditionalExcludedCategoryNames.Add(ExcludedCategoryName);
 		}
 	}
