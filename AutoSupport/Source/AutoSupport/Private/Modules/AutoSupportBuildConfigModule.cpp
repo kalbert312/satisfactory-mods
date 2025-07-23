@@ -9,18 +9,12 @@
 #include "FGWaterVolume.h"
 #include "LandscapeProxy.h"
 #include "ModConstants.h"
+#include "ModLogging.h"
 #include "Engine/StaticMeshActor.h"
 
 UAutoSupportBuildConfigModule* UAutoSupportBuildConfigModule::Get(const UWorld* World)
 {
-	auto* RootModule = GetRoot(World);
-
-	if (!RootModule)
-	{
-		return nullptr;
-	}
-	
-	return Cast<UAutoSupportBuildConfigModule>(RootModule->GetChildModule(AutoSupportConstants::ModuleName_BuildConfig, StaticClass()));
+	return GetChild<UAutoSupportBuildConfigModule>(World, AutoSupportConstants::ModuleName_BuildConfig);
 }
 
 void UAutoSupportBuildConfigModule::DispatchLifecycleEvent(ELifecyclePhase Phase)
@@ -57,7 +51,7 @@ EAutoSupportTraceHitClassification UAutoSupportBuildConfigModule::CalculateHitCl
 		return EAutoSupportTraceHitClassification::Landscape;
 	}
 
-	if (HitActor->IsA<AAbstractInstanceManager>())
+	if (HitActor->IsA<AAbstractInstanceManager>() || HitActor->IsA<AFGBuildable>())
 	{
 		return bOnlyLandscapeBlocks ? EAutoSupportTraceHitClassification::Ignore : EAutoSupportTraceHitClassification::Block;
 	}
@@ -84,17 +78,41 @@ EAutoSupportTraceHitClassification UAutoSupportBuildConfigModule::CalculateHitCl
 	}
 	
 	const auto* HitComponent = HitResult.GetComponent();
-	
-	if (auto* StaticMeshActor = Cast<AStaticMeshActor>(HitActor); StaticMeshActor && HitComponent)
+
+	if (const auto* HitMesh = GetHitStaticMeshForStaticMeshActor(HitActor, HitComponent); HitMesh)
 	{
-		if (const auto* HitMeshComponent = Cast<UStaticMeshComponent>(HitComponent); HitMeshComponent)
+		const auto PathName = HitMesh->GetPathName();
+		MOD_TRACE_LOG(Verbose, TEXT("Hit mesh path: [%s]"), TEXT_STR(PathName))
+		
+		for (const auto& IgnorePath : TraceIgnoreVanillaMeshContentPaths)
 		{
-			if (const auto HitMesh = HitMeshComponent->GetStaticMesh(); HitMesh)
+			if (PathName.StartsWith(IgnorePath))
 			{
-				// TODO(k.a): check mesh against set of landscape-like meshes
+				return EAutoSupportTraceHitClassification::Ignore;
+			}
+		}
+
+		for (const auto& LandscapePath : TraceLandscapeVanillaMeshContentPaths)
+		{
+			if (PathName.StartsWith(LandscapePath))
+			{
+				return EAutoSupportTraceHitClassification::Landscape;
 			}
 		}
 	}
 	
 	return bOnlyLandscapeBlocks ? EAutoSupportTraceHitClassification::Ignore : EAutoSupportTraceHitClassification::Block;
+}
+
+UStaticMesh* UAutoSupportBuildConfigModule::GetHitStaticMeshForStaticMeshActor(const AActor* HitActor, const UPrimitiveComponent* HitComponent)
+{
+	if (const auto* StaticMeshActor = Cast<AStaticMeshActor>(HitActor); StaticMeshActor && HitComponent)
+	{
+		if (const auto* HitMeshComponent = Cast<UStaticMeshComponent>(HitComponent); HitMeshComponent)
+		{
+			return HitMeshComponent->GetStaticMesh();
+		}
+	}
+
+	return nullptr;
 }

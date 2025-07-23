@@ -36,9 +36,22 @@ public:
 	EAutoSupportTraceHitClassification CalculateHitClassification(const FHitResult& HitResult, bool bOnlyLandscapeBlocks, TSubclassOf<UFGConstructDisqualifier>& OutDisqualifier) const;
 
 protected:
+	/**
+	 * Paths of meshes (ex. /Game/FactoryGame/...) to ignore hits of.
+	 */
+	UPROPERTY(EditDefaultsOnly)
+	TSet<FString> TraceIgnoreVanillaMeshContentPaths;
 
+	/**
+	 * Paths of meshes (ex. /Game/FactoryGame/...) to consider as landscape hits (Rocks, Cliffs, Caves, etc).
+	 */
+	UPROPERTY(EditDefaultsOnly)
+	TSet<FString> TraceLandscapeVanillaMeshContentPaths;
+	
 	FGameplayTag TraceLandscapeTag;
 
 	FGameplayTag TraceIgnoreTag;
+
+	static UStaticMesh* GetHitStaticMeshForStaticMeshActor(const AActor* HitActor, const UPrimitiveComponent* HitComponent);
 	
 };
