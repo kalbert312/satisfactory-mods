@@ -333,6 +333,8 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 		return Result;
 	}
 
+	auto* ContentTagRegistry = UContentTagRegistry::Get(GetWorld());
+
 	int32 HitIndex = -1;
 	for (const auto& HitResult : HitResults)
 	{
@@ -350,7 +352,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 
 		TSubclassOf<UFGConstructDisqualifier> Disqualifier = nullptr;
 
-		switch (const auto HitClassification = BuildConfig->CalculateHitClassification(HitResult, AutoSupportData.OnlyIntersectTerrain, Disqualifier))
+		switch (const auto HitClassification = BuildConfig->CalculateHitClassification(HitResult, AutoSupportData.OnlyIntersectTerrain, ContentTagRegistry, Disqualifier))
 		{
 			default:
 			case EAutoSupportTraceHitClassification::Block:

@@ -36,6 +36,7 @@ float UAutoSupportBuildConfigModule::GetMaxBuildDistance() const
 EAutoSupportTraceHitClassification UAutoSupportBuildConfigModule::CalculateHitClassification(
 	const FHitResult& HitResult,
 	const bool bOnlyLandscapeBlocks,
+	UContentTagRegistry* ContentTagRegistry,
 	TSubclassOf<UFGConstructDisqualifier>& OutDisqualifier) const
 {
 	OutDisqualifier = nullptr;
@@ -67,7 +68,7 @@ EAutoSupportTraceHitClassification UAutoSupportBuildConfigModule::CalculateHitCl
 		return EAutoSupportTraceHitClassification::Pawn;
 	}
 
-	const auto ContentTags = UContentTagRegistry::Get(GetWorld())->GetGameplayTagContainerFor(HitActor->GetClass());
+	const auto ContentTags = ContentTagRegistry->GetGameplayTagContainerFor(HitActor->GetClass());
 	if (ContentTags.HasTagExact(TraceIgnoreTag))
 	{
 		return EAutoSupportTraceHitClassification::Ignore;
@@ -79,7 +80,7 @@ EAutoSupportTraceHitClassification UAutoSupportBuildConfigModule::CalculateHitCl
 	
 	const auto* HitComponent = HitResult.GetComponent();
 
-	if (const auto* HitMesh = GetHitStaticMeshForStaticMeshActor(HitActor, HitComponent); HitMesh)
+	if (const auto* HitMesh = GetHitStaticMesh(HitActor, HitComponent); HitMesh)
 	{
 		const auto PathName = HitMesh->GetPathName();
 		MOD_TRACE_LOG(Verbose, TEXT("Hit mesh path: [%s]"), TEXT_STR(PathName))
@@ -104,7 +105,7 @@ EAutoSupportTraceHitClassification UAutoSupportBuildConfigModule::CalculateHitCl
 	return bOnlyLandscapeBlocks ? EAutoSupportTraceHitClassification::Ignore : EAutoSupportTraceHitClassification::Block;
 }
 
-UStaticMesh* UAutoSupportBuildConfigModule::GetHitStaticMeshForStaticMeshActor(const AActor* HitActor, const UPrimitiveComponent* HitComponent)
+UStaticMesh* UAutoSupportBuildConfigModule::GetHitStaticMesh(const AActor* HitActor, const UPrimitiveComponent* HitComponent)
 {
 	if (const auto* StaticMeshActor = Cast<AStaticMeshActor>(HitActor); StaticMeshActor && HitComponent)
 	{

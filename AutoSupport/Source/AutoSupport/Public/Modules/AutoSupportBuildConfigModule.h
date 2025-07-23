@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AutoSupportGameWorldModule.h"
+#include "ContentTagRegistry.h"
 #include "GameplayTagContainer.h"
 #include "ModTypes.h"
 #include "AutoSupportBuildConfigModule.generated.h"
@@ -29,11 +30,16 @@ public:
 
 	/**
 	 * @param HitResult The hit result.
-	 * @param bOnlyLandscapeBlocks
-	 * @param OutDisqualifier
+	 * @param bOnlyLandscapeBlocks True if landscape type hits should only be considered.
+	 * @param ContentTagRegistry The content tag registry.
+	 * @param OutDisqualifier Set if the hit invalidates the build.
 	 * @return The hit classification.
 	 */
-	EAutoSupportTraceHitClassification CalculateHitClassification(const FHitResult& HitResult, bool bOnlyLandscapeBlocks, TSubclassOf<UFGConstructDisqualifier>& OutDisqualifier) const;
+	EAutoSupportTraceHitClassification CalculateHitClassification(
+		const FHitResult& HitResult,
+		bool bOnlyLandscapeBlocks,
+		UContentTagRegistry* ContentTagRegistry,
+		TSubclassOf<UFGConstructDisqualifier>& OutDisqualifier) const;
 
 protected:
 	/**
@@ -52,6 +58,6 @@ protected:
 
 	FGameplayTag TraceIgnoreTag;
 
-	static UStaticMesh* GetHitStaticMeshForStaticMeshActor(const AActor* HitActor, const UPrimitiveComponent* HitComponent);
+	static UStaticMesh* GetHitStaticMesh(const AActor* HitActor, const UPrimitiveComponent* HitComponent);
 	
 };
