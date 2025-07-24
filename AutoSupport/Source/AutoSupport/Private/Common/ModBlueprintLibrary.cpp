@@ -278,7 +278,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		RemainingBuildDistance = FMath::Max(0.f, RemainingBuildDistance);
 		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
 
-		if (NumMiddleParts > 0)
+		if (!FMath::IsNearlyZero(RemainingBuildDistance))
 		{
 			RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
 
