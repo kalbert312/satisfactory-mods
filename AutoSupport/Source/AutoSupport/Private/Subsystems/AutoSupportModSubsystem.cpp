@@ -204,11 +204,6 @@ void AAutoSupportModSubsystem::SaveAutoSupportPreset(FString PresetName, FBuilda
 void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
 {
 	AutoSupportPresets.Remove(PresetName);
-
-	if (PresetName.Equals(SelectedAutoSupportPresetName))
-	{
-		SelectedAutoSupportPresetName = TEXT("");
-	}
 }
 
 bool AAutoSupportModSubsystem::IsExistingAutoSupportPreset(FString PresetName) const

@@ -60,9 +60,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetLastAutoSupport4mData(const FBuildableAutoSupportData& Data);
-
-	UFUNCTION(BlueprintCallable)
-	void SetSelectedAutoSupportPresetName(FString PresetName);
 	
 	UFUNCTION(BlueprintCallable)
 	void GetAutoSupportPresetNames(TArray<FString>& OutNames) const;
