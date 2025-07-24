@@ -301,6 +301,11 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 	
 	FORCEINLINE bool IsActionable() const
 	{
+		if (!BuildDisqualifiers.IsEmpty())
+		{
+			return false;
+		}
+		
 		if (MidPart.IsUnspecified() && StartPart.IsUnspecified() && EndPart.IsUnspecified())
 		{
 			return false;
@@ -308,7 +313,7 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 		
 		if ((MidPart.IsUnspecified() || MidPart.IsActionable()) && (StartPart.IsUnspecified() || StartPart.IsActionable()) && (EndPart.IsUnspecified() || EndPart.IsActionable()))
 		{
-			return BuildDisqualifiers.Num() == 0;
+			return true;
 		}
 
 		return false;

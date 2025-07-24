@@ -196,6 +196,8 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 
 	fgcheck(RootHologram)
 
+	LocalBoundingBox = LocalBoundingBox.ExpandBy(0.5f); // pad a little to avoid z fighting. 
+
 	MOD_LOG(Verbose, TEXT("Local Bounding Box: %s"), *LocalBoundingBox.ToString())
 
 	LocalBoundingBox.IsValid = true; // ...
@@ -229,15 +231,12 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		OutPlan.BuildDisqualifiers.Add(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
 		return;
 	}
-
-	auto bAtLeastOneInitialized = false;
+	
 	const auto* RecipeManager = AFGRecipeManager::Get(World);
 	
 	// Start with the top because that's where the auto support is planted.
 	if (InitializePartPlan(AutoSupportData.StartPartDescriptor, AutoSupportData.StartPartOrientation, AutoSupportData.StartPartCustomization, OutPlan.StartPart, RecipeManager))
 	{
-		bAtLeastOneInitialized = true;
-		
 		if (RemainingBuildDistance > OutPlan.StartPart.ConsumedBuildSpace || FMath::IsNearlyEqual(RemainingBuildDistance, OutPlan.StartPart.ConsumedBuildSpace))
 		{
 			RemainingBuildDistance -= OutPlan.StartPart.ConsumedBuildSpace;
@@ -246,8 +245,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		}
 		else
 		{
-			OutPlan.BuildDisqualifiers.Add(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
-			return;
+			OutPlan.BuildDisqualifiers.AddUnique(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
 		}
 	}
 	else
@@ -258,8 +256,6 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	// Do the end next. There may not be enough room for mid pieces.
 	if (InitializePartPlan(AutoSupportData.EndPartDescriptor, AutoSupportData.EndPartOrientation, AutoSupportData.EndPartCustomization, OutPlan.EndPart, RecipeManager))
 	{
-		bAtLeastOneInitialized = true;
-		
 		if (RemainingBuildDistance > OutPlan.EndPart.ConsumedBuildSpace || FMath::IsNearlyEqual(RemainingBuildDistance, OutPlan.EndPart.ConsumedBuildSpace))
 		{
 			RemainingBuildDistance -= OutPlan.EndPart.ConsumedBuildSpace;
@@ -268,7 +264,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		}
 		else
 		{
-			MOD_TRACE_LOG(Verbose, TEXT("Not enough room for end part. Not building."))
+			OutPlan.BuildDisqualifiers.AddUnique(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
 		}
 	}
 	else
@@ -278,17 +274,16 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	
 	if (InitializePartPlan(AutoSupportData.MiddlePartDescriptor, AutoSupportData.MiddlePartOrientation, AutoSupportData.MiddlePartCustomization, OutPlan.MidPart, RecipeManager))
 	{
-		bAtLeastOneInitialized = true;
-		
 		const auto SinglePartConsumedBuildSpace = FMath::Max(1.f, OutPlan.MidPart.ConsumedBuildSpace);
+		RemainingBuildDistance = FMath::Max(0.f, RemainingBuildDistance);
 		auto NumMiddleParts = static_cast<int32>(RemainingBuildDistance / SinglePartConsumedBuildSpace);
 
-		if (!FMath::IsNearlyZero(RemainingBuildDistance))
+		if (NumMiddleParts > 0)
 		{
 			RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
 
 			auto IsNearlyPerfectFit = RemainingBuildDistance <= 1.f;
-			if (!IsNearlyPerfectFit)
+			if (!IsNearlyPerfectFit && OutPlan.EndPart.Count > 0)
 			{
 				NumMiddleParts++; // build an extra to fill the gap.
 			
@@ -303,7 +298,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		}
 		else
 		{
-			MOD_TRACE_LOG(Verbose, TEXT("Not enough room for middle part. Not building."))
+			OutPlan.BuildDisqualifiers.AddUnique(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
 		}
 	}
 	else
@@ -312,11 +307,6 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	}
 
 	CalculateTotalCost(OutPlan);
-
-	if (bAtLeastOneInitialized && OutPlan.StartPart.Count == 0 && OutPlan.MidPart.Count == 0 && OutPlan.EndPart.Count == 0)
-	{
-		OutPlan.BuildDisqualifiers.Add(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
-	}
 }
 
 bool UAutoSupportBlueprintLibrary::IsPlanActionable(const FAutoSupportBuildPlan& Plan)
