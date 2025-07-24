@@ -1,15 +1,15 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "1.0.0",
+	"VersionName": "1.1.0",
 	"FriendlyName": "AutoSupport",
 	"Description": "Provides buildables to automatically build support structures.",
 	"Category": "Modding",
 	"CreatedBy": "Kyle Albert",
 	"CreatedByURL": "",
-	"DocsURL": "",
+	"DocsURL": "https://github.com/kalbert312/satisfactory-mods/blob/main/AutoSupport/README.md",
 	"MarketplaceURL": "",
-	"SupportURL": "",
+	"SupportURL": "https://github.com/kalbert312/satisfactory-mods/issues",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
@@ -28,6 +28,6 @@
 			"SemVersion": "^3.11.1"
 		}
 	],
-	"SemVersion": "1.0.0",
+	"SemVersion": "1.1.0",
 	"GameVersion": ">=416835"
 }
