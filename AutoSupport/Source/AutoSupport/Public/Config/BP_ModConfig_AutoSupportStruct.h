@@ -23,7 +23,7 @@ public:
     int32 MaxBuildDistance{};
 
     UPROPERTY(BlueprintReadWrite)
-    TArray<FString> PartPickerExcludedCategoryNames{};
+    FString PartPickerExcludedCategoryNames{};
 };
 
 /* Struct generated from Mod Configuration Asset '/AutoSupport/Config/BP_ModConfig_AutoSupport' */

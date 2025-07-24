@@ -22,18 +22,27 @@ void UAutoSupportPartPickerConfigModule::DispatchLifecycleEvent(const ELifecycle
 	{
 		ExcludeTag = FGameplayTag::RequestGameplayTag(AutoSupportConstants::TagName_AutoSupport_PartPicker_Exclude);
 		IncludeTag = FGameplayTag::RequestGameplayTag(AutoSupportConstants::TagName_AutoSupport_PartPicker_Include);
-		
-		for (const auto& ExcludedCategoryName : FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.PartPickerExcludedCategoryNames)
+	}
+	else if (Phase == ELifecyclePhase::INITIALIZATION)
+	{
+		const auto ExcludedCategoryNamesStr = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).ConstraintsSection.PartPickerExcludedCategoryNames;
+
+		if (!ExcludedCategoryNamesStr.IsEmpty())
 		{
-			MOD_LOG(Verbose, TEXT("Adding excluded category name: [%s]"), TEXT_STR(ExcludedCategoryName))
-			AdditionalExcludedCategoryNames.Add(ExcludedCategoryName);
+			TArray<FString> ExcludedCategoryNames;
+			ExcludedCategoryNamesStr.ParseIntoArray(ExcludedCategoryNames, TEXT(","), true);
+		
+			for (const auto& ExcludedCategoryName : ExcludedCategoryNames)
+			{
+				AdditionalExcludedCategoryNames.Add(ExcludedCategoryName.TrimStartAndEnd().ToLower());
+			}
 		}
 	}
 }
 
 bool UAutoSupportPartPickerConfigModule::IsCategoryExcluded(const TSubclassOf<UFGCategory> Category) const
 {
-	if (AdditionalExcludedCategoryNames.Contains(UFGCategory::GetCategoryName(Category).ToString()))
+	if (AdditionalExcludedCategoryNames.Contains(UFGCategory::GetCategoryName(Category).ToString().TrimStartAndEnd().ToLower()))
 	{
 		return true;
 	}
