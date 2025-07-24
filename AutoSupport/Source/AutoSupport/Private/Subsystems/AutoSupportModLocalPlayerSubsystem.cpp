@@ -14,7 +14,7 @@
 
 UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const UWorld* World)
 {
-	if (const auto* Controller = UGameplayStatics::GetPlayerController(World, 0))
+	if (const auto* Controller = UGameplayStatics::GetPlayerController(World, 0); Controller)
 	{
 		return Get(Controller);
 	}
@@ -24,7 +24,7 @@ UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(co
 
 UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const APawn* Pawn)
 {
-	if (const auto* Controller = Cast<APlayerController>(Pawn->GetController()))
+	if (const auto* Controller = Cast<APlayerController>(Pawn->GetController()); Controller)
 	{
 		return Get(Controller);
 	}
@@ -34,7 +34,7 @@ UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(co
 
 UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const APlayerController* Controller)
 {
-	if (const auto* LocalPlayer = Controller->GetLocalPlayer())
+	if (const auto* LocalPlayer = Controller->GetLocalPlayer(); LocalPlayer)
 	{
 		return LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
 	}
