@@ -133,90 +133,6 @@ FRotator UAutoSupportBlueprintLibrary::GetForwardVectorRotator(const EAutoSuppor
 	return DeltaRot;
 }
 
-bool UAutoSupportBlueprintLibrary::TryGetSnapTransformFromHitResult(
-	const AFGBuildable* HitBuildable,
-	const FHitResult& HitResult,
-	const FAutoSupportSnapConfig& SnapConfig,
-	FVector& OutLocation,
-	FRotator& OutRotation)
-{
-	if (!IsValid(HitBuildable))
-	{
-		return false;
-	}
-
-	// Map the impact normal to a cardinal direction.
-	const auto HitNormal = HitResult.ImpactNormal.GetSafeNormal();
-
-	const auto ForwardVector = HitBuildable->GetActorForwardVector().GetSafeNormal();
-	const auto RightVector = HitBuildable->GetActorRightVector().GetSafeNormal();
-	const auto UpVector = HitBuildable->GetActorUpVector().GetSafeNormal();
-
-	const auto ForwardDot = FVector::DotProduct(ForwardVector, HitNormal);
-	const auto RightDot = FVector::DotProduct(RightVector, HitNormal);
-	const auto UpDot = FVector::DotProduct(UpVector, HitNormal);
-
-	const auto AbsDotForward = FMath::Abs(ForwardDot);
-	const auto AbsDotRight = FMath::Abs(RightDot);
-	const auto AbsDotUp = FMath::Abs(UpDot);
-
-	EAutoSupportBuildDirection SnapDirection;
-	
-	if (AbsDotUp > AbsDotForward && AbsDotUp > AbsDotRight)
-	{
-		SnapDirection = UpDot > 0 ? EAutoSupportBuildDirection::Top : EAutoSupportBuildDirection::Bottom;
-	}
-	else if (AbsDotForward > AbsDotRight)
-	{
-		SnapDirection = ForwardDot > 0 ? EAutoSupportBuildDirection::Front : EAutoSupportBuildDirection::Back;
-	}
-	else
-	{
-		SnapDirection = RightDot > 0 ? EAutoSupportBuildDirection::Right : EAutoSupportBuildDirection::Left;
-	}
-
-	// The snap direction must be registered to be a valid snap direction.
-	const auto* SnapRelativeTransformEntry = SnapConfig.SnapTransforms.Find(SnapDirection);
-	if (!SnapRelativeTransformEntry)
-	{
-		return false;
-	}
-
-	// Using the snap direction, calculate a rotation and location for the snap. Use the clearance box as a starting transform.
-	const auto HitBBox = HitBuildable->GetCombinedClearanceBox();
-	if (!HitBBox.IsValid)
-	{
-		return false;
-	}
-		
-	FVector HitActorCenter, HitActorExtents;
-	HitBBox.GetCenterAndExtents(HitActorCenter, HitActorExtents);
-
-	OutLocation = HitBuildable->GetTransform().TransformPosition(HitActorCenter);
-	switch (SnapDirection)
-	{
-		default:
-		case EAutoSupportBuildDirection::Bottom:
-		case EAutoSupportBuildDirection::Top:
-			OutLocation += HitActorExtents * UpVector * (SnapDirection == EAutoSupportBuildDirection::Top ? 1.f : -1.f);
-			break;
-		case EAutoSupportBuildDirection::Front:
-		case EAutoSupportBuildDirection::Back:
-			OutLocation += HitActorExtents * ForwardVector * (SnapDirection == EAutoSupportBuildDirection::Front ? 1.f : -1.f);
-			break;
-		case EAutoSupportBuildDirection::Left:
-		case EAutoSupportBuildDirection::Right:
-			OutLocation += HitActorExtents * RightVector * (SnapDirection == EAutoSupportBuildDirection::Right ? 1.f : -1.f);
-			break;
-	}
-
-	OutLocation += HitBuildable->GetActorRotation().RotateVector(SnapRelativeTransformEntry->GetLocation());
-
-	OutRotation = GetDirectionRotator(GetOppositeDirection(SnapDirection));
-	
-	return true;
-}
-
 void UAutoSupportBlueprintLibrary::GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox)
 {
 	const auto Buildable = GetDefault<AFGBuildable>(BuildableClass);
@@ -484,6 +400,138 @@ float UAutoSupportBlueprintLibrary::GetBuryDistance(
 	}
 
 	return Size * BuryPercentage;
+}
+
+FRotator UAutoSupportBlueprintLibrary::GetSnapDirectionRotator(const EAutoSupportBuildDirection Direction)
+{
+	FRotator DeltaRot(0, 0, 0);
+	
+	switch (Direction)
+	{
+		default:
+		case EAutoSupportBuildDirection::Top:
+			// No-op
+			break;
+		case EAutoSupportBuildDirection::Bottom:
+			DeltaRot.Roll = 180;
+			break;
+		case EAutoSupportBuildDirection::Front:
+			DeltaRot.Pitch = -90;
+			break;
+		case EAutoSupportBuildDirection::Back:
+			DeltaRot.Pitch = 90;
+			break;
+		case EAutoSupportBuildDirection::Left:
+			DeltaRot.Roll = -90;
+			break;
+		case EAutoSupportBuildDirection::Right:
+			DeltaRot.Roll = 90;
+			break;
+	}
+
+	return DeltaRot;
+}
+
+bool UAutoSupportBlueprintLibrary::TryGetSnapTransformFromHitResult(
+	const AFGBuildable* HitBuildable,
+	const FHitResult& HitResult,
+	const AFGBuildableHologram* SnappingHologram,
+	const FAutoSupportSnapConfig& SnapConfig,
+	FVector& OutLocation,
+	FRotator& OutRotation)
+{
+	if (!IsValid(HitBuildable))
+	{
+		return false;
+	}
+
+	// Map the impact normal to a cardinal direction.
+	const auto HitNormal = HitResult.ImpactNormal.GetSafeNormal();
+
+	const auto ForwardVector = HitBuildable->GetActorForwardVector().GetSafeNormal();
+	const auto RightVector = HitBuildable->GetActorRightVector().GetSafeNormal();
+	const auto UpVector = HitBuildable->GetActorUpVector().GetSafeNormal();
+
+	const auto ForwardDot = FVector::DotProduct(ForwardVector, HitNormal);
+	const auto RightDot = FVector::DotProduct(RightVector, HitNormal);
+	const auto UpDot = FVector::DotProduct(UpVector, HitNormal);
+
+	const auto AbsDotForward = FMath::Abs(ForwardDot);
+	const auto AbsDotRight = FMath::Abs(RightDot);
+	const auto AbsDotUp = FMath::Abs(UpDot);
+
+	EAutoSupportBuildDirection SnapDirection;
+	
+	if (AbsDotUp > AbsDotForward && AbsDotUp > AbsDotRight)
+	{
+		SnapDirection = UpDot > 0 ? EAutoSupportBuildDirection::Top : EAutoSupportBuildDirection::Bottom;
+	}
+	else if (AbsDotForward > AbsDotRight)
+	{
+		SnapDirection = ForwardDot > 0 ? EAutoSupportBuildDirection::Front : EAutoSupportBuildDirection::Back;
+	}
+	else
+	{
+		SnapDirection = RightDot > 0 ? EAutoSupportBuildDirection::Right : EAutoSupportBuildDirection::Left;
+	}
+
+	// The snap direction must be registered to be a valid snap direction.
+	const auto* SnapRelativeTransformEntry = SnapConfig.SnapTransforms.Find(StaticEnum<EAutoSupportBuildDirection>()->GetNameByValue(static_cast<int64>(SnapDirection)));
+	if (!SnapRelativeTransformEntry)
+	{
+		return false;
+	}
+
+	// Using the snap direction, calculate a rotation and location for the snap. Use the clearance box as a starting transform.
+	const auto HitBBox = HitBuildable->GetCombinedClearanceBox();
+	if (!HitBBox.IsValid)
+	{
+		return false;
+	}
+		
+	FVector HitActorCenter, HitActorExtents;
+	HitBBox.GetCenterAndExtents(HitActorCenter, HitActorExtents);
+
+	OutLocation = HitBuildable->GetTransform().TransformPosition(HitActorCenter);
+	// position at the edge of the clearance box.
+	switch (SnapDirection)
+	{
+		default:
+		case EAutoSupportBuildDirection::Bottom:
+		case EAutoSupportBuildDirection::Top:
+			OutLocation += HitActorExtents * UpVector * (SnapDirection == EAutoSupportBuildDirection::Top ? 1.f : -1.f);
+			break;
+		case EAutoSupportBuildDirection::Front:
+		case EAutoSupportBuildDirection::Back:
+			OutLocation += HitActorExtents * ForwardVector * (SnapDirection == EAutoSupportBuildDirection::Front ? 1.f : -1.f);
+			break;
+		case EAutoSupportBuildDirection::Left:
+		case EAutoSupportBuildDirection::Right:
+			OutLocation += HitActorExtents * RightVector * (SnapDirection == EAutoSupportBuildDirection::Right ? 1.f : -1.f);
+			break;
+	}
+
+	MOD_TRACE_LOG(Verbose, TEXT("SnapDirection: [%s]"), TEXT_ENUM(SnapDirection));
+
+	OutLocation += HitBuildable->GetActorRotation().RotateVector(SnapRelativeTransformEntry->GetLocation());
+	
+	OutRotation = (HitBuildable->GetActorRotation().Quaternion() *
+		GetSnapDirectionRotator(SnapDirection).Quaternion()).Rotator();
+	
+	return true;
+}
+
+TArray<FName> UAutoSupportBlueprintLibrary::GetBuildDirectionNames()
+{
+	const auto* ReflectedEnum = StaticEnum<EAutoSupportBuildDirection>();
+	TArray<FName> Keys;
+		
+	for (const auto& Direction : TEnumRange<EAutoSupportBuildDirection>())
+	{
+		Keys.Add(ReflectedEnum->GetNameByValue(static_cast<int64>(Direction)));
+	}
+
+	return Keys;
 }
 
 #pragma endregion

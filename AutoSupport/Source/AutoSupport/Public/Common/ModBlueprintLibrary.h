@@ -43,11 +43,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static FRotator GetForwardVectorRotator(EAutoSupportBuildDirection Direction);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
-	static bool TryGetSnapTransformFromHitResult(
-		const AFGBuildable* HitBuildable, const FHitResult& HitResult, const FAutoSupportSnapConfig& SnapConfig, FVector& OutLocation, FRotator& OutRotation);
-
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static void GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox);
 	
@@ -77,6 +73,21 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static float GetBuryDistance(TSubclassOf<AFGBuildable> BuildableClass, float BuryPercentage, EAutoSupportBuildDirection PartOrientation);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static FRotator GetSnapDirectionRotator(EAutoSupportBuildDirection Direction);
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static bool TryGetSnapTransformFromHitResult(
+		const AFGBuildable* HitBuildable,
+		const FHitResult& HitResult,
+		const AFGBuildableHologram* SnappingHologram,
+		const FAutoSupportSnapConfig& SnapConfig,
+		FVector& OutLocation,
+		FRotator& OutRotation);
+
+	UFUNCTION(CallInEditor, BlueprintCallable)
+	static TArray<FName> GetBuildDirectionNames();
 
 #pragma endregion
 
