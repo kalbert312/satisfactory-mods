@@ -4,6 +4,7 @@
 #include "AutoSupportBuildConfigModule.h"
 #include "AutoSupportPartPickerConfigModule.h"
 #include "BuildableAutoSupportProxy.h"
+#include "BuildableAutoSupport_Hologram.h"
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
 #include "FGCentralStorageSubsystem.h"
@@ -50,7 +51,7 @@ EAutoSupportBuildDirection UAutoSupportBlueprintLibrary::GetOppositeDirection(co
 			break;
 	}
 
-	checkf(Direction != Direction, TEXT("Direction is %i"), static_cast<int32>(Direction));
+	checkf(Direction != Direction, TEXT("Direction is [%s]"), TEXT_ENUM(Direction));
 	
 	return Direction;
 }
@@ -132,6 +133,90 @@ FRotator UAutoSupportBlueprintLibrary::GetForwardVectorRotator(const EAutoSuppor
 	return DeltaRot;
 }
 
+bool UAutoSupportBlueprintLibrary::TryGetSnapTransformFromHitResult(
+	const AFGBuildable* HitBuildable,
+	const FHitResult& HitResult,
+	const FAutoSupportSnapConfig& SnapConfig,
+	FVector& OutLocation,
+	FRotator& OutRotation)
+{
+	if (!IsValid(HitBuildable))
+	{
+		return false;
+	}
+
+	// Map the impact normal to a cardinal direction.
+	const auto HitNormal = HitResult.ImpactNormal.GetSafeNormal();
+
+	const auto ForwardVector = HitBuildable->GetActorForwardVector().GetSafeNormal();
+	const auto RightVector = HitBuildable->GetActorRightVector().GetSafeNormal();
+	const auto UpVector = HitBuildable->GetActorUpVector().GetSafeNormal();
+
+	const auto ForwardDot = FVector::DotProduct(ForwardVector, HitNormal);
+	const auto RightDot = FVector::DotProduct(RightVector, HitNormal);
+	const auto UpDot = FVector::DotProduct(UpVector, HitNormal);
+
+	const auto AbsDotForward = FMath::Abs(ForwardDot);
+	const auto AbsDotRight = FMath::Abs(RightDot);
+	const auto AbsDotUp = FMath::Abs(UpDot);
+
+	EAutoSupportBuildDirection SnapDirection;
+	
+	if (AbsDotUp > AbsDotForward && AbsDotUp > AbsDotRight)
+	{
+		SnapDirection = UpDot > 0 ? EAutoSupportBuildDirection::Top : EAutoSupportBuildDirection::Bottom;
+	}
+	else if (AbsDotForward > AbsDotRight)
+	{
+		SnapDirection = ForwardDot > 0 ? EAutoSupportBuildDirection::Front : EAutoSupportBuildDirection::Back;
+	}
+	else
+	{
+		SnapDirection = RightDot > 0 ? EAutoSupportBuildDirection::Right : EAutoSupportBuildDirection::Left;
+	}
+
+	// The snap direction must be registered to be a valid snap direction.
+	const auto* SnapRelativeTransformEntry = SnapConfig.SnapTransforms.Find(SnapDirection);
+	if (!SnapRelativeTransformEntry)
+	{
+		return false;
+	}
+
+	// Using the snap direction, calculate a rotation and location for the snap. Use the clearance box as a starting transform.
+	const auto HitBBox = HitBuildable->GetCombinedClearanceBox();
+	if (!HitBBox.IsValid)
+	{
+		return false;
+	}
+		
+	FVector HitActorCenter, HitActorExtents;
+	HitBBox.GetCenterAndExtents(HitActorCenter, HitActorExtents);
+
+	OutLocation = HitBuildable->GetTransform().TransformPosition(HitActorCenter);
+	switch (SnapDirection)
+	{
+		default:
+		case EAutoSupportBuildDirection::Bottom:
+		case EAutoSupportBuildDirection::Top:
+			OutLocation += HitActorExtents * UpVector * (SnapDirection == EAutoSupportBuildDirection::Top ? 1.f : -1.f);
+			break;
+		case EAutoSupportBuildDirection::Front:
+		case EAutoSupportBuildDirection::Back:
+			OutLocation += HitActorExtents * ForwardVector * (SnapDirection == EAutoSupportBuildDirection::Front ? 1.f : -1.f);
+			break;
+		case EAutoSupportBuildDirection::Left:
+		case EAutoSupportBuildDirection::Right:
+			OutLocation += HitActorExtents * RightVector * (SnapDirection == EAutoSupportBuildDirection::Right ? 1.f : -1.f);
+			break;
+	}
+
+	OutLocation += HitBuildable->GetActorRotation().RotateVector(SnapRelativeTransformEntry->GetLocation());
+
+	OutRotation = GetDirectionRotator(GetOppositeDirection(SnapDirection));
+	
+	return true;
+}
+
 void UAutoSupportBlueprintLibrary::GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox)
 {
 	const auto Buildable = GetDefault<AFGBuildable>(BuildableClass);
@@ -176,19 +261,19 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 	
 	if (Plan.StartPart.IsActionable())
 	{
-		MOD_LOG(Verbose, TEXT("Building Start Part, Orientation: %i"), static_cast<int32>(Plan.StartPart.Orientation));
+		MOD_LOG(Verbose, TEXT("Building Start Part, Orientation: [%s]"), TEXT_ENUM(Plan.StartPart.Orientation));
 		SpawnPartPlanHolograms(RootHologram, Plan.StartPart, BuildInstigator, SupportProxy, Owner, WorkingTransform, LocalBoundingBox);
 	}
 
 	if (Plan.MidPart.IsActionable())
 	{
-		MOD_LOG(Verbose, TEXT("Building Mid Parts, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
+		MOD_LOG(Verbose, TEXT("Building Mid Parts, Orientation: [%s]"), TEXT_ENUM(Plan.EndPart.Orientation));
 		SpawnPartPlanHolograms(RootHologram, Plan.MidPart, BuildInstigator, SupportProxy, Owner, WorkingTransform, LocalBoundingBox);
 	}
 
 	if (Plan.EndPart.IsActionable())
 	{
-		MOD_LOG(Verbose, TEXT("Building End Part, Orientation: %i"), static_cast<int32>(Plan.EndPart.Orientation));
+		MOD_LOG(Verbose, TEXT("Building End Part, Orientation: [%s]"), TEXT_ENUM(Plan.EndPart.Orientation));
 		WorkingTransform.AddToTranslation(FVector::UpVector * Plan.EndPartPositionOffset);
 		
 		SpawnPartPlanHolograms(RootHologram, Plan.EndPart, BuildInstigator, SupportProxy, Owner, WorkingTransform, LocalBoundingBox);
@@ -198,7 +283,7 @@ AFGHologram* UAutoSupportBlueprintLibrary::CreateCompositeHologramFromPlan(
 
 	LocalBoundingBox = LocalBoundingBox.ExpandBy(0.5f); // pad a little to avoid z fighting. 
 
-	MOD_LOG(Verbose, TEXT("Local Bounding Box: %s"), *LocalBoundingBox.ToString())
+	MOD_LOG(Verbose, TEXT("Local Bounding Box: [%s]"), *LocalBoundingBox.ToString())
 
 	LocalBoundingBox.IsValid = true; // ...
 	

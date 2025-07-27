@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "BuildableAutoSupport_Hologram.h"
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
 #include "FGRecipeManager.h"
@@ -42,6 +43,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static FRotator GetForwardVectorRotator(EAutoSupportBuildDirection Direction);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
+	static bool TryGetSnapTransformFromHitResult(
+		const AFGBuildable* HitBuildable, const FHitResult& HitResult, const FAutoSupportSnapConfig& SnapConfig, FVector& OutLocation, FRotator& OutRotation);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AutoSupport")
 	static void GetBuildableClearance(TSubclassOf<AFGBuildable> BuildableClass, FBox& OutBox);

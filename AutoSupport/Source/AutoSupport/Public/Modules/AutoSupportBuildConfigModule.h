@@ -41,6 +41,8 @@ public:
 		UContentTagRegistry* ContentTagRegistry,
 		TSubclassOf<UFGConstructDisqualifier>& OutDisqualifier) const;
 
+	
+
 protected:
 	/**
 	 * Paths of meshes (ex. /Game/FactoryGame/...) to ignore hits of.
