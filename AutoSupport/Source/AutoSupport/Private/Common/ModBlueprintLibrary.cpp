@@ -252,7 +252,6 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 			{
 				OutPlan.BuildDisqualifiers.AddUnique(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
 				MOD_TRACE_LOG(Verbose, TEXT("Not enough room for the start part."))
-				return;
 			}
 		}
 		else
@@ -265,6 +264,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		MOD_TRACE_LOG(Verbose, TEXT("Start part is not specified."))
 	}
 
+	auto OffsetToFitEndPartThatCantFit = 0.f;
 	if (IsEndPartSpecified)
 	{
 		// Do the end next. There may not be enough room for mid pieces.
@@ -278,6 +278,15 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 			}
 			else
 			{
+				if (OutPlan.StartPart.Count > 0)
+				{
+					OffsetToFitEndPartThatCantFit = -1 * (OutPlan.EndPart.ConsumedBuildSpace - RemainingBuildDistance);
+					if (FMath::Abs(OffsetToFitEndPartThatCantFit) >= OutPlan.StartPart.ConsumedBuildSpace)
+					{
+						OffsetToFitEndPartThatCantFit = 0.f; // don't offset if the start part is too small.
+					}
+				}
+				
 				if (!IsStartPartSpecified)
 				{
 					OutPlan.BuildDisqualifiers.AddUnique(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
@@ -325,12 +334,12 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 
 			if (OutPlan.MidPart.Count == 0)
 			{
-				MOD_TRACE_LOG(Verbose, TEXT("Not enough room for a middle part."))
-				
 				if (!IsStartPartSpecified && !IsEndPartSpecified)
 				{
 					OutPlan.BuildDisqualifiers.AddUnique(UAutoSupportConstructDisqualifier_NotEnoughRoom::StaticClass());
 				}
+				
+				MOD_TRACE_LOG(Verbose, TEXT("Not enough room for a middle part."))
 			}
 		}
 		else
@@ -341,6 +350,12 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	else
 	{
 		MOD_TRACE_LOG(Verbose, TEXT("Middle part is not specified."))
+	}
+
+	if (!FMath::IsNearlyZero(OffsetToFitEndPartThatCantFit) && OutPlan.MidPart.Count == 0)
+	{
+		OutPlan.EndPart.Count = 1;
+		OutPlan.EndPartPositionOffset = OffsetToFitEndPartThatCantFit;
 	}
 	
 	CalculateTotalCost(OutPlan);
