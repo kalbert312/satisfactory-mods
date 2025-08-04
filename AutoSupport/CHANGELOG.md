@@ -1,4 +1,19 @@
-﻿# 1.1.0
+﻿# 1.2.0
+
+## New features
+- Add basic snap support underneath catwalks (in-place rotation and grid snap not yet implemented)
+- Add basic snap support on single beam connectors (in-place rotation not yet implemented)
+- Add a tooltip to the build button in the interact dialog to advertise the auto-build keybind.
+
+## Bug fixes
+- Fix cases where a support cannot be built in smaller spaces with certain configurations.
+- Add disqualifiers for some cases when a build cannot be performed.
+
+## Minor changes
+- Swap the location of the save and load button next to the preset dropdown.
+- Adjust logging. TBD: Reduce log spam
+
+# 1.1.0
 
 ## Changes
 - Fix landscape meshes (cliffs, caves, rocks) not being considered landscape hits. When the "Only Intersect Terrain"
