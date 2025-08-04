@@ -50,7 +50,7 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupp
 
 	if (!UAutoSupportBlueprintLibrary::CanAffordItemBill(Player, OutPlan.ItemBill, true))
 	{
-		MOD_LOG(Verbose, TEXT("Cannot afford item bill."));
+		MOD_TRACE_LOG(Verbose, TEXT("Cannot afford item bill."));
 		OutPlan.BuildDisqualifiers.Add(UFGCDUnaffordable::StaticClass());
 	}
 
@@ -126,7 +126,7 @@ void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
 		
 		MOD_LOG(
 			Verbose,
-			TEXT("Buildable[%i]: Name: [%s], ShouldConvertToLightweight: [%s], ManagedByLightweight: [%s] Customization Swatch: [%s]"),
+			TEXT("Buildable[%i]: Name: [%s], ShouldConvertToLightweight: [%s], ManagedByLightweight: [%s], Customization Swatch: [%s]"),
 			i,
 			*Buildable->GetName(),
 			TEXT_CONDITION(Buildable->ShouldConvertToLightweight()),
