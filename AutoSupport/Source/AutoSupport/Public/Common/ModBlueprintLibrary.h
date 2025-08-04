@@ -133,11 +133,12 @@ private:
 		FBox& WorkingBBox);
 	
 	static bool InitializePartPlan(
-		const TSoftClassPtr<UFGBuildingDescriptor>& PartDescriptorClass,
+		TSubclassOf<UFGBuildingDescriptor> PartDescriptorClass,
 		EAutoSupportBuildDirection PartOrientation,
 		const FFactoryCustomizationData& PartCustomization,
-		FAutoSupportBuildPlanPartData& PartPlan,
-		const AFGRecipeManager* RecipeManager);
+		const AFGRecipeManager* RecipeManager,
+		TArray<TSubclassOf<UFGConstructDisqualifier>>& Disqualifiers,
+		FAutoSupportBuildPlanPartData& OutPartPlan);
 
 	static void PlanPartPositioning(
 		const FBox& PartBBox,

@@ -100,15 +100,3 @@ enum class EAutoSupportTraceHitClassification : uint8
 };
 
 ENUM_RANGE_BY_COUNT(EAutoSupportTraceHitClassification, EAutoSupportTraceHitClassification::Count)
-
-UCLASS()
-class AUTOSUPPORT_API UAutoSupportConstructDisqualifier_NotEnoughRoom : public UFGConstructDisqualifier
-{
-	GENERATED_BODY()
-
-	UAutoSupportConstructDisqualifier_NotEnoughRoom()
-	{
-		mDisqfualifyingText = NSLOCTEXT("FAutoSupportModule", "NotEnoughRoom", "Not enough room to build");
-	}
-};
-
