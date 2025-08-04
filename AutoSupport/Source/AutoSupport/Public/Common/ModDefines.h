@@ -1,1 +1,3 @@
 ﻿#pragma once
+
+#define AUTOSUPPORT_BUILD_SPACE_TOLERANCE 1.f

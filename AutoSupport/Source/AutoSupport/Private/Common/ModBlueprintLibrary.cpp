@@ -15,6 +15,7 @@
 #include "FGPlayerController.h"
 #include "FGPlayerState.h"
 #include "FGRecipeManager.h"
+#include "ModDefines.h"
 #include "ModDisqualifiers.h"
 #include "ModLogging.h"
 
@@ -243,9 +244,9 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 	{
 		if (InitializePartPlan(AutoSupportData.StartPartDescriptor.Get(), AutoSupportData.StartPartOrientation, AutoSupportData.StartPartCustomization, RecipeManager, OutPlan.BuildDisqualifiers, OutPlan.StartPart))
 		{
-			if (RemainingBuildDistance > OutPlan.StartPart.ConsumedBuildSpace || FMath::IsNearlyEqual(RemainingBuildDistance, OutPlan.StartPart.ConsumedBuildSpace))
+			if (RemainingBuildDistance >= OutPlan.StartPart.ConsumedBuildSpace - AUTOSUPPORT_BUILD_SPACE_TOLERANCE)
 			{
-				RemainingBuildDistance -= OutPlan.StartPart.ConsumedBuildSpace;
+				RemainingBuildDistance = FMath::Max(RemainingBuildDistance - OutPlan.StartPart.ConsumedBuildSpace, 0.f);
 				OutPlan.StartPart.Count = 1;
 			}
 			else
@@ -272,14 +273,16 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		{
 			if (RemainingBuildDistance > OutPlan.EndPart.ConsumedBuildSpace || FMath::IsNearlyEqual(RemainingBuildDistance, OutPlan.EndPart.ConsumedBuildSpace))
 			{
-				// Only build the end part if we have enough room for it and if there was a start part, there was enough room for that.
-				RemainingBuildDistance -= OutPlan.EndPart.ConsumedBuildSpace;
+				// Only build the end part if we have enough room for it, and if there was a start part, there was enough room for that. Don't
+				// need to account for build tolerance because the end part has fit offsetting logic.
+				RemainingBuildDistance = FMath::Max(RemainingBuildDistance - OutPlan.EndPart.ConsumedBuildSpace, 0.f);
 				OutPlan.EndPart.Count = 1;
 			}
 			else
 			{
 				if (OutPlan.StartPart.Count > 0)
 				{
+					// If we can't fit and there is a start part, attempt to clip the end part into the start part to fit it.
 					OffsetToFitEndPartThatCantFit = -1 * (OutPlan.EndPart.ConsumedBuildSpace - RemainingBuildDistance);
 					if (FMath::Abs(OffsetToFitEndPartThatCantFit) >= OutPlan.StartPart.ConsumedBuildSpace)
 					{
@@ -317,7 +320,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 			{
 				RemainingBuildDistance -= NumMiddleParts * SinglePartConsumedBuildSpace;
 
-				const auto IsNearlyPerfectFit = RemainingBuildDistance <= 1.f;
+				const auto IsNearlyPerfectFit = RemainingBuildDistance <= AUTOSUPPORT_BUILD_SPACE_TOLERANCE;
 				if (!IsNearlyPerfectFit && OutPlan.EndPart.Count > 0)
 				{
 					NumMiddleParts++; // build an extra to fill the gap.
