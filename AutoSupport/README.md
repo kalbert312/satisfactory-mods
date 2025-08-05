@@ -78,15 +78,14 @@ Click below to watch a demo:
 
 ## Possible future enhancements
 
-- Zooping and snap placement.
-- Improve landscape detection.
-- Preview holograms to make selecting directions easier.
+- Multiplayer support.
+- Snap placement improvements (for example, directly below rails).
+- Preview holograms before building, at least when using the "auto-build" keybinding.
 - Build direction arrow on hologram for easier Top/Front recognition.
-- An auto configure part orientation button for well-known parts.
+- An auto-configure part orientation button for well-known parts.
 - Inject supports built via cubes in blueprints into the blueprint proxy, allowing dismantling the supports via Blueprint
   dismantle. I experimented with this but was encountering problems.
 - Using blueprints as part selections.
-- Use mod content tag registry for filtering selectable parts.
 
 ## Known incompatibilities
 
