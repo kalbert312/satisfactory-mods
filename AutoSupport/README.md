@@ -88,6 +88,10 @@ Click below to watch a demo:
 - Using blueprints as part selections.
 - Use mod content tag registry for filtering selectable parts.
 
+## Known incompatibilities
+
+- [No Clearance](https://ficsit.app/mod/NoClearance) mod. Use [UniversalSoftClearance](https://ficsit.app/mod/UniversalSoftClearance) instead.
+
 ## Credits
 
 Thanks to Coffee Stain Studios for the awesome game.
