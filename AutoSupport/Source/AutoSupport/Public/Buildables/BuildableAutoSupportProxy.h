@@ -130,7 +130,8 @@ protected:
 	void RemoveTemporaries(AFGCharacterPlayer* Player);
 	void RemoveInvalidHandles();
 	void RegisterSelfAndHandlesWithSubsystem();
-	
+
+	void BeginLoadTrace();
 	void OnLoadTraceComplete(const FTraceHandle& Handle, FOverlapDatum& Datum);
 	
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

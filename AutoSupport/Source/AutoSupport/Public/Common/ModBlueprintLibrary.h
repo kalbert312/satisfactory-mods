@@ -5,6 +5,7 @@
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
 #include "FGRecipeManager.h"
+#include "ModDefines.h"
 #include "ModTypes.h"
 #include "ModBlueprintLibrary.generated.h"
 
@@ -118,6 +119,14 @@ public:
 		TArray<UUserWidget*>& OutRemovedWidgets);
 
 #pragma endregion
+
+#pragma region Debugging
+#ifdef AUTOSUPPORT_DEV_MODE
+	static ULineBatchComponent* GetDebugLineBatcher(const UWorld* InWorld, bool bPersistentLines, float LifeTime, bool bDepthIsForeground);
+	static float GetDebugLineLifeTime(ULineBatchComponent* LineBatcher, float LifeTime, bool bPersistent);
+	static void DrawDebugCoordinateSystem(const UWorld* InWorld, FVector const& AxisLoc, FRotator const& AxisRot, float Scale, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness);
+#endif
+#pragma endregion 
 
 #pragma region Private
 	

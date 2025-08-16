@@ -6,6 +6,7 @@
 #include "FGBuildable.h"
 #include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
+#include "ModBlueprintLibrary.h"
 #include "ModLogging.h"
 #include "Components/BoxComponent.h"
 
@@ -40,7 +41,7 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 		SupportSubsys->RegisterHandleToProxyLink(Handle, this);
 	}
 	
-	MOD_LOG(Verbose, TEXT("Registered buildable. Handle: [%s]"), TEXT_STR(Handle.ToString()))
+	MOD_LOG(VeryVerbose, TEXT("Registered buildable. Handle: [%s]"), TEXT_STR(Handle.ToString()))
 }
 
 // This is called by the auto support subsystem
@@ -53,7 +54,7 @@ void ABuildableAutoSupportProxy::UnregisterBuildable(AFGBuildable* Buildable)
 
 	const FAutoSupportBuildableHandle Handle(Buildable);
 	
-	MOD_LOG(Verbose, TEXT("Unregistering buildable. Handle: [%s]"), TEXT_STR(Handle.ToString()))
+	MOD_LOG(VeryVerbose, TEXT("Unregistering buildable. Handle: [%s]"), TEXT_STR(Handle.ToString()))
 
 	const auto NumRemoved = RegisteredHandles.Remove(Handle);
 	fgcheck(NumRemoved <= 1); // if we're removing more than 1, we've got problems.
@@ -93,28 +94,14 @@ void ABuildableAutoSupportProxy::BeginPlay()
 	}
 	else
 	{
-		// Need to reestablish lightweight runtime indices, so trace and match by buildable class and transform.
-		FCollisionQueryParams TraceParams;
-		TraceParams.AddIgnoredActor(this);
-
-		const auto TraceLocation = BoundingBoxComponent->GetComponentLocation();
-		const FCollisionShape CollisionShape = BoundingBoxComponent->GetCollisionShape();
-		
-		// Overlap all so we can detect all collisions in our path.
-		FCollisionResponseParams ResponseParams(ECR_Overlap);
-
-		LoadTraceDelegate.BindUObject(this, &ABuildableAutoSupportProxy::OnLoadTraceComplete);
-		bIsLoadTraceInProgress = true;
-		
-		GetWorld()->AsyncOverlapByChannel(
-			TraceLocation,
-			GetActorQuat(),
-			ECollisionChannel::ECC_Visibility,
-			CollisionShape,
-			TraceParams,
-			ResponseParams,
-			&LoadTraceDelegate);
+		// This is done on the next tick because without it, there seems to be some initialization going on with the AbstractInstanceManager between now and trace complete that causes some traces not to return expected overlaps.
+		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &ABuildableAutoSupportProxy::BeginLoadTrace));
 	}
+
+#ifdef AUTOSUPPORT_DRAW_DEBUG_SHAPES
+	BoundingBoxComponent->SetHiddenInGame(false);
+	UAutoSupportBlueprintLibrary::DrawDebugCoordinateSystem(GetWorld(), BoundingBoxComponent->GetComponentLocation(), BoundingBoxComponent->GetComponentRotation(), 50.f, true, -1.f, 100, 1.f);
+#endif
 }
 
 void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
@@ -139,7 +126,7 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 	{
 		auto& Handle = RegisteredHandles[i];
 
-		MOD_LOG(Verbose, TEXT("Processing handle at index %i. Handle: [%s]"), i, TEXT_STR(Handle.ToString()))
+		MOD_LOG(VeryVerbose, TEXT("Processing handle at index %i. Handle: [%s]"), i, TEXT_STR(Handle.ToString()))
 
 		if (Handle.Buildable.IsValid()) // skip already available
 		{
@@ -148,7 +135,7 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 				Handle.Buildable->SetBlockCleanupOfTemporary(true); // Block temporaries clean up during dismantle
 			}
 
-			MOD_LOG(Verbose, TEXT("  Buildable already available for handle."))
+			MOD_LOG(VeryVerbose, TEXT("  Buildable already available for handle."))
 			continue;
 		}
 
@@ -156,7 +143,7 @@ void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
 		fgcheck(InstanceRef);
 		fgcheck(InstanceRef->IsValid()); // we already removed invalid handles
 
-		MOD_LOG(Verbose, TEXT("  Ensuring temporary buildable spawned for lightweight handle"))
+		MOD_LOG(VeryVerbose, TEXT("  Ensuring temporary buildable spawned for lightweight handle"))
 		
 		auto* Temporary = InstanceRef->SpawnTemporaryBuildable();
 		fgcheck(Temporary); // this should never be null.
@@ -186,7 +173,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 	{
 		auto& Handle = RegisteredHandles[i];
 
-		MOD_LOG(Verbose, TEXT("Processing handle at index %i. Handle: [%s]"), i, TEXT_STR(Handle.ToString()))
+		MOD_LOG(VeryVerbose, TEXT("Processing handle at index %i. Handle: [%s]"), i, TEXT_STR(Handle.ToString()))
 
 		if (!Handle.Buildable.IsValid())
 		{
@@ -200,7 +187,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		{
 			Outline->HideOutline(Buildable);
 			Outline->ShowOutline(this, EOutlineColor::OC_NONE);
-			MOD_LOG(Verbose, TEXT("  Handle had its outline hidden."))
+			MOD_LOG(VeryVerbose, TEXT("  Handle had its outline hidden."))
 		}
 
 		if (!Buildable->GetIsLightweightTemporary())
@@ -211,7 +198,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		auto* Temporary = Handle.Buildable.Get();
 		Temporary->SetBlockCleanupOfTemporary(false);
 		
-		MOD_LOG(Verbose, TEXT("  Handle had its temporary unblocked for cleanup."))
+		MOD_LOG(VeryVerbose, TEXT("  Handle had its temporary unblocked for cleanup."))
 		
 		Handle.Buildable = nullptr;
 	}
@@ -269,10 +256,15 @@ bool ABuildableAutoSupportProxy::DestroyIfEmpty(bool bRemoveInvalidHandles)
 	{
 		return false;
 	}
-	
+
+#ifdef AUTOSUPPORT_DEV_KEEP_EMPTY_PROXIES
+	MOD_LOG(Warning, TEXT("Not destroying empty proxy because dev flag is enabled."));
+    return false;
+#else
 	MOD_LOG(Verbose, TEXT("Destroying empty proxy"));
 	Destroy();
 	return true;
+#endif
 }
 
 void ABuildableAutoSupportProxy::RegisterSelfAndHandlesWithSubsystem()
@@ -289,62 +281,85 @@ void ABuildableAutoSupportProxy::RegisterSelfAndHandlesWithSubsystem()
 	}
 }
 
+void ABuildableAutoSupportProxy::BeginLoadTrace()
+{
+	// Need to reestablish lightweight runtime indices, so trace and match by buildable class and transform.
+	FCollisionObjectQueryParams ObjectQueryParams(FCollisionObjectQueryParams::AllObjects);
+		
+	FCollisionQueryParams TraceParams;
+	TraceParams.AddIgnoredActor(this);
+
+	const auto TraceLocation = BoundingBoxComponent->GetComponentLocation();
+	const auto TraceRotation = BoundingBoxComponent->GetComponentRotation();
+	const FCollisionShape CollisionShape = BoundingBoxComponent->GetCollisionShape();
+		
+	// Overlap all so we can detect all collisions in our path.
+	// FCollisionResponseParams ResponseParams(ECR_Overlap);
+
+	LoadTraceDelegate.BindUObject(this, &ABuildableAutoSupportProxy::OnLoadTraceComplete);
+	bIsLoadTraceInProgress = true;
+
+	MOD_TRACE_LOG(
+		Verbose,
+		TEXT("Beginning load trace. TraceLocation: [%s], TraceRotation: [%s], TraceExtent: [%s]"),
+		TEXT_STR(TraceLocation.ToCompactString()),
+		TEXT_STR(TraceRotation.ToCompactString()),
+		TEXT_STR(CollisionShape.GetExtent().ToCompactString()))
+		
+	GetWorld()->AsyncOverlapByObjectType(
+		TraceLocation,
+		BoundingBoxComponent->GetComponentRotation().Quaternion(),
+		ObjectQueryParams,
+		CollisionShape,
+		TraceParams,
+		&LoadTraceDelegate);
+}
+
 void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle, FOverlapDatum& Datum)
 {
-	// TODO(k.a): should this block also be done async? If so, need to register with subsystem in synchronized matter.
-	MOD_TRACE_LOG(Verbose, TEXT("Invoked. Num Overlaps: [%i]"), Datum.OutOverlaps.Num())
 	bIsLoadTraceInProgress = false;
-
-	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> OverlapRefsByHandle;
 	
+	// TODO(k.a): should this block also be done async? If so, need to register with subsystem in synchronized matter.
+	MOD_TRACE_LOG(
+		Verbose,
+		TEXT("Load trace completed. TraceLocation: [%s], TraceRotation: [%s], TraceExtent: [%s], Num Overlaps: [%i]"),
+		TEXT_STR(BoundingBoxComponent->GetComponentLocation().ToCompactString()),
+		TEXT_STR(BoundingBoxComponent->GetComponentRotation().ToCompactString()),
+		TEXT_STR(BoundingBoxComponent->GetCollisionShape().GetExtent().ToCompactString()),
+		Datum.OutOverlaps.Num())
+
 	if (Datum.OutOverlaps.Num() < RegisteredHandles.Num())
 	{
-		MOD_TRACE_LOG(Warning, TEXT("Not enough overlaps to match all handles. Expected: [%i], Actual: [%i]"), RegisteredHandles.Num(), Datum.OutOverlaps.Num())
-#ifdef AUTOSUPPORT_DEV_LOGGING
-		TSet<uint32> PersistedTransformHashes;
-		TSet<uint32> OverlappedTransformHashes;
-		
-		for (const auto& PersistedHandle : RegisteredHandles)
-		{
-			MOD_TRACE_LOG(Warning, TEXT("  PersistedHandle: [%s]"), TEXT_STR(PersistedHandle.ToString()))
-			PersistedTransformHashes.Add(PersistedHandle.GetTransformHash());
-		}
-
-		for (const auto& OverlapResult : Datum.OutOverlaps)
-		{
-			auto* HitActor = OverlapResult.GetActor();
-			if (!HitActor || !HitActor->IsA<AAbstractInstanceManager>())
-			{
-				continue;
-			}
-
-			FInt64Vector3 RoundedLocation;
-			FAutoSupportBuildableHandle::GetRoundedLocation(HitActor->GetActorLocation(), RoundedLocation);
-			auto OverlapTransformHash = GetTypeHash(RoundedLocation);
-			PersistedTransformHashes.Add(OverlapTransformHash);
-			
-			MOD_TRACE_LOG(Warning, TEXT("  AbstractInstanceManager OverlapResult: TransformHash: [%i], Transform: [%s], "), OverlapTransformHash, TEXT_STR(HitActor->GetTransform().ToHumanReadableString()))
-		}
-		
-		MOD_TRACE_LOG(Error, TEXT("Persisted hashes not found in overlaps: %s"), TEXT_STR(FString::JoinBy(PersistedTransformHashes.Difference(OverlappedTransformHashes), TEXT(","), [](auto& Hash) { return FString::FromInt(Hash); })));
-		MOD_TRACE_LOG(Error, TEXT("Overlap hashes not found in persisted: %s"), TEXT_STR(FString::JoinBy(OverlappedTransformHashes.Difference(PersistedTransformHashes), TEXT(","), [](auto& Hash) { return FString::FromInt(Hash); })));
-#endif
+		MOD_TRACE_LOG(Error, TEXT("Load trace returned less overlaps than registered handles. Expected at least: [%i], Actual: [%i]"), RegisteredHandles.Num(), Datum.OutOverlaps.Num())
 	}
+	
+	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> OverlapRefsByHandle;
+
+#ifdef AUTOSUPPORT_DEV_LOGGING
+	for (const auto& PersistedHandle : RegisteredHandles)
+	{
+		MOD_TRACE_LOG(VeryVerbose, TEXT("  PersistedHandle: [%s]"), TEXT_STR(PersistedHandle.ToString()))
+	}
+#endif
 
 	// Collect refs of overlaps and assign a handle key to them.
 	for (const auto& OverlapResult : Datum.OutOverlaps)
 	{
 		auto* HitActor = OverlapResult.GetActor();
-
-		MOD_TRACE_LOG(Verbose, TEXT("Overlapped Actor: [%s]"), HitActor ? TEXT_STR(HitActor->GetName()) : TEXT_NULL)
-
+		
+		MOD_TRACE_LOG(VeryVerbose, TEXT("Overlapped Actor: [%s]"), TEXT_ACTOR_NAME(HitActor))
+		
 		if (auto* AbstractInstManager = Cast<AAbstractInstanceManager>(HitActor))
 		{
 			if (FInstanceHandle InstanceHandle; AbstractInstManager->ResolveOverlap(OverlapResult, InstanceHandle))
 			{
 				if (FLightweightBuildableInstanceRef LightweightInstRef; AFGLightweightBuildableSubsystem::ResolveLightweightInstance(InstanceHandle, LightweightInstRef))
 				{
-					OverlapRefsByHandle.Add(FAutoSupportBuildableHandle(LightweightInstRef), LightweightInstRef);
+					FAutoSupportBuildableHandle OverlapHandle(LightweightInstRef);
+					
+					MOD_TRACE_LOG(VeryVerbose, TEXT("  OverlapHandle: [%s]"), TEXT_STR(OverlapHandle.ToString()))
+					
+					OverlapRefsByHandle.Add(OverlapHandle, LightweightInstRef);
 				}
 				else
 				{
@@ -356,6 +371,10 @@ void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle,
 				MOD_TRACE_LOG(Warning, TEXT("Failed to resolve overlap to instance handle."))
 			}
 		}
+		else if (auto* Buildable = Cast<AFGBuildable>(HitActor); Buildable && Buildable->ShouldConvertToLightweight())
+		{
+			MOD_TRACE_LOG(Error, TEXT("Hit a buildable instance that should be converted to lightweight. I don't think we're expecting this at load time?"))
+		}
 	}
 
 	// Store the transient ref for the handle
@@ -364,7 +383,7 @@ void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle,
 		if (auto* InstanceRef = OverlapRefsByHandle.Find(RegisteredHandle); InstanceRef)
 		{
 			LightweightRefsByHandle.Add(RegisteredHandle, *InstanceRef);
-			MOD_TRACE_LOG(Verbose, TEXT("Registered transient ref for handle: [%s]"), TEXT_STR(RegisteredHandle.ToString()))
+			MOD_TRACE_LOG(VeryVerbose, TEXT("Registered transient ref for handle: [%s]"), TEXT_STR(RegisteredHandle.ToString()))
 		}
 		else
 		{
