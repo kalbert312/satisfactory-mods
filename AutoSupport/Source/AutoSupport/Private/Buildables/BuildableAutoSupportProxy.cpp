@@ -297,6 +297,11 @@ void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle,
 
 	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> OverlapRefsByHandle;
 
+	if (Datum.OutOverlaps.Num() < RegisteredHandles.Num())
+	{
+		MOD_TRACE_LOG(Warning, TEXT("Not enough overlaps to match all handles. Expected: [%i], Actual: [%i]"), RegisteredHandles.Num(), Datum.OutOverlaps.Num())
+	}
+
 	// Collect refs of overlaps and assign a handle key to them.
 	for (const auto& OverlapResult : Datum.OutOverlaps)
 	{

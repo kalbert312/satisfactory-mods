@@ -62,6 +62,8 @@ protected:
 	void SetTransform(const FTransform& NewTransform);
 
 public:
+	static void GetRoundedLocation(const FTransform& Transform, FInt64Vector3& OutLocation);
+	
 	FORCEINLINE bool IsConsideredLightweight() const
 	{
 		return Buildable == nullptr || Buildable->GetIsLightweightTemporary();
