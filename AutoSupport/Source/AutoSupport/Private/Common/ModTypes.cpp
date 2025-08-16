@@ -25,15 +25,13 @@ void FAutoSupportBuildableHandle::SetTransform(const FTransform& NewTransform)
 	this->Transform = NewTransform;
 
 	FInt64Vector3 RoundedLocation;
-	GetRoundedLocation(Transform, RoundedLocation);
+	GetRoundedLocation(NewTransform.GetLocation(), RoundedLocation);
 	
 	this->TransformHash = GetTypeHash(RoundedLocation);
 }
 
-void FAutoSupportBuildableHandle::GetRoundedLocation(const FTransform& Transform, FInt64Vector3& OutLocation)
+void FAutoSupportBuildableHandle::GetRoundedLocation(const FVector& Location, FInt64Vector3& OutLocation)
 {
-	const auto Location = Transform.GetLocation();
-
 	constexpr auto Int64Min = static_cast<float>(TNumericLimits<int64>::Min());
 	constexpr auto Int64Max = static_cast<float>(TNumericLimits<int64>::Max());
 

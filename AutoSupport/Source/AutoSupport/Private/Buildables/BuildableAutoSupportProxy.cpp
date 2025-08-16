@@ -1,7 +1,7 @@
 ﻿// 
 
 #include "BuildableAutoSupportProxy.h"
-
+#include "ModDefines.h"
 #include "AutoSupportModSubsystem.h"
 #include "FGBuildable.h"
 #include "FGCharacterPlayer.h"
@@ -296,10 +296,39 @@ void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle,
 	bIsLoadTraceInProgress = false;
 
 	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> OverlapRefsByHandle;
-
+	
 	if (Datum.OutOverlaps.Num() < RegisteredHandles.Num())
 	{
 		MOD_TRACE_LOG(Warning, TEXT("Not enough overlaps to match all handles. Expected: [%i], Actual: [%i]"), RegisteredHandles.Num(), Datum.OutOverlaps.Num())
+#ifdef AUTOSUPPORT_DEV_LOGGING
+		TSet<uint32> PersistedTransformHashes;
+		TSet<uint32> OverlappedTransformHashes;
+		
+		for (const auto& PersistedHandle : RegisteredHandles)
+		{
+			MOD_TRACE_LOG(Warning, TEXT("  PersistedHandle: [%s]"), TEXT_STR(PersistedHandle.ToString()))
+			PersistedTransformHashes.Add(PersistedHandle.GetTransformHash());
+		}
+
+		for (const auto& OverlapResult : Datum.OutOverlaps)
+		{
+			auto* HitActor = OverlapResult.GetActor();
+			if (!HitActor || !HitActor->IsA<AAbstractInstanceManager>())
+			{
+				continue;
+			}
+
+			FInt64Vector3 RoundedLocation;
+			FAutoSupportBuildableHandle::GetRoundedLocation(HitActor->GetActorLocation(), RoundedLocation);
+			auto OverlapTransformHash = GetTypeHash(RoundedLocation);
+			PersistedTransformHashes.Add(OverlapTransformHash);
+			
+			MOD_TRACE_LOG(Warning, TEXT("  AbstractInstanceManager OverlapResult: TransformHash: [%i], Transform: [%s], "), OverlapTransformHash, TEXT_STR(HitActor->GetTransform().ToHumanReadableString()))
+		}
+		
+		MOD_TRACE_LOG(Error, TEXT("Persisted hashes not found in overlaps: %s"), TEXT_STR(FString::JoinBy(PersistedTransformHashes.Difference(OverlappedTransformHashes), TEXT(","), [](auto& Hash) { return FString::FromInt(Hash); })));
+		MOD_TRACE_LOG(Error, TEXT("Overlap hashes not found in persisted: %s"), TEXT_STR(FString::JoinBy(OverlappedTransformHashes.Difference(PersistedTransformHashes), TEXT(","), [](auto& Hash) { return FString::FromInt(Hash); })));
+#endif
 	}
 
 	// Collect refs of overlaps and assign a handle key to them.
