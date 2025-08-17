@@ -21,27 +21,37 @@ void UAutoSupportBuildGunExtensionsModule::DispatchLifecycleEvent(ELifecyclePhas
 	Super::DispatchLifecycleEvent(Phase);
 }
 
-void UAutoSupportBuildGunExtensionsModule::OnBuildGunBeginPlay(AFGBuildGun* BuildGun)
+void UAutoSupportBuildGunExtensionsModule::OnBuildGunEquip(AFGBuildGun* BuildGun, AFGCharacterPlayer* Player)
 {
-	const auto* LocalPlayer = Cast<ULocalPlayer>(BuildGun->GetNetOwningPlayer());
+	if (HookedBuildGuns.Contains(BuildGun))
+	{
+		MOD_LOG(Verbose, TEXT("Build gun [%s] equipped but it is already hooked."), TEXT_ACTOR_NAME(BuildGun))
+		return;
+	}
+	
+	const auto* LocalPlayer = Cast<ULocalPlayer>(Player->GetNetOwningPlayer());
 
 	if (!LocalPlayer)
 	{
-		MOD_LOG(Verbose, TEXT("No local player found."))
+		MOD_LOG(Warning, TEXT("No local player found."))
 		return;
 	}
 
-	MOD_LOG(Verbose, TEXT("Build gun begin play. Instance: [%s], Owning player: [%s], Has Inst Char: [%s], Has Inst Controller: [%s]"), TEXT_STR(BuildGun->GetName()), TEXT_STR(LocalPlayer->GetName()), TEXT_BOOL(!!BuildGun->GetInstigatorController()), TEXT_BOOL(!!BuildGun->GetInstigatorCharacter()))
+	MOD_LOG(Verbose, TEXT("Build gun first equip. Instance: [%s], Owning player: [%s]"), TEXT_STR(BuildGun->GetName()), TEXT_STR(LocalPlayer->GetName()))
 
 	if (auto* LocalSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>())
 	{
-		LocalSubsys->OnBuildGunBeginPlay(BuildGun);
+		LocalSubsys->OnBuildGunFirstEquip(BuildGun);
 	}
+
+	HookedBuildGuns.Add(BuildGun);
 }
 
 void UAutoSupportBuildGunExtensionsModule::OnBuildGunEndPlay(AFGBuildGun* BuildGun, EEndPlayReason::Type Reason)
 {
 	MOD_LOG(Verbose, TEXT("Invoked. Instance: [%s], Reason: [%i]"), TEXT_STR(BuildGun->GetName()), static_cast<int32>(Reason))
+
+	HookedBuildGuns.Remove(BuildGun);
 	
 	if (Reason == EEndPlayReason::Type::Destroyed)
 	{

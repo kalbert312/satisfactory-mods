@@ -42,13 +42,13 @@ void FAutoSupportModule::RegisterHooks()
 		}
 	});
 	
-	SUBSCRIBE_UOBJECT_METHOD_AFTER(AFGBuildGun, BeginPlay, [&](AFGBuildGun* BuildGun)
+	SUBSCRIBE_UOBJECT_METHOD_AFTER(AFGBuildGun, Equip, [&](AFGBuildGun* BuildGun, AFGCharacterPlayer* Player)
 	{
 		if (IsValid(BuildGun))
 		{
 			auto* Module = UAutoSupportBuildGunExtensionsModule::Get(BuildGun->GetWorld());
 			fgcheck(Module);
-			Module->OnBuildGunBeginPlay(BuildGun);
+			Module->OnBuildGunEquip(BuildGun, Player);
 		}
 	});
 	

@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "AutoSupportGameWorldModule.h"
+#include "FGCharacterPlayer.h"
 #include "AutoSupportBuildGunExtensionsModule.generated.h"
 
 class UFGBuildGunStateDismantle;
@@ -39,8 +40,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UAutoSupportBuildGunInputMappingContext> BuildGunBuildInputMappingContext;
 
+	UPROPERTY(Transient)
+	TSet<TWeakObjectPtr<AFGBuildGun>> HookedBuildGuns;
+
 protected:
-	void OnBuildGunBeginPlay(AFGBuildGun* BuildGun);
+	void OnBuildGunEquip(AFGBuildGun* BuildGun, AFGCharacterPlayer* Player);
 	void OnBuildGunEndPlay(AFGBuildGun* BuildGun, EEndPlayReason::Type Reason);
 	void AppendExtraDismantleModes(TArray<TSubclassOf<UFGBuildGunModeDescriptor>>& OutExtraModes) const;
 	void OnBuildGunDismantleStateTick(UFGBuildGunStateDismantle* State) const;
