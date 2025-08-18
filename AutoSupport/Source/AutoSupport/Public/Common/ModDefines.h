@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#define AUTOSUPPORT_DEV_MODE // this should be commented out before releasing a new version!
+//#define AUTOSUPPORT_DEV_MODE // this should be commented out before releasing a new version!
 
 #ifdef AUTOSUPPORT_DEV_MODE
 

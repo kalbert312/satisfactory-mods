@@ -1,12 +1,13 @@
 ﻿// 
 
 #include "BuildableAutoSupportProxy.h"
-#include "ModDefines.h"
 #include "AutoSupportModSubsystem.h"
 #include "FGBuildable.h"
 #include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "ModBlueprintLibrary.h"
+#include "ModDebugBlueprintLibrary.h"
+#include "ModDefines.h"
 #include "ModLogging.h"
 #include "Components/BoxComponent.h"
 
@@ -100,7 +101,7 @@ void ABuildableAutoSupportProxy::BeginPlay()
 
 #ifdef AUTOSUPPORT_DRAW_DEBUG_SHAPES
 	BoundingBoxComponent->SetHiddenInGame(false);
-	UAutoSupportBlueprintLibrary::DrawDebugCoordinateSystem(GetWorld(), BoundingBoxComponent->GetComponentLocation(), BoundingBoxComponent->GetComponentRotation(), 50.f, true, -1.f, 100, 1.f);
+	UAutoSupportDebugBlueprintLibrary::DrawDebugCoordinateSystem(GetWorld(), BoundingBoxComponent->GetComponentLocation(), BoundingBoxComponent->GetComponentRotation(), 50.f, true, -1.f, 100, 1.f);
 #endif
 }
 
