@@ -1,9 +1,7 @@
 ﻿//
 
 #include "ModDebugBlueprintLibrary.h"
-
-#ifdef AUTOSUPPORT_DEV_MODE
-
+#include "ModDefines.h"
 #include "Components/LineBatchComponent.h"
 
 // Most functions are copied from UE debugging methods only available in dev builds
@@ -27,6 +25,7 @@ void UAutoSupportDebugBlueprintLibrary::DrawDebugCoordinateSystem(
 	uint8 DepthPriority,
 	float Thickness)
 {
+#ifdef AUTOSUPPORT_DRAW_DEBUG_SHAPES
 	// Copied from UE impl
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
 	{
@@ -44,6 +43,5 @@ void UAutoSupportDebugBlueprintLibrary::DrawDebugCoordinateSystem(
 			LineBatcher->DrawLine(AxisLoc, AxisLoc + Z*Scale, FColor::Blue, DepthPriority, Thickness, LineLifeTime );
 		}
 	}
-}
-
 #endif
+}
