@@ -1,4 +1,12 @@
-﻿# 1.2.0
+﻿# 1.2.1
+
+## Bug fixes
+- Potential fix for auto support proxies getting lost on loading a save. The trace sometimes does not return the pieces
+ that should be there and I suspect it's due to lightweight system not being fully initialized when the trace executes at
+ BeginPlay. This only seems to happen sometimes. Delaying the trace by a single tick seems to fix the issue.
+- Fix an issue where the auto support dismantle mode stops working after respawning due to death.
+
+# 1.2.0
 
 ## New features
 - Add basic snap support underneath catwalks (in-place rotation and grid snap not yet implemented)

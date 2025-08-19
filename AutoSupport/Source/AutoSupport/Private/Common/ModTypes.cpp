@@ -3,6 +3,7 @@
 
 #include "FGBuildable.h"
 #include "FGLightweightBuildableSubsystem.h"
+#include "ModDefines.h"
 #include "ModLogging.h"
 
 FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(AFGBuildable* Buildable)
@@ -23,8 +24,14 @@ void FAutoSupportBuildableHandle::SetTransform(const FTransform& NewTransform)
 {
 	this->Transform = NewTransform;
 
-	const auto Location = NewTransform.GetLocation();
+	FInt64Vector3 RoundedLocation;
+	GetRoundedLocation(NewTransform.GetLocation(), RoundedLocation);
+	
+	this->TransformHash = GetTypeHash(RoundedLocation);
+}
 
+void FAutoSupportBuildableHandle::GetRoundedLocation(const FVector& Location, FInt64Vector3& OutLocation)
+{
 	constexpr auto Int64Min = static_cast<float>(TNumericLimits<int64>::Min());
 	constexpr auto Int64Max = static_cast<float>(TNumericLimits<int64>::Max());
 
@@ -32,9 +39,7 @@ void FAutoSupportBuildableHandle::SetTransform(const FTransform& NewTransform)
 	const auto Yish = static_cast<int64>(FMath::Clamp(Location.Y, Int64Min, Int64Max));
 	const auto Zish = static_cast<int64>(FMath::Clamp(Location.Z, Int64Min, Int64Max));
 
-	const auto Locationish = FInt64Vector3(Xish, Yish, Zish);
-	
-	this->TransformHash = GetTypeHash(Locationish);
+	OutLocation = FInt64Vector3(Xish, Yish, Zish);
 }
 
 bool FAutoSupportBuildableHandle::Equals(const FAutoSupportBuildableHandle& Other) const
@@ -44,7 +49,7 @@ bool FAutoSupportBuildableHandle::Equals(const FAutoSupportBuildableHandle& Othe
 		return false; // different class
 	}
 
-	if (!Transform.Equals(Other.Transform, 0.01f))
+	if (!Transform.Equals(Other.Transform, AUTOSUPPORT_TRANSFORM_EQUALITY_TOLERANCE))
 	{
 		return false; // different transforms
 	}

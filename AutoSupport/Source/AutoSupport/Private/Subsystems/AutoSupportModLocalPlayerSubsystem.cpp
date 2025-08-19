@@ -51,7 +51,7 @@ UAutoSupportModLocalPlayerSubsystem::UAutoSupportModLocalPlayerSubsystem()
 {
 }
 
-void UAutoSupportModLocalPlayerSubsystem::OnBuildGunBeginPlay(AFGBuildGun* BuildGun)
+void UAutoSupportModLocalPlayerSubsystem::OnBuildGunFirstEquip(AFGBuildGun* BuildGun)
 {
 	BuildGun->mOnBuildGunModeChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunModeChanged);
 	BuildGun->mOnStateChanged.AddDynamic(this, &UAutoSupportModLocalPlayerSubsystem::OnBuildGunStateChanged);

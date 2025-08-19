@@ -1,7 +1,19 @@
 ﻿#pragma once
 
-DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupport, Verbose, All);
-DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupportTrace, Verbose, All);
+#include "ModDefines.h"
+
+#ifdef AUTOSUPPORT_DEV_LOGGING
+
+DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupport, VeryVerbose, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupportTrace, VeryVerbose, All);
+
+#else
+
+// TODO(k.a): change runtime value to "Log"
+DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupport, VeryVerbose, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupportTrace, VeryVerbose, All);
+
+#endif
 
 #define MOD_LOG(Verbosity, Format, ...) \
 	UE_LOG(LogAutoSupport, Verbosity, "%s] " Format, TEXT_THIS_FUNC, ##__VA_ARGS__)

@@ -29,7 +29,7 @@ public:
 
 	virtual void PlayerControllerChanged(APlayerController* NewPlayerController) override;
 	
-	void OnBuildGunBeginPlay(AFGBuildGun* BuildGun);
+	void OnBuildGunFirstEquip(AFGBuildGun* BuildGun);
 	void OnBuildGunEndPlay(AFGBuildGun* BuildGun, EEndPlayReason::Type EndType);
 
 	bool IsHoldingAutoBuildKey() const;

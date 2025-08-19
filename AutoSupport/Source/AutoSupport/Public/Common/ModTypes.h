@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "FGBuildable.h"
-#include "FGConstructDisqualifier.h"
 #include "ModTypes.generated.h"
 
 struct FLightweightBuildableInstanceRef;
@@ -27,7 +26,7 @@ USTRUCT(BlueprintType)
 struct AUTOSUPPORT_API FAutoSupportBuildableHandle
 {
 	GENERATED_BODY()
-
+	
 	FAutoSupportBuildableHandle() = default;
 	FAutoSupportBuildableHandle(const FAutoSupportBuildableHandle& Other) = default;
 
@@ -62,6 +61,18 @@ protected:
 	void SetTransform(const FTransform& NewTransform);
 
 public:
+	static void GetRoundedLocation(const FVector& Location, FInt64Vector3& OutLocation);
+
+	FORCEINLINE const FTransform& GetTransform() const
+	{
+		return Transform;
+	}
+
+	FORCEINLINE uint32 GetTransformHash() const
+	{
+		return TransformHash;
+	}
+	
 	FORCEINLINE bool IsConsideredLightweight() const
 	{
 		return Buildable == nullptr || Buildable->GetIsLightweightTemporary();

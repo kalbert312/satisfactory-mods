@@ -18,6 +18,7 @@
 #include "ModDefines.h"
 #include "ModDisqualifiers.h"
 #include "ModLogging.h"
+#include "Components/LineBatchComponent.h"
 
 #pragma region Building Helpers
 
