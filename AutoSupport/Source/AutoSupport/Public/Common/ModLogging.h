@@ -9,8 +9,9 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupportTrace, VeryVerbose, All);
 
 #else
 
-DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupport, Log, All);
-DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupportTrace, Log, All);
+// TODO(k.a): change runtime value to "Log"
+DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupport, VeryVerbose, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAutoSupportTrace, VeryVerbose, All);
 
 #endif
 

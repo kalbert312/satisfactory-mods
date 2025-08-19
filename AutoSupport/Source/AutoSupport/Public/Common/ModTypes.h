@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "FGBuildable.h"
-#include "FGConstructDisqualifier.h"
 #include "ModTypes.generated.h"
 
 struct FLightweightBuildableInstanceRef;
