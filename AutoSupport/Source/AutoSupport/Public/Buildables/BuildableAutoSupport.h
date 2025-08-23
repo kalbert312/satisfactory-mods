@@ -15,9 +15,18 @@ UCLASS(Abstract, Blueprintable)
 class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildableFactoryBuilding
 {
 	GENERATED_BODY()
-
+	friend class UAutoSupportBuildableRCO;
+	
 public:
 	ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	/**
+	 * The current auto support configuration for this actor.
+	 */
+	UPROPERTY(BlueprintReadWrite, Replicated, SaveGame)
+	FBuildableAutoSupportData AutoSupportData;
+	
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/**
 	 * Traces and creates a build plan.
@@ -27,12 +36,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable)
 	bool TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupportBuildPlan& OutPlan) const;
-
-	/**
-	 * The current auto support configuration for this actor.
-	 */
-	UPROPERTY(BlueprintReadWrite, SaveGame)
-	FBuildableAutoSupportData AutoSupportData;
 	
 	/**
 	 * Builds the supports based on the provided configuration. Requires a build instigator.
@@ -70,11 +73,20 @@ protected:
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Auto Support")
 	TSubclassOf<ABuildableAutoSupportProxy> AutoSupportProxyClass;
-	
-	void AutoConfigure();
+
+	/**
+	 * The result of the latest trace.
+	 */
+	UPROPERTY(BlueprintReadWrite, Replicated, Transient)
+	FAutoSupportBuildPlan CurrentBuildPlan;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
-	void K2_AutoConfigure();
+	FBuildableAutoSupportData K2_GetAutoConfigureData() const;
+	
+	void AutoConfigure(AFGCharacterPlayer* Player, const FBuildableAutoSupportData& Data);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
+	void K2_AutoConfigure(AFGCharacterPlayer* Player);
 
 	UFUNCTION(BlueprintCallable, Category = "Auto Support")
 	void SaveLastUsedData();
@@ -100,4 +112,29 @@ class AUTOSUPPORT_API UAutoSupportClipboardSettings : public UFGFactoryClipboard
 
 	UPROPERTY()
 	FBuildableAutoSupportData AutoSupportData;
+};
+
+UCLASS()
+class AUTOSUPPORT_API UAutoSupportBuildableRCO : public UFGRemoteCallObject
+{
+	GENERATED_BODY()
+
+public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void UpdateConfiguration(ABuildableAutoSupport* AutoSupport, FBuildableAutoSupportData NewData);
+	
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void AutoConfigure(ABuildableAutoSupport* AutoSupport, AFGCharacterPlayer* BuildInstigator, FBuildableAutoSupportData Data);
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void TraceAndCreatePlan(ABuildableAutoSupport* AutoSupport, AFGCharacterPlayer* BuildInstigator);
+
+	UFUNCTION(BlueprintCallable, Server, Reliable, WithValidation)
+	void BuildSupports(ABuildableAutoSupport* AutoSupport, AFGCharacterPlayer* BuildInstigator);
+
+private:
+	UPROPERTY( Replicated, Meta = ( NoAutoJson ) )
+	bool mForceNetField_UAutoSupportBuildableRCO = false;
 };
