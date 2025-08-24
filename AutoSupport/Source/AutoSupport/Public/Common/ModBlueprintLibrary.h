@@ -133,6 +133,18 @@ public:
 		const auto NetMode = World->GetNetMode();
 		return NetMode == NM_Standalone || NetMode == NM_Client;
 	}
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static FORCEINLINE bool IsSinglePlayerOrServerActor(AActor* Actor)
+	{
+		return Actor->GetNetMode() < NM_Client;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
+	static FORCEINLINE bool IsSinglePlayerOrServer(UWorld* World)
+	{
+		return World->GetNetMode() < NM_Client;
+	}
 #pragma endregion
 
 #pragma region Private

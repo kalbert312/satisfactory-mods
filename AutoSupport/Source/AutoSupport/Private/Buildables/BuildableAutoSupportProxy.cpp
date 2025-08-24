@@ -9,6 +9,7 @@
 #include "ModDebugBlueprintLibrary.h"
 #include "ModDefines.h"
 #include "ModLogging.h"
+#include "UnrealNetwork.h"
 #include "Components/BoxComponent.h"
 
 ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
@@ -19,6 +20,17 @@ ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 	BoundingBoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoundingBoxComponent"));
 	BoundingBoxComponent->SetMobility(EComponentMobility::Type::Movable);
 	BoundingBoxComponent->SetupAttachment(RootComponent);
+
+	bReplicates = true;
+}
+
+void ABuildableAutoSupportProxy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABuildableAutoSupportProxy, BoundingBox);
+	DOREPLIFETIME(ABuildableAutoSupportProxy, ReplicatedLightweightRefsByHandle);
+	DOREPLIFETIME(ABuildableAutoSupportProxy, bIsLoadTraceInProgress);
 }
 
 void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
@@ -32,8 +44,8 @@ void ABuildableAutoSupportProxy::RegisterBuildable(AFGBuildable* Buildable)
 	{
 		FLightweightBuildableInstanceRef InstanceRef;
 		InstanceRef.InitializeFromTemporary(Buildable);
-		
-		LightweightRefsByHandle.Add(Handle, InstanceRef);
+
+		AddHandleLightweightRef(Handle, InstanceRef);
 	}
 	
 	if (HasActorBegunPlay())
@@ -75,9 +87,7 @@ void ABuildableAutoSupportProxy::UpdateBoundingBox(const FBox& NewBounds)
 	K2_UpdateBoundingBox(NewBounds);
 }
 
-void ABuildableAutoSupportProxy::OnBuildModeUpdate(
-	TSubclassOf<UFGBuildGunModeDescriptor> BuildMode,
-	ULocalPlayer* LocalPlayer)
+void ABuildableAutoSupportProxy::OnBuildModeUpdate(TSubclassOf<UFGBuildGunModeDescriptor> BuildMode, ULocalPlayer* LocalPlayer)
 {
 	K2_OnBuildModeUpdate(BuildMode, LocalPlayer);
 }
@@ -86,6 +96,19 @@ void ABuildableAutoSupportProxy::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (UAutoSupportBlueprintLibrary::IsSinglePlayerOrServerActor(this))
+	{
+		BeginPlay_Server();
+	}
+
+#ifdef AUTOSUPPORT_DRAW_DEBUG_SHAPES
+	BoundingBoxComponent->SetHiddenInGame(false);
+	UAutoSupportDebugBlueprintLibrary::DrawDebugCoordinateSystem(GetWorld(), BoundingBoxComponent->GetComponentLocation(), BoundingBoxComponent->GetComponentRotation(), 50.f, true, -1.f, 100, 1.f);
+#endif
+}
+
+void ABuildableAutoSupportProxy::BeginPlay_Server()
+{
 	if (bIsNewlySpawned)
 	{
 		if (!DestroyIfEmpty(false))
@@ -98,11 +121,6 @@ void ABuildableAutoSupportProxy::BeginPlay()
 		// This is done on the next tick because without it, there seems to be some initialization going on with the AbstractInstanceManager between now and trace complete that causes some traces not to return expected overlaps.
 		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateUObject(this, &ABuildableAutoSupportProxy::BeginLoadTrace));
 	}
-
-#ifdef AUTOSUPPORT_DRAW_DEBUG_SHAPES
-	BoundingBoxComponent->SetHiddenInGame(false);
-	UAutoSupportDebugBlueprintLibrary::DrawDebugCoordinateSystem(GetWorld(), BoundingBoxComponent->GetComponentLocation(), BoundingBoxComponent->GetComponentRotation(), 50.f, true, -1.f, 100, 1.f);
-#endif
 }
 
 void ABuildableAutoSupportProxy::EnsureBuildablesAvailable()
@@ -207,6 +225,7 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 
 void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 {
+	// TODO(k.a): this probably should only execute on the server because both handles + lightweight refs are replicated.
 	if (bIsLoadTraceInProgress)
 	{
 		MOD_LOG(Warning, TEXT("RemoveInvalidHandles called while trace in progress. Skipping."))
@@ -383,7 +402,7 @@ void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle,
 	{
 		if (auto* InstanceRef = OverlapRefsByHandle.Find(RegisteredHandle); InstanceRef)
 		{
-			LightweightRefsByHandle.Add(RegisteredHandle, *InstanceRef);
+			AddHandleLightweightRef(RegisteredHandle, *InstanceRef);
 			MOD_TRACE_LOG(VeryVerbose, TEXT("Registered transient ref for handle: [%s]"), TEXT_STR(RegisteredHandle.ToString()))
 		}
 		else
@@ -395,6 +414,30 @@ void ABuildableAutoSupportProxy::OnLoadTraceComplete(const FTraceHandle& Handle,
 	if (!DestroyIfEmpty(true))
 	{
 		RegisterSelfAndHandlesWithSubsystem();
+	}
+}
+
+void ABuildableAutoSupportProxy::AddHandleLightweightRef(const FAutoSupportBuildableHandle& Handle,const FLightweightBuildableInstanceRef& Ref)
+{
+	LightweightRefsByHandle.Add(Handle, Ref);
+	ReplicatedLightweightRefsByHandle.Add(FAutoSupportBuildableHandleLightweightRefKvp(Handle, Ref));
+}
+
+void ABuildableAutoSupportProxy::OnRep_BoundingBox()
+{
+	BoundingBoxComponent->SetRelativeLocation(BoundingBox.GetCenter());
+	BoundingBoxComponent->SetBoxExtent(BoundingBox.GetExtent());
+
+	K2_UpdateBoundingBox(BoundingBox);
+}
+
+void ABuildableAutoSupportProxy::OnRep_HandlesAndLightweightRefKvps()
+{
+	LightweightRefsByHandle.Empty();
+
+	for (const auto& [Handle, LightweightRef] : ReplicatedLightweightRefsByHandle)
+	{
+		LightweightRefsByHandle.Add(Handle, LightweightRef);
 	}
 }
 

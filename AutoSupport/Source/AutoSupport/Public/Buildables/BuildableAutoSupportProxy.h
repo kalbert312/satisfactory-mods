@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BuildableAutoSupport_Types.h"
 #include "FGBuildable.h"
 #include "FGDismantleInterface.h"
 #include "FGLightweightBuildableSubsystem.h"
@@ -32,6 +33,8 @@ public:
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
 	bool bIsNewlySpawned = false;
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
 	void RegisterBuildable(AFGBuildable* Buildable);
 	void UnregisterBuildable(AFGBuildable* Buildable);
 
@@ -85,13 +88,13 @@ protected:
 	/**
 	 * The registered buildable handles.
 	 */
-	UPROPERTY(VisibleInstanceOnly, Category = "Auto Support", SaveGame)
+	UPROPERTY(VisibleInstanceOnly, Replicated, SaveGame, Category = "Auto Support")
 	TArray<FAutoSupportBuildableHandle> RegisteredHandles;
 
 	/**
 	 * The bounding box of the buildable.
 	 */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, SaveGame, Category = "Auto Support")
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing=OnRep_BoundingBox, SaveGame, Category = "Auto Support")
 	FBox BoundingBox;
 	
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
@@ -103,15 +106,19 @@ protected:
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
 	bool bBuildablesAvailable = false;
 	
-	UPROPERTY(Transient, BlueprintReadOnly, Category = "Auto Support")
+	UPROPERTY(Transient, BlueprintReadOnly, Replicated, Category = "Auto Support")
 	bool bIsLoadTraceInProgress = false;
 
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
 	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> LightweightRefsByHandle;
+
+	UPROPERTY(Transient, ReplicatedUsing = OnRep_HandlesAndLightweightRefKvps)
+	TArray<FAutoSupportBuildableHandleLightweightRefKvp> ReplicatedLightweightRefsByHandle;
 	
 	FOverlapDelegate LoadTraceDelegate;
 
 	virtual void BeginPlay() override;
+	void BeginPlay_Server();
 
 	FORCEINLINE const FAutoSupportBuildableHandle* GetRootHandle() const
 	{
@@ -133,6 +140,14 @@ protected:
 
 	void BeginLoadTrace();
 	void OnLoadTraceComplete(const FTraceHandle& Handle, FOverlapDatum& Datum);
+
+	void AddHandleLightweightRef(const FAutoSupportBuildableHandle& Handle, const FLightweightBuildableInstanceRef& Ref);
+
+	UFUNCTION()
+	void OnRep_BoundingBox();
+
+	UFUNCTION()
+	void OnRep_HandlesAndLightweightRefKvps();
 	
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

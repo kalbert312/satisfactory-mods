@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "FGBuildingDescriptor.h"
+#include "FGLightweightBuildableSubsystem.h"
 #include "Common/ModTypes.h"
 #include "BuildableAutoSupport_Types.generated.h"
 
@@ -313,4 +314,16 @@ struct AUTOSUPPORT_API FAutoSupportBuildPlan
 
 		return true;
 	}
+};
+
+USTRUCT()
+struct AUTOSUPPORT_API FAutoSupportBuildableHandleLightweightRefKvp
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FAutoSupportBuildableHandle Handle;
+
+	UPROPERTY()
+	FLightweightBuildableInstanceRef LightweightRef;
 };
