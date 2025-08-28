@@ -21,7 +21,11 @@ class AUTOSUPPORT_API AAutoSupportModSubsystem : public AModSubsystem, public IF
 	
 public:
 	static AAutoSupportModSubsystem* Get(const UWorld* World);
-	
+
+	AAutoSupportModSubsystem();
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 	void RegisterProxy(ABuildableAutoSupportProxy* Proxy);
 	void RegisterHandleToProxyLink(const FAutoSupportBuildableHandle& Handle, ABuildableAutoSupportProxy* Proxy);
 	
@@ -30,36 +34,9 @@ public:
 	UFUNCTION()
 	void OnWorldBuildableRemoved(AFGBuildable* Buildable);
 	
-#pragma region IFGSaveInterface
-	
-	virtual void PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
-	virtual void PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
 	virtual bool ShouldSave_Implementation() const override;
-	
-#pragma endregion
 
 #pragma region Auto Support Presets
-	
-	UFUNCTION(BlueprintCallable)
-	FBuildableAutoSupportData GetLastAutoSupportData() const;
-
-	UFUNCTION(BlueprintCallable)
-	FBuildableAutoSupportData GetLastAutoSupport1mData() const;
-
-	UFUNCTION(BlueprintCallable)
-	FBuildableAutoSupportData GetLastAutoSupport2mData() const;
-
-	UFUNCTION(BlueprintCallable)
-	FBuildableAutoSupportData GetLastAutoSupport4mData() const;
-	
-	UFUNCTION(BlueprintCallable)
-	void SetLastAutoSupport1mData(const FBuildableAutoSupportData& Data);
-
-	UFUNCTION(BlueprintCallable)
-	void SetLastAutoSupport2mData(const FBuildableAutoSupportData& Data);
-
-	UFUNCTION(BlueprintCallable)
-	void SetLastAutoSupport4mData(const FBuildableAutoSupportData& Data);
 	
 	UFUNCTION(BlueprintCallable)
 	void GetAutoSupportPresetNames(TArray<FString>& OutNames) const;
@@ -80,34 +57,28 @@ public:
 
 protected:
 	/**
-	 * The last configuration used. Will preconfigure new placements.
-	 */
-	UPROPERTY(VisibleInstanceOnly, SaveGame)
-	FBuildableAutoSupportData LastAutoSupportData;
-
-	/**
-	 * The last configuration used for 1m pieces. Will preconfigure new placements.
-	 */
-	UPROPERTY(VisibleInstanceOnly, SaveGame)
-	FBuildableAutoSupportData LastAutoSupport1mData;
-
-	/**
-	 * The last configuration used for 2m pieces. Will preconfigure new placements.
-	 */
-	UPROPERTY(VisibleInstanceOnly, SaveGame)
-	FBuildableAutoSupportData LastAutoSupport2mData;
-	
-	/**
-	 * The last configuration used for 4m pieces. Will preconfigure new placements.
-	 */
-	UPROPERTY(VisibleInstanceOnly, SaveGame)
-	FBuildableAutoSupportData LastAutoSupport4mData;
-
-	/**
 	 * The player saved presets.
 	 */
 	UPROPERTY(VisibleInstanceOnly, SaveGame)
 	TMap<FString, FBuildableAutoSupportData> AutoSupportPresets;
+
+	/**
+	 * The shared player saved presets.
+	 */
+	UPROPERTY(ReplicatedUsing = OnRep_AutoSupportPresets)
+	TArray<FAutoSupportPresetNameAndDataKvp> ReplicatedAutoSupportPresets;
+	
+	/**
+	 * All the world proxies.
+	 */
+	UPROPERTY(Transient)
+	TSet<TWeakObjectPtr<ABuildableAutoSupportProxy>> AllProxies;
+
+	/**
+	 * The replicated proxies array (because TSets don't replicate).
+	 */
+	UPROPERTY(ReplicatedUsing=OnRep_AllProxies)
+	TArray<TWeakObjectPtr<ABuildableAutoSupportProxy>> ReplicatedAllProxies;
 
 	/**
 	 * This is used to respond to deletion events on the buildables and notify the proxy a buildable it contains has been destroyed.
@@ -115,14 +86,48 @@ protected:
 	UPROPERTY(Transient)
 	TMap<FAutoSupportBuildableHandle, TWeakObjectPtr<ABuildableAutoSupportProxy>> ProxyByBuildable;
 
-	/**
-	 * All the world proxies.
-	 */
-	UPROPERTY(Transient)
-	TSet<TWeakObjectPtr<ABuildableAutoSupportProxy>> AllProxies;
+	void SyncProxiesWithBuildMode(const TArray<TWeakObjectPtr<ABuildableAutoSupportProxy>>& Proxies) const;
+	
+	UFUNCTION()
+	void OnRep_AutoSupportPresets();
+
+	UFUNCTION()
+	void OnRep_AllProxies();
+
 	
 	virtual void Init() override;
 
 	static TMap<TWeakObjectPtr<const UWorld>, TWeakObjectPtr<AAutoSupportModSubsystem>> CachedSubsystemLookup;
 	static FCriticalSection CachedSubsystemLookupLock;
+};
+
+USTRUCT()
+struct AUTOSUPPORT_API FAutoSupportBuildableHandleProxyKvp
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FAutoSupportBuildableHandle Handle;
+
+	UPROPERTY()
+	TWeakObjectPtr<ABuildableAutoSupportProxy> Proxy;
+};
+
+UCLASS()
+class AUTOSUPPORT_API UAutoSupportSubsystemRCO : public UFGRemoteCallObject
+{
+	GENERATED_BODY()
+
+public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void SaveAutoSupportPreset(AAutoSupportModSubsystem* Subsystem, const FString& PresetName, const FBuildableAutoSupportData& Data);
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void DeleteAutoSupportPreset(AAutoSupportModSubsystem* Subsystem, const FString& PresetName);
+
+private:
+	UPROPERTY(Replicated, Meta = (NoAutoJson))
+	bool mForceNetField_UAutoSupportSubsystemRCO = false;
 };

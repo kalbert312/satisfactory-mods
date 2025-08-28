@@ -327,3 +327,15 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandleLightweightRefKvp
 	UPROPERTY()
 	FLightweightBuildableInstanceRef LightweightRef;
 };
+
+USTRUCT()
+struct AUTOSUPPORT_API FAutoSupportPresetNameAndDataKvp
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FString PresetName;
+
+	UPROPERTY()
+	FBuildableAutoSupportData Data;
+};

@@ -225,7 +225,12 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 
 void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 {
-	// TODO(k.a): this probably should only execute on the server because both handles + lightweight refs are replicated.
+	if (!HasAuthority())
+	{
+		MOD_LOG(Verbose, TEXT("RemoveInvalidHandles called without authority. Skipping."))
+		return;
+	}
+	
 	if (bIsLoadTraceInProgress)
 	{
 		MOD_LOG(Warning, TEXT("RemoveInvalidHandles called while trace in progress. Skipping."))
@@ -425,10 +430,7 @@ void ABuildableAutoSupportProxy::AddHandleLightweightRef(const FAutoSupportBuild
 
 void ABuildableAutoSupportProxy::OnRep_BoundingBox()
 {
-	BoundingBoxComponent->SetRelativeLocation(BoundingBox.GetCenter());
-	BoundingBoxComponent->SetBoxExtent(BoundingBox.GetExtent());
-
-	K2_UpdateBoundingBox(BoundingBox);
+	UpdateBoundingBox(BoundingBox);
 }
 
 void ABuildableAutoSupportProxy::OnRep_HandlesAndLightweightRefKvps()
