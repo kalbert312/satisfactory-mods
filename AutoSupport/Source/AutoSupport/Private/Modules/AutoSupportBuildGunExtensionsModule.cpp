@@ -7,6 +7,7 @@
 #include "FGBuildGun.h"
 #include "FGBuildGunDismantle.h"
 #include "FGCharacterPlayer.h"
+#include "FGPlayerController.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
 
@@ -21,7 +22,7 @@ void UAutoSupportBuildGunExtensionsModule::DispatchLifecycleEvent(ELifecyclePhas
 	Super::DispatchLifecycleEvent(Phase);
 }
 
-void UAutoSupportBuildGunExtensionsModule::OnBuildGunEquip(AFGBuildGun* BuildGun, AFGCharacterPlayer* Player)
+void UAutoSupportBuildGunExtensionsModule::OnBuildGunEquip(AFGBuildGun* BuildGun, const AFGCharacterPlayer* Player)
 {
 	if (HookedBuildGuns.Contains(BuildGun))
 	{
@@ -29,11 +30,12 @@ void UAutoSupportBuildGunExtensionsModule::OnBuildGunEquip(AFGBuildGun* BuildGun
 		return;
 	}
 	
-	const auto* LocalPlayer = Cast<ULocalPlayer>(Player->GetNetOwningPlayer());
+	const auto* Controller = Player->GetFGPlayerController(); // this will be null in multiplayer situations for other player's build guns.
+	const auto* LocalPlayer = Controller ? Controller->GetLocalPlayer() : nullptr;
 
 	if (!LocalPlayer)
 	{
-		MOD_LOG(Warning, TEXT("No local player found."))
+		MOD_LOG(Verbose, TEXT("No local player found for [%s]"), TEXT_ACTOR_NAME(Player))
 		return;
 	}
 

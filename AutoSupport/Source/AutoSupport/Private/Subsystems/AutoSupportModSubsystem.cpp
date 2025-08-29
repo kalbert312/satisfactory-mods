@@ -263,7 +263,7 @@ void AAutoSupportModSubsystem::RegisterProxy(ABuildableAutoSupportProxy* Proxy)
 	AllProxies.Add(Proxy);
 	ReplicatedAllProxies.Add(Proxy);
 
-	if (GetNetMode() == NM_Standalone) // single player only: sync the proxy with the build gun state; other cases: do this in the OnRep callback
+	if (GetNetMode() < NM_Client) // server side only: sync the proxy with the build gun state; other cases: do this in the OnRep callback
 	{
 		SyncProxiesWithBuildMode({ Proxy });
 	}

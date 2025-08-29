@@ -44,7 +44,7 @@ public:
 	TSet<TWeakObjectPtr<AFGBuildGun>> HookedBuildGuns;
 
 protected:
-	void OnBuildGunEquip(AFGBuildGun* BuildGun, AFGCharacterPlayer* Player);
+	void OnBuildGunEquip(AFGBuildGun* BuildGun, const AFGCharacterPlayer* Player);
 	void OnBuildGunEndPlay(AFGBuildGun* BuildGun, EEndPlayReason::Type Reason);
 	void AppendExtraDismantleModes(TArray<TSubclassOf<UFGBuildGunModeDescriptor>>& OutExtraModes) const;
 	void OnBuildGunDismantleStateTick(UFGBuildGunStateDismantle* State) const;
