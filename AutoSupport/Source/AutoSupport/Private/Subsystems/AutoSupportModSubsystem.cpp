@@ -5,6 +5,7 @@
 #include "AutoSupportGameWorldModule.h"
 #include "AutoSupportModLocalPlayerSubsystem.h"
 #include "BuildableAutoSupportProxy.h"
+#include "ModBlueprintLibrary.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
 #include "UnrealNetwork.h"
@@ -86,11 +87,14 @@ void AAutoSupportModSubsystem::Init()
 		FScopeLock Lock(&CachedSubsystemLookupLock);
 		CachedSubsystemLookup.Add(World, this);
 	}
-	
-	auto* Buildables = AFGBuildableSubsystem::Get(World);
-	Buildables->mBuildableRemovedDelegate.AddDynamic(this, &AAutoSupportModSubsystem::OnWorldBuildableRemoved);
-	
-	MOD_LOG(Verbose, TEXT("Added AFGBuildableSubsystem delegates"))
+
+	if (HasAuthority())
+	{
+		// TODO(k.a): I don't think this works when destroying an auto support temporary buildable on the NP client side.
+		auto* Buildables = AFGBuildableSubsystem::Get(World);
+		Buildables->mBuildableRemovedDelegate.AddDynamic(this, &AAutoSupportModSubsystem::OnWorldBuildableRemoved);
+		MOD_LOG(Verbose, TEXT("Added AFGBuildableSubsystem delegates"))
+	}
 }
 
 void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
@@ -112,7 +116,11 @@ void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 
 void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy* Proxy)
 {
-	MOD_LOG(Verbose, TEXT("Invoked"))
+	if (!HasAuthority())
+	{
+		MOD_LOG(Warning, TEXT("OnProxyDestroyed called without authority. Skipping."))
+		return;
+	}
 	
 	TArray<FAutoSupportBuildableHandle> HandlesToRemove;
 	
@@ -124,7 +132,7 @@ void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy
 		}
 	}
 
-	MOD_LOG(Verbose, TEXT("Found %i entries to remove"), HandlesToRemove.Num())
+	MOD_LOG(Verbose, TEXT("Found %i entries to remove for proxy [%s]"), HandlesToRemove.Num(), TEXT_ACTOR_NAME(Proxy))
 	
 	for (const auto& Handle : HandlesToRemove)
 	{
@@ -263,7 +271,7 @@ void AAutoSupportModSubsystem::RegisterProxy(ABuildableAutoSupportProxy* Proxy)
 	AllProxies.Add(Proxy);
 	ReplicatedAllProxies.Add(Proxy);
 
-	if (GetNetMode() < NM_Client) // server side only: sync the proxy with the build gun state; other cases: do this in the OnRep callback
+	if (UAutoSupportBlueprintLibrary::IsSinglePlayerOrServerActor(this)) // server side only: sync the proxy with the build gun state; other cases: do this in the OnRep callback
 	{
 		SyncProxiesWithBuildMode({ Proxy });
 	}
@@ -282,9 +290,12 @@ void AAutoSupportModSubsystem::RegisterHandleToProxyLink(const FAutoSupportBuild
 	ProxyByBuildable.Add(Handle, Proxy);
 }
 
+#pragma region Remote Call Objects
+
 void UAutoSupportSubsystemRCO::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
 	DOREPLIFETIME(UAutoSupportSubsystemRCO, mForceNetField_UAutoSupportSubsystemRCO)
 }
 
@@ -302,3 +313,5 @@ void UAutoSupportSubsystemRCO::DeleteAutoSupportPreset_Implementation(AAutoSuppo
 	fgcheck(Subsystem);
 	Subsystem->DeleteAutoSupportPreset(PresetName);
 }
+
+#pragma endregion

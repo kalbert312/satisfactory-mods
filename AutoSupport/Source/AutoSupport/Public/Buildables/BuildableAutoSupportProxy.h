@@ -88,7 +88,7 @@ protected:
 	/**
 	 * The registered buildable handles.
 	 */
-	UPROPERTY(VisibleInstanceOnly, Replicated, SaveGame, Category = "Auto Support")
+	UPROPERTY(VisibleInstanceOnly, ReplicatedUsing=OnRep_RegisteredHandles, SaveGame, Category = "Auto Support")
 	TArray<FAutoSupportBuildableHandle> RegisteredHandles;
 
 	/**
@@ -97,8 +97,8 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing=OnRep_BoundingBox, SaveGame, Category = "Auto Support")
 	FBox BoundingBox;
 	
-	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
-	bool bIsHoveredForDismantle = false;
+	UPROPERTY(Transient)
+	uint8 HoveredForDismantleCount = 0;
 
 	/**
 	 * Transient flag that tracks when all buildables & temporaries are available.
@@ -106,48 +106,41 @@ protected:
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
 	bool bBuildablesAvailable = false;
 	
-	UPROPERTY(Transient, BlueprintReadOnly, Replicated, Category = "Auto Support")
-	bool bIsLoadTraceInProgress = false;
+	UPROPERTY(Transient, Replicated)
+	bool bIsLoadLightweightTraceInProgress = false;
+
+	UPROPERTY(Transient)
+	bool bIsClientLightweightTraceInProgress = false;
+
+	UPROPERTY(Transient)
+	uint8 LightweightTraceRetryCount = 0; 
 
 	UPROPERTY(Transient, VisibleInstanceOnly, BlueprintReadOnly, Category = "Auto Support")
 	TMap<FAutoSupportBuildableHandle, FLightweightBuildableInstanceRef> LightweightRefsByHandle;
-
-	UPROPERTY(Transient, ReplicatedUsing = OnRep_HandlesAndLightweightRefKvps)
-	TArray<FAutoSupportBuildableHandleLightweightRefKvp> ReplicatedLightweightRefsByHandle;
 	
 	FOverlapDelegate LoadTraceDelegate;
+	FTraceHandle CurrentTraceHandle;
+	FTimerHandle LightweightTraceRetryHandle;
 
 	virtual void BeginPlay() override;
 	void BeginPlay_Server();
-
-	FORCEINLINE const FAutoSupportBuildableHandle* GetRootHandle() const
-	{
-		return RegisteredHandles.Num() > 0 ? &RegisteredHandles[0] : nullptr;
-	}
-
-	FORCEINLINE AFGBuildable* GetCheckedRootBuildable() const
-	{
-		auto* RootHandle = GetRootHandle();
-		fgcheck(RootHandle);
-		fgcheck(RootHandle->Buildable.IsValid());
-		return RootHandle->Buildable.Get();
-	}
-
+	
 	void EnsureBuildablesAvailable();
-	void RemoveTemporaries(AFGCharacterPlayer* Player);
+	void RemoveTemporaries(const AFGCharacterPlayer* Player);
 	void RemoveInvalidHandles();
 	void RegisterSelfAndHandlesWithSubsystem();
 
-	void BeginLoadTrace();
-	void OnLoadTraceComplete(const FTraceHandle& Handle, FOverlapDatum& Datum);
+	void BeginLightweightTraceAndResetRetries();
+	void BeginLightweightTraceRetry();
+	void BeginLightweightTrace();
+	void OnLightweightTraceComplete(const FTraceHandle& TraceHandle, FOverlapDatum& Datum);
 
-	void AddHandleLightweightRef(const FAutoSupportBuildableHandle& Handle, const FLightweightBuildableInstanceRef& Ref);
+	AFGBuildable* GetBuildableForHandle(const FAutoSupportBuildableHandle& Handle) const;
 
 	UFUNCTION()
 	void OnRep_BoundingBox();
-
 	UFUNCTION()
-	void OnRep_HandlesAndLightweightRefKvps();
+	void OnRep_RegisteredHandles();
 	
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 };

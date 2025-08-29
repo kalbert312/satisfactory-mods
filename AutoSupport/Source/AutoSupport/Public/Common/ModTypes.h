@@ -75,7 +75,7 @@ public:
 	
 	FORCEINLINE bool IsConsideredLightweight() const
 	{
-		return Buildable == nullptr || Buildable->GetIsLightweightTemporary();
+		return Buildable == nullptr || Buildable->GetIsLightweightTemporary() || Buildable->ManagedByLightweightBuildableSubsystem() || Buildable->ShouldConvertToLightweight();
 	}
 	
 	bool Equals(const FAutoSupportBuildableHandle& Other) const;

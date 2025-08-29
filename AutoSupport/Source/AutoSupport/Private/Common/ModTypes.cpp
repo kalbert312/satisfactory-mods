@@ -76,8 +76,8 @@ FString FAutoSupportBuildableHandle::ToString() const
 	return FString::Printf(
 		TEXT("Class: [%s], IsConsideredLightweight: [%s], BuildableInstValid: [%s], TransformHash: [%d] Transform: [%s]"),
 		TEXT_CLS_NAME(BuildableClass),
-		TEXT_BOOL(Buildable.IsValid()),
 		TEXT_BOOL(IsConsideredLightweight()),
+		TEXT_BOOL(Buildable.IsValid()),
 		TransformHash,
 		TEXT_STR(Transform.ToString()));
 }

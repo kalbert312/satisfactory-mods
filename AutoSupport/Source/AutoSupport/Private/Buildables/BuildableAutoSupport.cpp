@@ -209,8 +209,14 @@ void ABuildableAutoSupport::BeginPlay_Client()
 	}
 	
 	auto* PlayerInstigator = Cast<AFGCharacterPlayer>(mBuildEffectInstignator);
-	fgcheck(PlayerInstigator);
-	auto* Rco = PlayerInstigator->GetFGPlayerController()->GetRemoteCallObjectOfClass<UAutoSupportBuildableRCO>();
+	auto* InstigatorController = PlayerInstigator->GetFGPlayerController(); // this is null on multiplayer clients for other players.
+	if (!InstigatorController)
+	{
+		MOD_LOG(Verbose, TEXT("No instigating player controller."));
+		return;
+	}
+	
+	auto* Rco = InstigatorController->GetRemoteCallObjectOfClass<UAutoSupportBuildableRCO>();
 	fgcheck(Rco);
 	auto bIsAutoBuildHeld = false;
 	// NOTE: bAutoConfigureAtBeginPlay should always be true for new placements and false for loaded placements.

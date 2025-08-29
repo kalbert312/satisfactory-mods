@@ -113,6 +113,8 @@ struct AUTOSUPPORT_API FAutoSupportBuildableHandleProxyKvp
 	TWeakObjectPtr<ABuildableAutoSupportProxy> Proxy;
 };
 
+#pragma region Remote Call Objects
+
 UCLASS()
 class AUTOSUPPORT_API UAutoSupportSubsystemRCO : public UFGRemoteCallObject
 {
@@ -131,3 +133,5 @@ private:
 	UPROPERTY(Replicated, Meta = (NoAutoJson))
 	bool mForceNetField_UAutoSupportSubsystemRCO = false;
 };
+
+#pragma endregion
