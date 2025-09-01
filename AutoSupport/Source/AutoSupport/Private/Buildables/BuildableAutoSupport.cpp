@@ -10,20 +10,29 @@
 #include "DrawDebugHelpers.h"
 #include "FGBlueprintProxy.h"
 #include "FGBuildingDescriptor.h"
-#include "FGDriveablePawn.h"
+#include "FGConstructDisqualifier.h"
 #include "FGHologram.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "FGPlayerController.h"
 #include "ModBlueprintLibrary.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
-#include "Kismet/GameplayStatics.h"
+#include "UnrealNetwork.h"
 
 ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	bReplicates = true;
 }
 
-bool ABuildableAutoSupport::TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupportBuildPlan& OutPlan) const
+void ABuildableAutoSupport::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ABuildableAutoSupport, AutoSupportData);
+	// DOREPLIFETIME(ABuildableAutoSupport, ReplicatedBuildPlan);
+}
+
+bool ABuildableAutoSupport::TraceAndCreatePlan(AFGCharacterPlayer* BuildInstigator, FAutoSupportBuildPlan& OutPlan) const
 {
 	OutPlan = FAutoSupportBuildPlan();
 
@@ -46,9 +55,7 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupp
 	
 	UAutoSupportBlueprintLibrary::PlanBuild(GetWorld(), TraceResult, AutoSupportData, OutPlan);
 
-	auto* Player = CastChecked<AFGCharacterPlayer>(BuildInstigator);
-
-	if (!UAutoSupportBlueprintLibrary::CanAffordItemBill(Player, OutPlan.ItemBill, true))
+	if (auto* Player = CastChecked<AFGCharacterPlayer>(BuildInstigator); !UAutoSupportBlueprintLibrary::CanAffordItemBill(Player, OutPlan.ItemBill, true))
 	{
 		MOD_TRACE_LOG(Verbose, TEXT("Cannot afford item bill."));
 		OutPlan.BuildDisqualifiers.Add(UFGCDUnaffordable::StaticClass());
@@ -57,7 +64,7 @@ bool ABuildableAutoSupport::TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupp
 	return OutPlan.IsActionable();
 }
 
-void ABuildableAutoSupport::BuildSupports(APawn* BuildInstigator)
+void ABuildableAutoSupport::BuildSupports(AFGCharacterPlayer* BuildInstigator)
 {
 	FAutoSupportBuildPlan Plan;
 
@@ -171,57 +178,94 @@ void ABuildableAutoSupport::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// HACK: use build effect instigator as a "is newly built" indicator
-	const auto bIsNew = mBuildEffectInstignator || mBuildEffectIsPlaying || mActiveBuildEffect;
+	const auto bIsClient = UAutoSupportBlueprintLibrary::IsSinglePlayerOrClientActor(this);
+	MOD_LOG(
+		Verbose,
+		TEXT("Invoked. Owner: [%s], NetMode: [%i], HasNetOwner: [%s], NetOwner: [%s], HasLocalNetOwner: [%s], IsClient: [%s], AutoConfigureAtBeginPlay: [%s]"),
+		TEXT_ACTOR_NAME(GetOwner()),
+		GetNetMode(),
+		TEXT_BOOL(HasNetOwner()),
+		TEXT_ACTOR_NAME(GetNetOwner()),
+		TEXT_BOOL(HasLocalNetOwner()),
+		TEXT_BOOL(bIsClient),
+		TEXT_BOOL(bAutoConfigureAtBeginPlay));
 
-	if (bIsNew)
+	if (bIsClient)
 	{
-		APawn* Player = mBuildEffectInstignator && mBuildEffectInstignator->IsA<AFGCharacterPlayer>()
-			? Cast<APawn>(mBuildEffectInstignator)
-			: UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-
-		const auto* LocalPlayerSubsys = UAutoSupportModLocalPlayerSubsystem::Get(Player);
-		const auto IsAutoBuildHeld = LocalPlayerSubsys->IsHoldingAutoBuildKey();
-		auto bIsPlainBuild = true;
-
-		if (GetBlueprintDesigner())
-		{
-			MOD_LOG(Verbose, TEXT("Has blueprint designer. Will not auto configure or auto build"));
-			//bAutoConfigureAtBeginPlay = false; // This should be ok to not need to set. If the BP was loaded, the saved flag should already be false. If we newly place in a designer, it should be true.
-			bIsPlainBuild = false;
-		}
-		else if (GetBlueprintProxy()) // Is it being built from a blueprint?
-		{
-			MOD_LOG(Verbose, TEXT("Built from blueprint"));
-			bAutoConfigureAtBeginPlay = false;
-			bIsPlainBuild = false;
-
-			const auto IsAutoBuildEnabled = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).GameplayDefaultsSection.AutomaticBlueprintBuild;
-			
-			if ((IsAutoBuildEnabled && !IsAutoBuildHeld) || (!IsAutoBuildEnabled && IsAutoBuildHeld))
-			{
-				MOD_LOG(Verbose, TEXT("Auto building. IsAutoBuildEnabled: [%s], IsAutoBuildHeld: [%s]"), TEXT_BOOL(IsAutoBuildEnabled), TEXT_BOOL(IsAutoBuildHeld));
-				BuildSupports(Player);
-			}
-			else
-			{
-				MOD_LOG(Verbose, TEXT("Not auto building. IsAutoBuildEnabled: [%s], IsAutoBuildHeld: [%s]"), TEXT_BOOL(IsAutoBuildEnabled), TEXT_BOOL(IsAutoBuildHeld));
-			}
-		}
-
-		if (bAutoConfigureAtBeginPlay)
-		{
-			AutoConfigure();
-		}
-
-		if (bIsPlainBuild && IsAutoBuildHeld)
-		{
-			MOD_LOG(Verbose, TEXT("Auto building plain build, key was held."));
-			BuildSupports(Player);
-		}
+		BeginPlay_Client();
 	}
 
 	bAutoConfigureAtBeginPlay = false;
+}
+
+void ABuildableAutoSupport::BeginPlay_Client()
+{
+	// HACK: Using build effect instigator as an "is newly built" indicator. I'm not sure if there's a way to intercept a moment between
+	// SpawnActorDeferred and FinishingSpawning of a buildable as they are spawned from holograms. However, ideally, I'd want to set a
+	// transient bool flag at that time rather than use something kind of unrelated.
+	if (!mBuildEffectInstignator)
+	{
+		return;
+	}
+	
+	auto* PlayerInstigator = Cast<AFGCharacterPlayer>(mBuildEffectInstignator);
+	auto* InstigatorController = PlayerInstigator->GetFGPlayerController(); // this is null on multiplayer clients for other players.
+	if (!InstigatorController)
+	{
+		MOD_LOG(Verbose, TEXT("No instigating player controller."));
+		return;
+	}
+	
+	auto* Rco = InstigatorController->GetRemoteCallObjectOfClass<UAutoSupportBuildableRCO>();
+	fgcheck(Rco);
+	auto bIsAutoBuildHeld = false;
+	// NOTE: bAutoConfigureAtBeginPlay should always be true for new placements and false for loaded placements.
+	
+	if (GetBlueprintDesigner()) // built in a blueprint designer
+	{
+		// 2 cases: Fresh placement in designer and loading a blueprint into designer
+		if (bAutoConfigureAtBeginPlay)
+		{
+			MOD_LOG(Verbose, TEXT("Fresh placement in blueprint designer. Auto configuring."));
+			Rco->UpdateConfiguration(this, K2_GetAutoConfigureData());
+		}
+		else
+		{
+			MOD_LOG(Verbose, TEXT("Loaded into blueprint designer."))
+		}
+		
+		return;
+	}
+	else if (GetBlueprintProxy()) // built from a blueprint (and not in a designer).
+	{
+		MOD_LOG(Verbose, TEXT("Built from a blueprint."));
+
+		const auto bIsBpAutoBuildEnabled = FBP_ModConfig_AutoSupportStruct::GetActiveConfig(GetWorld()).GameplayDefaultsSection.AutomaticBlueprintBuild;
+		const auto* LocalPlayerSubsys = UAutoSupportModLocalPlayerSubsystem::Get(PlayerInstigator);
+		bIsAutoBuildHeld = LocalPlayerSubsys->IsHoldingAutoBuildKey();
+	
+		if ((bIsBpAutoBuildEnabled && !bIsAutoBuildHeld) || (!bIsBpAutoBuildEnabled && bIsAutoBuildHeld))
+		{
+			MOD_LOG(Verbose, TEXT("Auto building. IsAutoBuildEnabled: [%s], IsAutoBuildHeld: [%s]"), TEXT_BOOL(bIsBpAutoBuildEnabled), TEXT_BOOL(bIsAutoBuildHeld));
+			Rco->BuildSupports(this, PlayerInstigator);
+		}
+		else
+		{
+			MOD_LOG(Verbose, TEXT("Not auto building. IsAutoBuildEnabled: [%s], IsAutoBuildHeld: [%s]"), TEXT_BOOL(bIsBpAutoBuildEnabled), TEXT_BOOL(bIsAutoBuildHeld));
+		}
+
+		return;
+	}
+
+	// is a standalone build
+	if (bAutoConfigureAtBeginPlay)
+	{
+		Rco->UpdateConfigurationAndMaybeBuild(this, PlayerInstigator, K2_GetAutoConfigureData(), bIsAutoBuildHeld);
+	}
+	else if (bIsAutoBuildHeld)
+	{
+		Rco->BuildSupports(this, PlayerInstigator);
+	}
 }
 
 #pragma region Editor Only
@@ -243,10 +287,10 @@ EDataValidationResult ABuildableAutoSupport::IsDataValid(FDataValidationContext&
 #endif
 #pragma endregion
 
-void ABuildableAutoSupport::AutoConfigure()
+void ABuildableAutoSupport::AutoConfigure(const AFGCharacterPlayer* Player, const FBuildableAutoSupportData& Data)
 {
-	MOD_LOG(Verbose, TEXT("Auto Configuring"));
-	K2_AutoConfigure();
+	MOD_LOG(Verbose, TEXT("Auto configuring with data from player [%s]"), TEXT_ACTOR_NAME(Player));
+	AutoSupportData = Data;
 }
 
 void ABuildableAutoSupport::SaveLastUsedData()
@@ -299,7 +343,7 @@ FAutoSupportTraceResult ABuildableAutoSupport::Trace() const
 	Result.StartRelativeRotation = UAutoSupportBlueprintLibrary::GetDirectionRotator(UAutoSupportBlueprintLibrary::GetOppositeDirection(AutoSupportData.BuildDirection)).Quaternion();
 	Result.StartRelativeLocation = FaceRelLocation;
 	Result.StartLocation = StartTransform.TransformPosition(FaceRelLocation);
-	const auto EndLocation = GetEndTraceWorldLocation(Result.StartLocation, TraceAbsDirection, MaxBuildDistance);
+	const auto EndLocation = Result.StartLocation + TraceAbsDirection * MaxBuildDistance;
 
 	MOD_TRACE_LOG(
 		Verbose,
@@ -424,8 +468,34 @@ FVector ABuildableAutoSupport::GetCubeFaceRelativeLocation(const EAutoSupportBui
 	}
 }
 
-FVector ABuildableAutoSupport::GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction, const float MaxBuildDistance)
+void UAutoSupportBuildableRCO::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	return StartLocation + Direction * MaxBuildDistance;
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UAutoSupportBuildableRCO, mForceNetField_UAutoSupportBuildableRCO)
 }
 
+void UAutoSupportBuildableRCO::UpdateConfigurationAndMaybeBuild_Implementation(
+	ABuildableAutoSupport* AutoSupport,
+	AFGCharacterPlayer* BuilderPlayer,
+	const FBuildableAutoSupportData NewData,
+	const bool bShouldBuild)
+{
+	UpdateConfiguration(AutoSupport, NewData);
+	
+	if (bShouldBuild)
+	{
+		BuildSupports(AutoSupport, BuilderPlayer);
+	}
+}
+
+void UAutoSupportBuildableRCO::UpdateConfiguration_Implementation(ABuildableAutoSupport* AutoSupport, const FBuildableAutoSupportData NewData)
+{
+	fgcheck(AutoSupport);
+	AutoSupport->AutoSupportData = NewData;
+}
+
+void UAutoSupportBuildableRCO::BuildSupports_Implementation(ABuildableAutoSupport* AutoSupport, AFGCharacterPlayer* BuildInstigator)
+{
+	fgcheck(AutoSupport);
+	AutoSupport->BuildSupports(BuildInstigator);
+}

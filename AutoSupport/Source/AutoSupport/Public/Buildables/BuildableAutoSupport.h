@@ -6,6 +6,7 @@
 #include "BuildableAutoSupportProxy.h"
 #include "BuildableAutoSupport_Types.h"
 #include "FGBuildableFactoryBuilding.h"
+#include "FGCharacterPlayer.h"
 #include "BuildableAutoSupport.generated.h"
 
 class ABuildableAutoSupportProxy;
@@ -15,9 +16,18 @@ UCLASS(Abstract, Blueprintable)
 class AUTOSUPPORT_API ABuildableAutoSupport : public AFGBuildableFactoryBuilding
 {
 	GENERATED_BODY()
-
+	friend class UAutoSupportBuildableRCO;
+	
 public:
-	ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	explicit ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	/**
+	 * The current auto support configuration for this actor.
+	 */
+	UPROPERTY(BlueprintReadWrite, Replicated, SaveGame)
+	FBuildableAutoSupportData AutoSupportData;
+	
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/**
 	 * Traces and creates a build plan.
@@ -26,20 +36,8 @@ public:
 	 * @return True if the plan is actionable.
 	 */
 	UFUNCTION(BlueprintCallable)
-	bool TraceAndCreatePlan(APawn* BuildInstigator, FAutoSupportBuildPlan& OutPlan) const;
-
-	/**
-	 * The current auto support configuration for this actor.
-	 */
-	UPROPERTY(BlueprintReadWrite, SaveGame)
-	FBuildableAutoSupportData AutoSupportData;
+	bool TraceAndCreatePlan(AFGCharacterPlayer* BuildInstigator, FAutoSupportBuildPlan& OutPlan) const;
 	
-	/**
-	 * Builds the supports based on the provided configuration. Requires a build instigator.
-	 */
-	UFUNCTION(BlueprintCallable)
-	void BuildSupports(APawn* BuildInstigator);
-
 	virtual void BeginPlay() override;
 
 #pragma region IFGSaveInterface
@@ -62,7 +60,7 @@ protected:
 	/**
 	 * Set this to true to autoconfigure the auto support to the last configuration used. Autoconfiguration happens at BeginPlay and only occurs once.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, SaveGame, Category = "Auto Support")
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Replicated, SaveGame, Category = "Auto Support")
 	bool bAutoConfigureAtBeginPlay = true;
 	
 	/**
@@ -70,11 +68,16 @@ protected:
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Auto Support")
 	TSubclassOf<ABuildableAutoSupportProxy> AutoSupportProxyClass;
+
+	void BeginPlay_Client();
 	
-	void AutoConfigure();
+	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
+	FBuildableAutoSupportData K2_GetAutoConfigureData() const;
+
+	void AutoConfigure(const AFGCharacterPlayer* Player, const FBuildableAutoSupportData& Data);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Auto Support")
-	void K2_AutoConfigure();
+	void K2_AutoConfigure(AFGCharacterPlayer* Player);
 
 	UFUNCTION(BlueprintCallable, Category = "Auto Support")
 	void SaveLastUsedData();
@@ -88,9 +91,12 @@ protected:
 	 */
 	FAutoSupportTraceResult Trace() const;
 
+	/**
+	 * Builds the supports based on the provided configuration. Requires a build instigator.
+	 */
+	void BuildSupports(AFGCharacterPlayer* BuildInstigator);
+
 	FVector GetCubeFaceRelativeLocation(EAutoSupportBuildDirection Direction) const;
-	
-	static FVector GetEndTraceWorldLocation(const FVector& StartLocation, const FVector& Direction, float MaxBuildDistance);
 };
 
 UCLASS(Blueprintable)
@@ -100,4 +106,26 @@ class AUTOSUPPORT_API UAutoSupportClipboardSettings : public UFGFactoryClipboard
 
 	UPROPERTY()
 	FBuildableAutoSupportData AutoSupportData;
+};
+
+UCLASS()
+class AUTOSUPPORT_API UAutoSupportBuildableRCO : public UFGRemoteCallObject
+{
+	GENERATED_BODY()
+
+public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void UpdateConfiguration(ABuildableAutoSupport* AutoSupport, FBuildableAutoSupportData NewData);
+
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void UpdateConfigurationAndMaybeBuild(ABuildableAutoSupport* AutoSupport, AFGCharacterPlayer* BuilderPlayer, FBuildableAutoSupportData NewData, bool bShouldBuild);
+	
+	UFUNCTION(BlueprintCallable, Server, Reliable)
+	void BuildSupports(ABuildableAutoSupport* AutoSupport, AFGCharacterPlayer* BuildInstigator);
+
+private:
+	UPROPERTY(Replicated, Meta = (NoAutoJson))
+	bool mForceNetField_UAutoSupportBuildableRCO = false;
 };

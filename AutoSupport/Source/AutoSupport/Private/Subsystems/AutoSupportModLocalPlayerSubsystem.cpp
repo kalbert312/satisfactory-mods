@@ -211,7 +211,7 @@ void UAutoSupportModLocalPlayerSubsystem::AsyncUpdateAllProxiesBuildMode(TSubcla
 		fgcheck(AutoSupportSubsys)
 		
 		auto ProxyCount = AutoSupportSubsys->AllProxies.Num();
-		MOD_LOG(Verbose, TEXT("Updating all (%i) proxies with build mode [%s]"), ProxyCount, TEXT_CLS_NAME(ModeDescriptor))
+		MOD_LOG(Verbose, TEXT("Updating all [%i] proxies with build mode [%s]"), ProxyCount, TEXT_CLS_NAME(ModeDescriptor))
 		
 		for (const auto& Proxy : AutoSupportSubsys->AllProxies)
 		{

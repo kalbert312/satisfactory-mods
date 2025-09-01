@@ -5,8 +5,10 @@
 #include "AutoSupportGameWorldModule.h"
 #include "AutoSupportModLocalPlayerSubsystem.h"
 #include "BuildableAutoSupportProxy.h"
+#include "ModBlueprintLibrary.h"
 #include "ModConstants.h"
 #include "ModLogging.h"
+#include "UnrealNetwork.h"
 #include "WorldModuleManager.h"
 #include "Subsystem/SubsystemActorManager.h"
 
@@ -62,6 +64,19 @@ AAutoSupportModSubsystem* AAutoSupportModSubsystem::Get(const UWorld* World)
 	return Result;
 }
 
+AAutoSupportModSubsystem::AAutoSupportModSubsystem()
+{
+	ReplicationPolicy = ESubsystemReplicationPolicy::SpawnOnServer_Replicate;
+}
+
+void AAutoSupportModSubsystem::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(AAutoSupportModSubsystem, ReplicatedAutoSupportPresets);
+	DOREPLIFETIME(AAutoSupportModSubsystem, ReplicatedAllProxies);
+}
+
 void AAutoSupportModSubsystem::Init()
 {
 	Super::Init();
@@ -72,11 +87,14 @@ void AAutoSupportModSubsystem::Init()
 		FScopeLock Lock(&CachedSubsystemLookupLock);
 		CachedSubsystemLookup.Add(World, this);
 	}
-	
-	auto* Buildables = AFGBuildableSubsystem::Get(World);
-	Buildables->mBuildableRemovedDelegate.AddDynamic(this, &AAutoSupportModSubsystem::OnWorldBuildableRemoved);
-	
-	MOD_LOG(Verbose, TEXT("Added AFGBuildableSubsystem delegates"))
+
+	if (HasAuthority())
+	{
+		// TODO(k.a): I don't think this works when destroying an auto support temporary buildable on the NP client side.
+		auto* Buildables = AFGBuildableSubsystem::Get(World);
+		Buildables->mBuildableRemovedDelegate.AddDynamic(this, &AAutoSupportModSubsystem::OnWorldBuildableRemoved);
+		MOD_LOG(Verbose, TEXT("Added AFGBuildableSubsystem delegates"))
+	}
 }
 
 void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
@@ -98,7 +116,11 @@ void AAutoSupportModSubsystem::OnWorldBuildableRemoved(AFGBuildable* Buildable)
 
 void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy* Proxy)
 {
-	MOD_LOG(Verbose, TEXT("Invoked"))
+	if (!HasAuthority())
+	{
+		MOD_LOG(Warning, TEXT("OnProxyDestroyed called without authority. Skipping."))
+		return;
+	}
 	
 	TArray<FAutoSupportBuildableHandle> HandlesToRemove;
 	
@@ -110,7 +132,7 @@ void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy
 		}
 	}
 
-	MOD_LOG(Verbose, TEXT("Found %i entries to remove"), HandlesToRemove.Num())
+	MOD_LOG(Verbose, TEXT("Found %i entries to remove for proxy [%s]"), HandlesToRemove.Num(), TEXT_ACTOR_NAME(Proxy))
 	
 	for (const auto& Handle : HandlesToRemove)
 	{
@@ -118,17 +140,7 @@ void AAutoSupportModSubsystem::OnProxyDestroyed(const ABuildableAutoSupportProxy
 	}
 
 	AllProxies.Remove(Proxy);
-}
-
-#pragma region IFGSaveInterface
-
-void AAutoSupportModSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
-	LastAutoSupportData.ClearInvalidReferences();
-}
-
-void AAutoSupportModSubsystem::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
+	ReplicatedAllProxies.RemoveSingle(const_cast<ABuildableAutoSupportProxy*>(Proxy));
 }
 
 bool AAutoSupportModSubsystem::ShouldSave_Implementation() const
@@ -136,47 +148,7 @@ bool AAutoSupportModSubsystem::ShouldSave_Implementation() const
 	return true;
 }
 
-#pragma endregion
-
 #pragma region Auto Support Presets
-
-FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupportData() const
-{
-	return LastAutoSupportData;
-}
-
-FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupport1mData() const
-{
-	return LastAutoSupport1mData;
-}
-
-FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupport2mData() const
-{
-	return LastAutoSupport2mData;
-}
-
-FBuildableAutoSupportData AAutoSupportModSubsystem::GetLastAutoSupport4mData() const
-{
-	return LastAutoSupport4mData;
-}
-
-void AAutoSupportModSubsystem::SetLastAutoSupport1mData(const FBuildableAutoSupportData& Data)
-{
-	LastAutoSupport1mData = Data;
-	LastAutoSupportData = Data;
-}
-
-void AAutoSupportModSubsystem::SetLastAutoSupport2mData(const FBuildableAutoSupportData& Data)
-{
-	LastAutoSupport2mData = Data;
-	LastAutoSupportData = Data;
-}
-
-void AAutoSupportModSubsystem::SetLastAutoSupport4mData(const FBuildableAutoSupportData& Data)
-{
-	LastAutoSupport4mData = Data;
-	LastAutoSupportData = Data;
-}
 
 void AAutoSupportModSubsystem::GetAutoSupportPresetNames(TArray<FString>& OutNames) const
 {
@@ -196,14 +168,32 @@ bool AAutoSupportModSubsystem::GetAutoSupportPreset(FString PresetName, OUT FBui
 	return true;
 }
 
-void AAutoSupportModSubsystem::SaveAutoSupportPreset(FString PresetName, FBuildableAutoSupportData Data)
+void AAutoSupportModSubsystem::SaveAutoSupportPreset(FString PresetName, const FBuildableAutoSupportData Data)
 {
 	AutoSupportPresets.Add(PresetName, Data);
+
+	if (const auto& ExistingKvp = ReplicatedAutoSupportPresets.FindByPredicate(
+		[&](const FAutoSupportPresetNameAndDataKvp& Kvp)
+		{
+			return Kvp.PresetName.Equals(PresetName);
+		}))
+	{
+		ExistingKvp->Data = Data;
+	}
+	else
+	{
+		ReplicatedAutoSupportPresets.Add(FAutoSupportPresetNameAndDataKvp(PresetName, Data));
+	}
 }
 
-void AAutoSupportModSubsystem::DeleteAutoSupportPreset(FString PresetName)
+void AAutoSupportModSubsystem::DeleteAutoSupportPreset(const FString PresetName)
 {
 	AutoSupportPresets.Remove(PresetName);
+	ReplicatedAutoSupportPresets.RemoveAll(
+		[&](const FAutoSupportPresetNameAndDataKvp& Kvp)
+		{
+			return Kvp.PresetName.Equals(PresetName);
+		});
 }
 
 bool AAutoSupportModSubsystem::IsExistingAutoSupportPreset(FString PresetName) const
@@ -211,22 +201,79 @@ bool AAutoSupportModSubsystem::IsExistingAutoSupportPreset(FString PresetName) c
 	return AutoSupportPresets.Contains(PresetName);
 }
 
+void AAutoSupportModSubsystem::SyncProxiesWithBuildMode(const TArray<TWeakObjectPtr<ABuildableAutoSupportProxy>>& Proxies) const
+{
+	if (Proxies.Num() == 0)
+	{
+		return;
+	}
+
+	const auto* GameInstance = GetWorld()->GetGameInstance();
+	if (!GameInstance)
+	{
+		return;
+	}
+
+	for (const auto* LocalPlayer : GameInstance->GetLocalPlayers())
+	{
+		if (!LocalPlayer)
+		{
+			continue;
+		}
+		
+		const auto* ModLocalPlayerSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
+			
+		for (auto& Proxy : Proxies)
+		{
+			if (Proxy.IsValid())
+			{
+				ModLocalPlayerSubsys->SyncProxyWithBuildGunState(Proxy.Get());
+			}
+		}
+	}
+}
+
+void AAutoSupportModSubsystem::OnRep_AutoSupportPresets()
+{
+	AutoSupportPresets.Empty();
+
+	for (const auto& [PresetName, Data] : ReplicatedAutoSupportPresets)
+	{
+		AutoSupportPresets.Add(PresetName, Data);
+	}
+}
+
+void AAutoSupportModSubsystem::OnRep_AllProxies()
+{
+	TArray<TWeakObjectPtr<ABuildableAutoSupportProxy>> NewProxies;
+	for (const auto& Proxy : ReplicatedAllProxies)
+	{
+		if (!AllProxies.Contains(Proxy))
+		{
+			NewProxies.Add(Proxy);
+		}
+	}
+	
+	AllProxies.Empty();
+
+	for (const auto& Proxy : ReplicatedAllProxies)
+	{
+		AllProxies.Add(Proxy);
+	}
+
+	SyncProxiesWithBuildMode(NewProxies);
+}
+
 #pragma endregion
 
 void AAutoSupportModSubsystem::RegisterProxy(ABuildableAutoSupportProxy* Proxy)
 {
 	AllProxies.Add(Proxy);
+	ReplicatedAllProxies.Add(Proxy);
 
-	if (const auto* GameInstance = GetWorld()->GetGameInstance())
+	if (UAutoSupportBlueprintLibrary::IsSinglePlayerOrServerActor(this)) // server side only: sync the proxy with the build gun state; other cases: do this in the OnRep callback
 	{
-		for (const auto* LocalPlayer : GameInstance->GetLocalPlayers())
-		{
-			if (LocalPlayer)
-			{
-				const auto* ModLocalPlayerSubsys = LocalPlayer->GetSubsystem<UAutoSupportModLocalPlayerSubsystem>();
-				ModLocalPlayerSubsys->SyncProxyWithBuildGunState(Proxy);
-			}
-		}
+		SyncProxiesWithBuildMode({ Proxy });
 	}
 }
 
@@ -242,3 +289,29 @@ void AAutoSupportModSubsystem::RegisterHandleToProxyLink(const FAutoSupportBuild
 	
 	ProxyByBuildable.Add(Handle, Proxy);
 }
+
+#pragma region Remote Call Objects
+
+void UAutoSupportSubsystemRCO::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(UAutoSupportSubsystemRCO, mForceNetField_UAutoSupportSubsystemRCO)
+}
+
+void UAutoSupportSubsystemRCO::SaveAutoSupportPreset_Implementation(
+	AAutoSupportModSubsystem* Subsystem,
+	const FString& PresetName,
+	const FBuildableAutoSupportData& Data)
+{
+	fgcheck(Subsystem);
+	Subsystem->SaveAutoSupportPreset(PresetName, Data);
+}
+
+void UAutoSupportSubsystemRCO::DeleteAutoSupportPreset_Implementation(AAutoSupportModSubsystem* Subsystem, const FString& PresetName)
+{
+	fgcheck(Subsystem);
+	Subsystem->DeleteAutoSupportPreset(PresetName);
+}
+
+#pragma endregion
