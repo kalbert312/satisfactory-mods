@@ -251,7 +251,7 @@ void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 			continue;
 		}
 		
-		MOD_LOG(VeryVerbose, TEXT("The handle at index [%i] has a valid buildable instance."))
+		MOD_LOG(VeryVerbose, TEXT("The handle at index [%i] has a valid buildable instance."), i)
 	}
 }
 
