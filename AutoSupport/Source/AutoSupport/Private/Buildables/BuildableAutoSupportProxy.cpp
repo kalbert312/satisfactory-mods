@@ -196,13 +196,10 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		{
 			continue;
 		}
-
-		auto* Temporary = Handle.Buildable.Get();
-		Temporary->SetBlockCleanupOfTemporary(false);
 		
-		MOD_LOG(VeryVerbose, TEXT("  Handle had its temporary unblocked for cleanup."))
-		
+		Buildable->SetBlockCleanupOfTemporary(false);
 		Handle.Buildable = nullptr;
+		MOD_LOG(VeryVerbose, TEXT("  Handle had its temporary unblocked for cleanup."))
 	}
 }
 
@@ -227,6 +224,7 @@ void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 
 		if (Handle.Buildable.IsValid())
 		{
+			MOD_LOG(VeryVerbose, TEXT("The handle at index %i has a valid buildable."), i, TEXT_STR(Handle.ToString()))
 			continue;
 		}
 
@@ -239,11 +237,21 @@ void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 			continue;
 		}
 
-		if (!LightweightRef->IsValid())
+		// As of 1.2, LightweightRef->IsValid() is returning true for a handle that was deconstructed individually, which means the instance
+		// data could be resolved. It appears that calling IsValid on the instance data rather than the handle is what we want now to detect
+		// stale handles.
+		auto* InstData = LightweightRef->ResolveBuildableInstanceData();
+		
+		if (!InstData || !InstData->IsValid())
 		{
-			MOD_LOG(Warning, TEXT("The handle at index [%i] is invalid. Lightweight ref was found but it's not valid. Removing handle."), i)
+			MOD_LOG(Warning, TEXT("The handle at index [%i] is invalid. Lightweight ref was found but its instance data is not valid. Removing handle."), i)
+			LightweightRefsByHandle.Remove(Handle);
 			RegisteredHandles.RemoveAt(i);
+			
+			continue;
 		}
+		
+		MOD_LOG(VeryVerbose, TEXT("The handle at index [%i] has a valid buildable instance."))
 	}
 }
 
