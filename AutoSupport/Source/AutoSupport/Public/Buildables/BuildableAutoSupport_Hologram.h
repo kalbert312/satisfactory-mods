@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FGGenericBuildableHologram.h"
-#include "ModTypes.h"
+#include "Hologram/FGGenericBuildableHologram.h"
+#include "Common/ModTypes.h"
 
 #include "BuildableAutoSupport_Hologram.generated.h"
 

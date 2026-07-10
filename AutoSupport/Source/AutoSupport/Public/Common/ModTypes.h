@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "FGBuildable.h"
+#include "Buildables/FGBuildable.h"
 #include "ModTypes.generated.h"
 
 struct FLightweightBuildableInstanceRef;

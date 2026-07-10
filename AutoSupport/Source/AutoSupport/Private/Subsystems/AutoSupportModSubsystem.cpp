@@ -1,13 +1,13 @@
 ﻿// 
 
-#include "AutoSupportModSubsystem.h"
+#include "Subsystems/AutoSupportModSubsystem.h"
 
-#include "AutoSupportGameWorldModule.h"
-#include "AutoSupportModLocalPlayerSubsystem.h"
-#include "BuildableAutoSupportProxy.h"
-#include "ModConstants.h"
-#include "ModLogging.h"
-#include "WorldModuleManager.h"
+#include "Modules/AutoSupportGameWorldModule.h"
+#include "Subsystems/AutoSupportModLocalPlayerSubsystem.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
+#include "Common/ModConstants.h"
+#include "Common/ModLogging.h"
+#include "Module/WorldModuleManager.h"
 #include "Subsystem/SubsystemActorManager.h"
 
 TMap<TWeakObjectPtr<const UWorld>, TWeakObjectPtr<AAutoSupportModSubsystem>> AAutoSupportModSubsystem::CachedSubsystemLookup;

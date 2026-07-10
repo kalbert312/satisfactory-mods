@@ -1,22 +1,22 @@
 ﻿// 
 
-#include "BuildableAutoSupport.h"
+#include "Buildables/BuildableAutoSupport.h"
 
-#include "AutoSupportBuildConfigModule.h"
-#include "AutoSupportModLocalPlayerSubsystem.h"
-#include "AutoSupportModSubsystem.h"
-#include "BP_ModConfig_AutoSupportStruct.h"
-#include "BuildableAutoSupportProxy.h"
+#include "Modules/AutoSupportBuildConfigModule.h"
+#include "Subsystems/AutoSupportModLocalPlayerSubsystem.h"
+#include "Subsystems/AutoSupportModSubsystem.h"
+#include "Config/BP_ModConfig_AutoSupportStruct.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
 #include "DrawDebugHelpers.h"
 #include "FGBlueprintProxy.h"
-#include "FGBuildingDescriptor.h"
+#include "Resources/FGBuildingDescriptor.h"
 #include "FGDriveablePawn.h"
-#include "FGHologram.h"
+#include "Hologram/FGHologram.h"
 #include "FGLightweightBuildableSubsystem.h"
 #include "FGPlayerController.h"
-#include "ModBlueprintLibrary.h"
-#include "ModConstants.h"
-#include "ModLogging.h"
+#include "Common/ModBlueprintLibrary.h"
+#include "Common/ModConstants.h"
+#include "Common/ModLogging.h"
 #include "Kismet/GameplayStatics.h"
 
 ABuildableAutoSupport::ABuildableAutoSupport(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)

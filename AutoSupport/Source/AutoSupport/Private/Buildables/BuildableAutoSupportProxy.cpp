@@ -1,15 +1,16 @@
 ﻿// 
 
-#include "BuildableAutoSupportProxy.h"
-#include "AutoSupportModSubsystem.h"
-#include "FGBuildable.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
+#include "Subsystems/AutoSupportModSubsystem.h"
+#include "Buildables/FGBuildable.h"
 #include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
-#include "ModBlueprintLibrary.h"
-#include "ModDebugBlueprintLibrary.h"
-#include "ModDefines.h"
-#include "ModLogging.h"
+#include "Common/ModBlueprintLibrary.h"
+#include "Common/ModDebugBlueprintLibrary.h"
+#include "Common/ModDefines.h"
+#include "Common/ModLogging.h"
 #include "Components/BoxComponent.h"
+#include "Engine/OverlapResult.h"
 
 ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 {

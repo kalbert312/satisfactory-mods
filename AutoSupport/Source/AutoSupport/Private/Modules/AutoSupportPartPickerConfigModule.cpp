@@ -1,13 +1,13 @@
 ﻿// 
 
-#include "AutoSupportPartPickerConfigModule.h"
+#include "Modules/AutoSupportPartPickerConfigModule.h"
 
-#include "BP_ModConfig_AutoSupportStruct.h"
-#include "ContentTagRegistry.h"
-#include "FGBuildDescriptor.h"
+#include "Config/BP_ModConfig_AutoSupportStruct.h"
+#include "Registry/ContentTagRegistry.h"
+#include "Resources/FGBuildDescriptor.h"
 #include "FGCategory.h"
-#include "ModConstants.h"
-#include "ModLogging.h"
+#include "Common/ModConstants.h"
+#include "Common/ModLogging.h"
 
 UAutoSupportPartPickerConfigModule* UAutoSupportPartPickerConfigModule::Get(const UWorld* World)
 {

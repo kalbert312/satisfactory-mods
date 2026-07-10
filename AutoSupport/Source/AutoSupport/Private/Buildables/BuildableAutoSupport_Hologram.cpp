@@ -1,8 +1,8 @@
 ﻿// 
 
-#include "BuildableAutoSupport_Hologram.h"
+#include "Buildables/BuildableAutoSupport_Hologram.h"
 
-#include "ModBlueprintLibrary.h"
+#include "Common/ModBlueprintLibrary.h"
 
 bool ABuildableAutoSupport_Hologram::TrySnapToActor(const FHitResult& hitResult)
 {

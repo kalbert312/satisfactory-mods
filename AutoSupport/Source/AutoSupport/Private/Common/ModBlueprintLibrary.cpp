@@ -1,24 +1,25 @@
 ﻿
-#include "ModBlueprintLibrary.h"
+#include "Common/ModBlueprintLibrary.h"
 
-#include "AutoSupportBuildConfigModule.h"
-#include "AutoSupportPartPickerConfigModule.h"
-#include "BuildableAutoSupportProxy.h"
-#include "BuildableAutoSupport_Hologram.h"
-#include "BuildableAutoSupport_Types.h"
-#include "FGBuildable.h"
+#include "Modules/AutoSupportBuildConfigModule.h"
+#include "Modules/AutoSupportPartPickerConfigModule.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
+#include "Buildables/BuildableAutoSupport_Hologram.h"
+#include "Buildables/BuildableAutoSupport_Types.h"
+#include "Buildables/FGBuildable.h"
 #include "FGCentralStorageSubsystem.h"
 #include "FGCharacterPlayer.h"
-#include "FGGameUI.h"
-#include "FGHologram.h"
+#include "UI/FGGameUI.h"
+#include "Hologram/FGHologram.h"
 #include "FGInventoryLibrary.h"
 #include "FGPlayerController.h"
 #include "FGPlayerState.h"
 #include "FGRecipeManager.h"
-#include "ModDefines.h"
-#include "ModDisqualifiers.h"
-#include "ModLogging.h"
+#include "Common/ModDefines.h"
+#include "Common/ModDisqualifiers.h"
+#include "Common/ModLogging.h"
 #include "Components/LineBatchComponent.h"
+#include "Resources/FGBuildingDescriptor.h"
 
 #pragma region Building Helpers
 
@@ -362,7 +363,7 @@ void UAutoSupportBlueprintLibrary::PlanBuild(UWorld* World, const FAutoSupportTr
 		OutPlan.EndPartPositionOffset = OffsetToFitEndPartThatCantFit;
 	}
 	
-	CalculateTotalCost(OutPlan);
+	CalculateTotalCost(World, OutPlan);
 }
 
 bool UAutoSupportBlueprintLibrary::IsPlanActionable(const FAutoSupportBuildPlan& Plan)
@@ -380,7 +381,7 @@ bool UAutoSupportBlueprintLibrary::IsPartPlanActionable(const FAutoSupportBuildP
 	return PartPlan.IsActionable();
 }
 
-void UAutoSupportBlueprintLibrary::CalculateTotalCost(FAutoSupportBuildPlan& Plan)
+void UAutoSupportBlueprintLibrary::CalculateTotalCost(const UWorld* World, FAutoSupportBuildPlan& Plan)
 {
 	Plan.ItemBill.Empty();
 
@@ -388,7 +389,7 @@ void UAutoSupportBlueprintLibrary::CalculateTotalCost(FAutoSupportBuildPlan& Pla
 	
 	if (Plan.StartPart.IsActionable())
 	{
-		const auto StartCosts = UFGRecipe::GetIngredients(Plan.StartPart.BuildRecipeClass);
+		const auto StartCosts = UFGRecipe::GetIngredients(World, Plan.StartPart.BuildRecipeClass);
 		for (const auto& StartCostEnt : StartCosts)
 		{
 			ItemCounts.Add(StartCostEnt.ItemClass, ItemCounts.FindRef(StartCostEnt.ItemClass) + StartCostEnt.Amount * Plan.StartPart.Count);
@@ -397,7 +398,7 @@ void UAutoSupportBlueprintLibrary::CalculateTotalCost(FAutoSupportBuildPlan& Pla
 
 	if (Plan.MidPart.IsActionable())
 	{
-		const auto MidCosts = UFGRecipe::GetIngredients(Plan.MidPart.BuildRecipeClass);
+		const auto MidCosts = UFGRecipe::GetIngredients(World, Plan.MidPart.BuildRecipeClass);
 		for (const auto& MidCostEnt : MidCosts)
 		{
 			ItemCounts.Add(MidCostEnt.ItemClass, ItemCounts.FindRef(MidCostEnt.ItemClass) + MidCostEnt.Amount * Plan.MidPart.Count);
@@ -406,7 +407,7 @@ void UAutoSupportBlueprintLibrary::CalculateTotalCost(FAutoSupportBuildPlan& Pla
 
 	if (Plan.EndPart.IsActionable())
 	{
-		const auto EndCosts = UFGRecipe::GetIngredients(Plan.EndPart.BuildRecipeClass);
+		const auto EndCosts = UFGRecipe::GetIngredients(World, Plan.EndPart.BuildRecipeClass);
 		for (const auto& EndCostEnt : EndCosts)
 		{
 			ItemCounts.Add(EndCostEnt.ItemClass, ItemCounts.FindRef(EndCostEnt.ItemClass) + EndCostEnt.Amount * Plan.EndPart.Count);

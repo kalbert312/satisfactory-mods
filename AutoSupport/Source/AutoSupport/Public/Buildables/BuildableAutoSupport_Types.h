@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "FGBuildingDescriptor.h"
+#include "Resources/FGBuildingDescriptor.h"
 #include "Common/ModTypes.h"
 #include "BuildableAutoSupport_Types.generated.h"
 

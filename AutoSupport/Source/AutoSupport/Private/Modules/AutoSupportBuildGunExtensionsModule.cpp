@@ -1,14 +1,14 @@
 ﻿//
 
-#include "AutoSupportBuildGunExtensionsModule.h"
+#include "Modules/AutoSupportBuildGunExtensionsModule.h"
 
-#include "AutoSupportGameInstanceModule.h"
-#include "AutoSupportModLocalPlayerSubsystem.h"
-#include "FGBuildGun.h"
-#include "FGBuildGunDismantle.h"
+#include "Modules/AutoSupportGameInstanceModule.h"
+#include "Subsystems/AutoSupportModLocalPlayerSubsystem.h"
+#include "Equipment/FGBuildGun.h"
+#include "Equipment/FGBuildGunDismantle.h"
 #include "FGCharacterPlayer.h"
-#include "ModConstants.h"
-#include "ModLogging.h"
+#include "Common/ModConstants.h"
+#include "Common/ModLogging.h"
 
 UAutoSupportBuildGunExtensionsModule* UAutoSupportBuildGunExtensionsModule::Get(const UWorld* World)
 {

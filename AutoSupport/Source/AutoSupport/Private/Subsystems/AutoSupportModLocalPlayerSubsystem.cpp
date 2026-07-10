@@ -1,15 +1,15 @@
 ﻿//
 
-#include "AutoSupportModLocalPlayerSubsystem.h"
+#include "Subsystems/AutoSupportModLocalPlayerSubsystem.h"
 
-#include "AutoSupportBuildGunExtensionsModule.h"
-#include "AutoSupportBuildGunInputMappingContext.h"
-#include "AutoSupportModSubsystem.h"
-#include "BuildableAutoSupportProxy.h"
+#include "Modules/AutoSupportBuildGunExtensionsModule.h"
+#include "Input/AutoSupportBuildGunInputMappingContext.h"
+#include "Subsystems/AutoSupportModSubsystem.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "FGPlayerController.h"
-#include "ModLogging.h"
+#include "Common/ModLogging.h"
 #include "Kismet/GameplayStatics.h"
 
 UAutoSupportModLocalPlayerSubsystem* UAutoSupportModLocalPlayerSubsystem::Get(const UWorld* World)

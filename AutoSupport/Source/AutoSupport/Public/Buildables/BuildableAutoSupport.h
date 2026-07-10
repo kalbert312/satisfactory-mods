@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BuildableAutoSupportProxy.h"
-#include "BuildableAutoSupport_Types.h"
-#include "FGBuildableFactoryBuilding.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
+#include "Buildables/BuildableAutoSupport_Types.h"
+#include "Buildables/FGBuildableFactoryBuilding.h"
 #include "BuildableAutoSupport.generated.h"
 
 class ABuildableAutoSupportProxy;

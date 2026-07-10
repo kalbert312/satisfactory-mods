@@ -4,11 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "AutoSupportGameWorldModule.h"
-#include "ContentTagRegistry.h"
+#include "Registry/ContentTagRegistry.h"
 #include "GameplayTagContainer.h"
-#include "ModTypes.h"
+#include "Common/ModTypes.h"
 #include "AutoSupportBuildConfigModule.generated.h"
 
+enum class ELifecyclePhase : uint8;
 /**
  * Child game module that supplies configuration for Auto Support builds. This is spawned via the Blueprint class of AutoSupportGameWorldModule.
  */
@@ -40,8 +41,6 @@ public:
 		bool bOnlyLandscapeBlocks,
 		UContentTagRegistry* ContentTagRegistry,
 		TSubclassOf<UFGConstructDisqualifier>& OutDisqualifier) const;
-
-	
 
 protected:
 	/**

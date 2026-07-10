@@ -2,13 +2,13 @@
 
 #include "AutoSupport.h"
 
-#include "AutoSupportBuildGunExtensionsModule.h"
-#include "AutoSupportGameInstanceModule.h"
-#include "AutoSupportModLocalPlayerSubsystem.h"
-#include "AutoSupportModSubsystem.h"
-#include "FGBuildGun.h"
-#include "FGBuildGunDismantle.h"
-#include "NativeHookManager.h"
+#include "Modules/AutoSupportBuildGunExtensionsModule.h"
+#include "Modules/AutoSupportGameInstanceModule.h"
+#include "Subsystems/AutoSupportModLocalPlayerSubsystem.h"
+#include "Subsystems/AutoSupportModSubsystem.h"
+#include "Equipment/FGBuildGun.h"
+#include "Equipment/FGBuildGunDismantle.h"
+#include "Patching/NativeHookManager.h"
 #include "Common/ModLogging.h"
 
 #define LOCTEXT_NAMESPACE "FAutoSupportModule"

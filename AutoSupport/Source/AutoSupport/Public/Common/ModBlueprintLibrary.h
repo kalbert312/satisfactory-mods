@@ -1,11 +1,11 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "BuildableAutoSupport_Hologram.h"
-#include "BuildableAutoSupport_Types.h"
-#include "FGBuildable.h"
+#include "Buildables/BuildableAutoSupport_Hologram.h"
+#include "Buildables/BuildableAutoSupport_Types.h"
+#include "Buildables/FGBuildable.h"
 #include "FGRecipeManager.h"
-#include "ModTypes.h"
+#include "Common/ModTypes.h"
 #include "ModBlueprintLibrary.generated.h"
 
 class UAutoSupportPartPickerConfigModule;
@@ -69,7 +69,7 @@ public:
 	static bool IsPartPlanActionable(const FAutoSupportBuildPlanPartData& PartPlan);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
-	static void CalculateTotalCost(FAutoSupportBuildPlan& Plan);
+	static void CalculateTotalCost(const UWorld* World, FAutoSupportBuildPlan& Plan);
 
 	UFUNCTION(BlueprintCallable, Category = "AutoSupport")
 	static float GetBuryDistance(TSubclassOf<AFGBuildable> BuildableClass, float BuryPercentage, EAutoSupportBuildDirection PartOrientation);
