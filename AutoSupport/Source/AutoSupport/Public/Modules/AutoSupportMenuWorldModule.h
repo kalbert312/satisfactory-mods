@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SML/Public/Module/MenuWorldModule.h"
+#include "Module/MenuWorldModule.h"
 #include "AutoSupportMenuWorldModule.generated.h"
 
 UCLASS(Blueprintable)

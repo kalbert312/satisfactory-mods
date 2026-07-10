@@ -8,7 +8,7 @@
 #include "Config/BP_ModConfig_AutoSupportStruct.h"
 #include "Buildables/BuildableAutoSupportProxy.h"
 #include "DrawDebugHelpers.h"
-#include "FGBlueprintProxy.h"
+#include "FGConstructDisqualifier.h"
 #include "Resources/FGBuildingDescriptor.h"
 #include "FGDriveablePawn.h"
 #include "Hologram/FGHologram.h"
