@@ -62,6 +62,11 @@ protected:
 
 public:
 	static void GetRoundedLocation(const FVector& Location, FInt64Vector3& OutLocation);
+	
+	FORCEINLINE TSubclassOf<AFGBuildable> GetBuildableClass() const
+	{
+		return BuildableClass;
+	}
 
 	FORCEINLINE const FTransform& GetTransform() const
 	{

@@ -440,8 +440,23 @@ void ABuildableAutoSupportProxy::EndPlay(const EEndPlayReason::Type EndPlayReaso
 void ABuildableAutoSupportProxy::Dismantle_Implementation()
 {
 	MOD_LOG(Verbose, TEXT("Dismantle called. Buildables available: [%s], IsHoveredForDismantle: [%s]"), TEXT_BOOL(bBuildablesAvailable), TEXT_BOOL(bIsHoveredForDismantle))
-	MOD_LOG(Verbose, TEXT("Dismantling %i buildables..."), RegisteredHandles.Num())
+
 	EnsureBuildablesAvailable();
+	
+	auto* Lightweights = AFGLightweightBuildableSubsystem::Get(GetWorld());
+	
+	MOD_LOG(Verbose, TEXT("Dismantling %i buildables..."), RegisteredHandles.Num())
+	
+	// As of 1.2, lightweights are not deleted when their temporaries are dismantled. They must be deleted manually.
+	for (const auto& Handle : RegisteredHandles)
+	{
+		if (Handle.Buildable.IsValid() && Handle.Buildable->GetIsLightweightTemporary())
+		{
+			const auto RuntimeIndex = Lightweights->GetRuntimeDataIndexForBuildable(Handle.Buildable.Get());
+			Lightweights->RemoveByInstanceIndex(Handle.GetBuildableClass(), RuntimeIndex);
+			MOD_LOG(Verbose, TEXT("  Handle is temporary buildable. Deleted via lightweight subsystem. Handle: [%s]"), TEXT_STR(Handle.ToString()))
+		}
+	}
 
 	Destroy();
 }
@@ -458,7 +473,9 @@ void ABuildableAutoSupportProxy::GetChildDismantleActors_Implementation(TArray<A
 
 	for (auto& Handle : RegisteredHandles)
 	{
-		out_ChildDismantleActors.Add(Handle.Buildable.Get());
+		auto* Buildable = Handle.Buildable.Get();
+		fgcheck(Buildable)
+		out_ChildDismantleActors.Add(Buildable);
 	}
 
 	MOD_LOG(Verbose, TEXT("Dismantle child actors, Count: [%i]"), out_ChildDismantleActors.Num())
