@@ -1,13 +1,17 @@
 ﻿//
 
-#include "ModDebugBlueprintLibrary.h"
-#include "ModDefines.h"
+#include "Common/ModDebugBlueprintLibrary.h"
+#include "Common/ModDefines.h"
 #include "Components/LineBatchComponent.h"
 
 // Most functions are copied from UE debugging methods only available in dev builds
 ULineBatchComponent* UAutoSupportDebugBlueprintLibrary::GetDebugLineBatcher( const UWorld* InWorld, bool bPersistentLines, float LifeTime, bool bDepthIsForeground )
 {
+#ifdef AUTOSUPPORT_DRAW_DEBUG_SHAPES
 	return (InWorld ? (bDepthIsForeground ? InWorld->ForegroundLineBatcher : (( bPersistentLines || (LifeTime > 0.f) ) ? InWorld->PersistentLineBatcher : InWorld->LineBatcher)) : nullptr);
+#else
+	return nullptr;
+#endif
 }
 
 float UAutoSupportDebugBlueprintLibrary::GetDebugLineLifeTime(ULineBatchComponent* LineBatcher, float LifeTime, bool bPersistent)

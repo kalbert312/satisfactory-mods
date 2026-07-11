@@ -1,15 +1,16 @@
 ﻿// 
 
-#include "BuildableAutoSupportProxy.h"
-#include "AutoSupportModSubsystem.h"
-#include "FGBuildable.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
+#include "Subsystems/AutoSupportModSubsystem.h"
+#include "Buildables/FGBuildable.h"
 #include "FGCharacterPlayer.h"
 #include "FGLightweightBuildableSubsystem.h"
-#include "ModBlueprintLibrary.h"
-#include "ModDebugBlueprintLibrary.h"
-#include "ModDefines.h"
-#include "ModLogging.h"
+#include "Common/ModBlueprintLibrary.h"
+#include "Common/ModDebugBlueprintLibrary.h"
+#include "Common/ModDefines.h"
+#include "Common/ModLogging.h"
 #include "Components/BoxComponent.h"
+#include "Engine/OverlapResult.h"
 
 ABuildableAutoSupportProxy::ABuildableAutoSupportProxy()
 {
@@ -195,13 +196,10 @@ void ABuildableAutoSupportProxy::RemoveTemporaries(AFGCharacterPlayer* Player)
 		{
 			continue;
 		}
-
-		auto* Temporary = Handle.Buildable.Get();
-		Temporary->SetBlockCleanupOfTemporary(false);
 		
-		MOD_LOG(VeryVerbose, TEXT("  Handle had its temporary unblocked for cleanup."))
-		
+		Buildable->SetBlockCleanupOfTemporary(false);
 		Handle.Buildable = nullptr;
+		MOD_LOG(VeryVerbose, TEXT("  Handle had its temporary unblocked for cleanup."))
 	}
 }
 
@@ -226,6 +224,7 @@ void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 
 		if (Handle.Buildable.IsValid())
 		{
+			MOD_LOG(VeryVerbose, TEXT("The handle at index %i has a valid buildable."), i, TEXT_STR(Handle.ToString()))
 			continue;
 		}
 
@@ -238,11 +237,21 @@ void ABuildableAutoSupportProxy::RemoveInvalidHandles()
 			continue;
 		}
 
-		if (!LightweightRef->IsValid())
+		// As of 1.2, LightweightRef->IsValid() is returning true for a handle that was deconstructed individually, which means the instance
+		// data could be resolved. It appears that calling IsValid on the instance data rather than the handle is what we want now to detect
+		// stale handles.
+		auto* InstData = LightweightRef->ResolveBuildableInstanceData();
+		
+		if (!InstData || !InstData->IsValid())
 		{
-			MOD_LOG(Warning, TEXT("The handle at index [%i] is invalid. Lightweight ref was found but it's not valid. Removing handle."), i)
+			MOD_LOG(Warning, TEXT("The handle at index [%i] is invalid. Lightweight ref was found but its instance data is not valid. Removing handle."), i)
+			LightweightRefsByHandle.Remove(Handle);
 			RegisteredHandles.RemoveAt(i);
+			
+			continue;
 		}
+		
+		MOD_LOG(VeryVerbose, TEXT("The handle at index [%i] has a valid buildable instance."), i)
 	}
 }
 
@@ -439,8 +448,23 @@ void ABuildableAutoSupportProxy::EndPlay(const EEndPlayReason::Type EndPlayReaso
 void ABuildableAutoSupportProxy::Dismantle_Implementation()
 {
 	MOD_LOG(Verbose, TEXT("Dismantle called. Buildables available: [%s], IsHoveredForDismantle: [%s]"), TEXT_BOOL(bBuildablesAvailable), TEXT_BOOL(bIsHoveredForDismantle))
-	MOD_LOG(Verbose, TEXT("Dismantling %i buildables..."), RegisteredHandles.Num())
+
 	EnsureBuildablesAvailable();
+	
+	auto* Lightweights = AFGLightweightBuildableSubsystem::Get(GetWorld());
+	
+	MOD_LOG(Verbose, TEXT("Dismantling %i buildables..."), RegisteredHandles.Num())
+	
+	// As of 1.2, lightweights are not deleted when their temporaries are dismantled. They must be deleted manually.
+	for (const auto& Handle : RegisteredHandles)
+	{
+		if (Handle.Buildable.IsValid() && Handle.Buildable->GetIsLightweightTemporary())
+		{
+			const auto RuntimeIndex = Lightweights->GetRuntimeDataIndexForBuildable(Handle.Buildable.Get());
+			Lightweights->RemoveByInstanceIndex(Handle.GetBuildableClass(), RuntimeIndex);
+			MOD_LOG(Verbose, TEXT("  Handle is temporary buildable. Deleted via lightweight subsystem. Handle: [%s]"), TEXT_STR(Handle.ToString()))
+		}
+	}
 
 	Destroy();
 }
@@ -457,7 +481,9 @@ void ABuildableAutoSupportProxy::GetChildDismantleActors_Implementation(TArray<A
 
 	for (auto& Handle : RegisteredHandles)
 	{
-		out_ChildDismantleActors.Add(Handle.Buildable.Get());
+		auto* Buildable = Handle.Buildable.Get();
+		fgcheck(Buildable)
+		out_ChildDismantleActors.Add(Buildable);
 	}
 
 	MOD_LOG(Verbose, TEXT("Dismantle child actors, Count: [%i]"), out_ChildDismantleActors.Num())

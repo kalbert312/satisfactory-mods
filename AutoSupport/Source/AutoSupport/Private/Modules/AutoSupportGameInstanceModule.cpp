@@ -1,9 +1,9 @@
 ﻿// 
 
-#include "AutoSupportGameInstanceModule.h"
+#include "Modules/AutoSupportGameInstanceModule.h"
 
-#include "GameInstanceModuleManager.h"
-#include "ModConstants.h"
+#include "Module/GameInstanceModuleManager.h"
+#include "Common/ModConstants.h"
 
 UAutoSupportGameInstanceModule* UAutoSupportGameInstanceModule::Get(const UWorld* World)
 {

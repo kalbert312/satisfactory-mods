@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SML/Public/Module/GameInstanceModule.h"
+#include "Module/GameInstanceModule.h"
 #include "AutoSupportGameInstanceModule.generated.h"
 
 class UFGBuildGunModeDescriptor;

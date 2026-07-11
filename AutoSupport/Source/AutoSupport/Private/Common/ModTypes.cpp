@@ -1,10 +1,10 @@
 ﻿
 #include "Common/ModTypes.h"
 
-#include "FGBuildable.h"
+#include "Buildables/FGBuildable.h"
 #include "FGLightweightBuildableSubsystem.h"
-#include "ModDefines.h"
-#include "ModLogging.h"
+#include "Common/ModDefines.h"
+#include "Common/ModLogging.h"
 
 FAutoSupportBuildableHandle::FAutoSupportBuildableHandle(AFGBuildable* Buildable)
 {

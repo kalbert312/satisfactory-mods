@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BuildableAutoSupportProxy.h"
-#include "FGBuildGun.h"
+#include "Buildables/BuildableAutoSupportProxy.h"
+#include "Equipment/FGBuildGun.h"
 #include "FGBuildGunModeDescriptor.h"
 #include "GameFramework/Actor.h"
 #include "AutoSupportModLocalPlayerSubsystem.generated.h"

@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FGBuildable.h"
+#include "Buildables/FGBuildable.h"
 #include "FGDismantleInterface.h"
 #include "FGLightweightBuildableSubsystem.h"
-#include "ModTypes.h"
+#include "Common/ModTypes.h"
 #include "GameFramework/Actor.h"
 #include "BuildableAutoSupportProxy.generated.h"
 

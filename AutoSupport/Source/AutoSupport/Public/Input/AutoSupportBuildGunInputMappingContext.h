@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FGInputMappingContext.h"
+#include "Input/FGInputMappingContext.h"
 #include "AutoSupportBuildGunInputMappingContext.generated.h"
 
 UCLASS(Blueprintable, BlueprintType)

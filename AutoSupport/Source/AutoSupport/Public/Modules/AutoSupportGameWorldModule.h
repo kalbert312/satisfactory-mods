@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SML/Public/Module/GameWorldModule.h"
+#include "Module/GameWorldModule.h"
 #include "AutoSupportGameWorldModule.generated.h"
 
 UCLASS(Blueprintable)

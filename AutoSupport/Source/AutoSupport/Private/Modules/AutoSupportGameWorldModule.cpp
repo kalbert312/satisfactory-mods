@@ -1,9 +1,9 @@
 ﻿// 
 
-#include "AutoSupportGameWorldModule.h"
+#include "Modules/AutoSupportGameWorldModule.h"
 
-#include "ModConstants.h"
-#include "WorldModuleManager.h"
+#include "Common/ModConstants.h"
+#include "Module/WorldModuleManager.h"
 
 UAutoSupportGameWorldModule* UAutoSupportGameWorldModule::GetRoot(const UWorld* World)
 {

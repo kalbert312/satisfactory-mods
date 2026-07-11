@@ -6,7 +6,7 @@
 #include "FGSaveInterface.h"
 #include "Common/ModTypes.h"
 #include "Buildables/BuildableAutoSupport_Types.h"
-#include "SML/Public/Subsystem/ModSubsystem.h"
+#include "Subsystem/ModSubsystem.h"
 #include "AutoSupportModSubsystem.generated.h"
 
 class UAutoSupportBuildConfig;

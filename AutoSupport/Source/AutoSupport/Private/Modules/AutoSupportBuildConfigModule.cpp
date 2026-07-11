@@ -1,16 +1,17 @@
 ﻿// 
 
-#include "AutoSupportBuildConfigModule.h"
+#include "Modules/AutoSupportBuildConfigModule.h"
 
 #include "AbstractInstanceManager.h"
-#include "BP_ModConfig_AutoSupportStruct.h"
-#include "ContentTagRegistry.h"
+#include "Config/BP_ModConfig_AutoSupportStruct.h"
+#include "Registry/ContentTagRegistry.h"
 #include "FGDriveablePawn.h"
 #include "FGWaterVolume.h"
 #include "LandscapeProxy.h"
-#include "ModConstants.h"
-#include "ModLogging.h"
+#include "Common/ModConstants.h"
+#include "Common/ModLogging.h"
 #include "Engine/StaticMeshActor.h"
+#include "Module/ModModule.h"
 
 UAutoSupportBuildConfigModule* UAutoSupportBuildConfigModule::Get(const UWorld* World)
 {

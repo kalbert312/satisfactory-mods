@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "FGBuildable.h"
+#include "Buildables/FGBuildable.h"
 #include "ModTypes.generated.h"
 
 struct FLightweightBuildableInstanceRef;
@@ -62,6 +62,11 @@ protected:
 
 public:
 	static void GetRoundedLocation(const FVector& Location, FInt64Vector3& OutLocation);
+	
+	FORCEINLINE TSubclassOf<AFGBuildable> GetBuildableClass() const
+	{
+		return BuildableClass;
+	}
 
 	FORCEINLINE const FTransform& GetTransform() const
 	{
